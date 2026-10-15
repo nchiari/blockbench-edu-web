@@ -20,6 +20,8 @@ El guardado de una sesión educativa completa sigue pendiente: cerrar la pestañ
 8. Usar los botones inferiores para verla desde distintos lados o encuadrar toda la criatura con «Ver todo».
 9. «Llévala a Minecraft» descarga un `.mcaddon`. Importarlo en Education y activar sus packs en un mundo de prueba. El nombre de la criatura es el de la plantilla seguido de «Edu».
 
+Puedes arrastrar el separador entre el menú izquierdo y la vista 3D para ampliar el menú: mínimo 260 px y máximo 480 px, limitado al 40 % de la ventana cuando hay menos espacio. El ancho se conserva durante la sesión, también al cambiar entre forma, color y la vista del docente.
+
 «Para el docente» vuelve a la interfaz general de Blockbench. La pantalla educativa oculta los menús y paneles generales mientras se trabaja. La sesión educativa y el addon base se conservan en memoria: no cerrar la pestaña esperando recuperar después todo ese estado. El guardado y reapertura de una sesión educativa completa sigue pendiente.
 
 ## Tamaño, pintura e historial
