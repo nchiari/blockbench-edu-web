@@ -64,10 +64,11 @@ let html = await fs.readFile(path.join(source, 'index.html'), 'utf8');
 html = html.replace('<title>Blockbench</title>', '<title>Blockbench Edu</title>');
 html = html.replace('<html lang="en">', '<html lang="es">');
 html = html.replace('<link rel="manifest" href="manifest.webmanifest">', '');
-html = html.replace('</head>', '<link rel="stylesheet" href="edu-web.css">\n<script src="edu-web.js"></script>\n</head>');
+html = html.replace('</head>', '<link rel="stylesheet" href="edu-web.css">\n</head>');
 html = html.replace('<body ', '<body class="edu-web-loading" ');
 // Avoid duplicate class attributes in the upstream body.
 html = html.replace('class="edu-web-loading" spellcheck="false" class="maximized"', 'spellcheck="false" class="maximized edu-web-loading"');
+html = html.replace(/(<body[^>]*>)/, '$1\n<main id="edu-web-start"><section><div class="edu-web-mark" aria-hidden="true">◆</div><h1>Preparando tu editor…</h1><p>En un momento podrás empezar a crear.</p><button hidden>Comenzar</button></section><a href="credits.html" target="_blank" rel="noopener">Créditos, licencias y código fuente</a></main>\n<script src="edu-web.js"></script>');
 await fs.writeFile(path.join(dist, 'index.html'), html);
 for (const name of ['favicon.png', 'icon_full.png']) await fs.copyFile(path.join(source, name), path.join(dist, name));
 for (const name of ['edu-web.js', 'edu-web.css', 'credits.html']) {

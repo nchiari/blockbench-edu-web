@@ -37,11 +37,8 @@
     button.textContent = 'Reintentar';
     button.onclick = () => location.reload();
   }
-  window.addEventListener('DOMContentLoaded', () => {
-    overlay = document.createElement('main');
-    overlay.id = 'edu-web-start';
-    overlay.innerHTML = '<section><div class="edu-web-mark" aria-hidden="true">◆</div><h1>Preparando tu editor…</h1><p>En un momento podrás empezar a crear.</p><button hidden>Comenzar</button></section><a href="credits.html" target="_blank" rel="noopener">Créditos, licencias y código fuente</a>';
-    document.body.append(overlay);
+  (() => {
+    overlay = document.getElementById('edu-web-start');
     const timeout = setTimeout(() => failure(new Error('Startup exceeded 30 seconds')), 30000);
     const wait = setInterval(() => {
       if (failed || started) { clearInterval(wait); return; }
@@ -66,5 +63,5 @@
         document.head.append(script);
       } catch (error) { failure(error); }
     }, 50);
-  }, {once: true});
+  })();
 })();
