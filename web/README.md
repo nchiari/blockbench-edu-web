@@ -24,3 +24,5 @@ For a local preview under the same subpath as Pages, run `npm run preview:web`, 
 The public repository uses GitHub Pages with GitHub Actions. Push source changes, then manually run **Publish Blockbench Edu** in Actions. Publishing is not triggered by pushes. The workflow checks, builds and deploys the site. For rollback, run that workflow on a branch containing the previously working revision. Visitors already editing do not reload automatically.
 
 No server, student account or database is required. Models and addons are processed in the browser. Education sessions remain in memory; closing the tab does not preserve the complete Edu session.
+
+Edu assets use content-derived filenames: the generated HTML references hashed host JavaScript and CSS, and that host references the hashed plugin. The canonical `blockbench_edu.js` remains available for manual installation. Each changed plugin produces a new host filename too, preventing reuse of an older plugin from the browser cache. Existing open editing sessions do not reload automatically.

@@ -196,3 +196,15 @@ Compilación web de Blockbench 5.2.2 fijada a `c9ace42ef1b770bdadfe656729c7833b8
 Esta prueba valida el canal web y el empaquetado. No añade una nueva comprobación dentro de Minecraft Education.
 
 Publicación confirmada en `https://nchiari.github.io/blockbench-edu-web/`, revisión `0a2531d`, Actions `38714991797` completado correctamente. La prueba se repitió sobre la dirección pública en un navegador limpio: cero plugins instalados, español, cero service workers y cero errores de consola. Inicio directo, cancelar/reiniciar, criatura inicialmente vacía, creación del cerdo, tamaño, movimiento, pintura real, recuperación exacta del PNG con deshacer, regreso desde docente y descarga comprobados. El addon público contiene cabeza 9 × 8 × 8 y origen X −5,5 tras el movimiento (el codec Bedrock invierte el eje X), textura 46 × 55, iconos y dependencias cruzadas con versiones sincronizadas. Evidencia local: `output/public-web-validation.json` y `output/public-web-pig.mcaddon`.
+
+
+## Feedback de navegación y cámara — 2026-10-15
+
+- Deshacer y rehacer fuera del contenido desplazable; acciones inferiores del asistente fijas; catálogo ordenado por nombre español; retorno al alumnado independiente del panel nativo.
+- Prueba automatizada de interfaz en Chromium con `tests/classroom-ui-probe.js`: 1366×768, 1280×720 y 1024×768; viewport CSS al 100 % y equivalente a zoom 125 % (emulación de métricas, no el botón de zoom de un navegador físico). Se comprobaron 6 diseños del asistente y 24 combinaciones del editor: ancho mínimo/máximo, forma/color y controles de cámara desplegados. Sin solapamientos y con historial siempre visible. Altura mínima de la vista 3D observada: 191 px.
+- Catálogo completo y filtrado ordenados; ninguna criatura seleccionada inicialmente; Enter selecciona una tarjeta y habilita Siguiente.
+- 32 acciones de cámara verificadas con clics: 10 en perspectiva y 6 en ortográfica, en forma y color. Cambian la cámara y conservan geometría, UV, bitmap, UUID e índice de deshacer. Los 4 giros se deshabilitan en ortográfica.
+- Pincelada real sobre el modelo, redimensionado y arrastre 3D: un paso de historial por operación; deshacer/rehacer desde los botones fijos recupera los estados completos. Regreso desde docente después de editar conserva UUID, geometría, pintura e historial.
+- El regreso independiente se oculta al seleccionar otro proyecto sin sesión Edu y se elimina al descargar el plugin.
+- Artefacto de prueba local: `output/feedback-ui-audit.txt`. Capturas en `output/playwright/feedback-*.png`.
+- Pendiente: prueba manual de comodidad con touchpad físico. El usuario confirmó que la realizará después de publicar; no se considera validada por los clics automatizados.

@@ -13,7 +13,7 @@ El guardado de una sesión educativa completa sigue pendiente: cerrar la pestañ
 1. Abrir https://web.blockbench.net/.
 2. En Archivo → Plugins, cargar `blockbench_edu.js` desde archivo. No hace falta instalar Entity Wizard para usar el catálogo incluido.
 3. Elegir Cargadores → Blockbench Edu → Comenzar.
-4. En «Elige tu criatura», buscar un nombre y elegir su tarjeta. Las miniaturas, estructura y medidas de las tarjetas vienen del selector del Wizard, adaptadas al verde de Edu y con nombres en español. Enter o espacio también permiten elegir una tarjeta enfocada.
+4. En «Elige tu criatura», buscar un nombre y elegir su tarjeta. El catálogo está ordenado por el nombre en español y los botones inferiores permanecen visibles al desplazarse. Las miniaturas, estructura y medidas de las tarjetas vienen del selector del Wizard, adaptadas al verde de Edu y con nombres en español. Enter o espacio también permiten elegir una tarjeta enfocada.
 5. Avanzar hasta «Abrir editor». Se crea una criatura independiente y se prepara su textura automáticamente.
 6. En «Dale forma», elegir la parte y cambiar su tamaño, moverla o girarla con los botones. Se pueden editar todas las partes existentes de la criatura.
 7. En «Dale color», elegir un color y pintar directamente sobre la criatura. Hay pincel, relleno y herramienta para copiar un color.
@@ -22,7 +22,11 @@ El guardado de una sesión educativa completa sigue pendiente: cerrar la pestañ
 
 Puedes arrastrar el separador entre el menú izquierdo y la vista 3D para ampliar el menú: mínimo 260 px y máximo 480 px, limitado al 40 % de la ventana cuando hay menos espacio. El ancho se conserva durante la sesión, también al cambiar entre forma, color y la vista del docente.
 
-«Para el docente» vuelve a la interfaz general de Blockbench. La pantalla educativa oculta los menús y paneles generales mientras se trabaja. La sesión educativa y el addon base se conservan en memoria: no cerrar la pestaña esperando recuperar después todo ese estado. El guardado y reapertura de una sesión educativa completa sigue pendiente.
+Deshacer y rehacer permanecen fijos al pie del menú, tanto en «Dale forma» como en «Dale color».
+
+«Controles de cámara», junto a las vistas inferiores, abre botones para girar y desplazar la vista y acercar o alejar. Permite manejar la cámara con clics de touchpad sin rueda ni clic derecho. En las vistas ortográficas, el giro queda deshabilitado; «Vista 3D» lo habilita de nuevo. Los botones de cámara no modifican las piezas ni el historial.
+
+«Para el docente» vuelve a la interfaz general de Blockbench. Allí aparece un botón verde «Volver a alumnos» independiente del panel «Prueba Edu», que también conserva su propio botón de regreso. La pantalla educativa oculta los menús y paneles generales mientras se trabaja. La sesión educativa y el addon base se conservan en memoria: no cerrar la pestaña esperando recuperar después todo ese estado. El guardado y reapertura de una sesión educativa completa sigue pendiente.
 
 ## Tamaño, pintura e historial
 
@@ -52,3 +56,5 @@ npm run sync
 `npm run sync` actualiza la copia local en la carpeta de plugins de Blockbench y verifica SHA-256. No activa ni recarga el plugin: en una ventana abierta hay que recargarlo. `tests/catalog-browser-probe.js` contiene la prueba del catálogo para `playwright-cli run-code`; crea y cierra únicamente sus proyectos temporales. `tests/core.test.js` cubre los algoritmos y el empaquetado. `scripts/verify-export.js` corresponde a las exportaciones históricas del cerdo de referencia.
 
 Las capturas, descargas y resultados generados van en `output/`. La pareja original `reference/cerdo_edu.bbmodel` y `reference/cerdo_edu.mcaddon` se conserva para las pruebas de referencia.
+
+La prueba de interfaz `tests/classroom-ui-probe.js` se ejecuta con `playwright-cli run-code` en una pestaña web de prueba. Revisa el asistente, el catálogo, los controles de cámara y las acciones fijas en tres resoluciones, al 100 % y con la distribución equivalente al 125 %. La comodidad con un touchpad físico requiere una prueba manual.

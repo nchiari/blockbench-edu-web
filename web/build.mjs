@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {spawnSync} from 'node:child_process';
+import {createHash} from 'node:crypto';
 import JSZip from 'jszip';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -61,15 +62,30 @@ for (const name of ['assets', 'css', 'dist', 'lib', 'lang', 'font', 'icons', 'co
   catch (error) { if (error.code !== 'ENOENT') throw error; }
 }
 let html = await fs.readFile(path.join(source, 'index.html'), 'utf8');
+// Content-derived filenames bind the host and plugin to this exact deployment.
+// Keep the canonical plugin copy too, for manual installation and inspection.
+const pluginBytes = await fs.readFile(path.join(root, 'blockbench_edu.js'));
+const digest = bytes => createHash('sha256').update(bytes).digest('hex').slice(0, 16);
+const pluginName = `blockbench_edu.${digest(pluginBytes)}.js`;
+const hostCode = (await fs.readFile(path.join(web, 'edu-web.js'), 'utf8'))
+  .replace("new URL('blockbench_edu.js', location.href)", `new URL('${pluginName}', location.href)`);
+const hostName = `edu-web.${digest(hostCode)}.js`;
+const styleBytes = await fs.readFile(path.join(web, 'edu-web.css'));
+const styleName = `edu-web.${digest(styleBytes)}.css`;
 html = html.replace('<title>Blockbench</title>', '<title>Blockbench Edu</title>');
 html = html.replace('<html lang="en">', '<html lang="es">');
 html = html.replace('<link rel="manifest" href="manifest.webmanifest">', '');
-html = html.replace('</head>', '<link rel="stylesheet" href="edu-web.css">\n</head>');
+html = html.replace('</head>', `<link rel="stylesheet" href="${styleName}">\n</head>`);
 html = html.replace('<body ', '<body class="edu-web-loading" ');
 // Avoid duplicate class attributes in the upstream body.
 html = html.replace('class="edu-web-loading" spellcheck="false" class="maximized"', 'spellcheck="false" class="maximized edu-web-loading"');
 html = html.replace(/(<body[^>]*>)/, '$1\n<main id="edu-web-start"><section><div class="edu-web-mark" aria-hidden="true">◆</div><h1>Preparando tu editor…</h1><p>En un momento podrás empezar a crear.</p><button hidden>Comenzar</button></section><a href="credits.html" target="_blank" rel="noopener">Créditos, licencias y código fuente</a></main>\n<script src="edu-web.js"></script>');
+// Replace only the bootstrap reference inserted above.
+html = html.replace('src="edu-web.js"', `src="${hostName}"`);
 await fs.writeFile(path.join(dist, 'index.html'), html);
+await fs.writeFile(path.join(dist, pluginName), pluginBytes);
+await fs.writeFile(path.join(dist, hostName), hostCode);
+await fs.writeFile(path.join(dist, styleName), styleBytes);
 for (const name of ['favicon.png', 'icon_full.png']) await fs.copyFile(path.join(source, name), path.join(dist, name));
 for (const name of ['edu-web.js', 'edu-web.css', 'credits.html']) {
   await fs.copyFile(path.join(web, name), path.join(dist, name));
