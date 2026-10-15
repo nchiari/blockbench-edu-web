@@ -1,0 +1,17 @@
+{
+  "name": "blockbench-edu-local",
+  "version": "0.3.0",
+  "private": true,
+  "description": "Internal Blockbench Edu prototype",
+  "scripts": {
+    "embed-starter": "node scripts/embed-starter.js",
+    "test": "node --test tests/core.test.js",
+    "check": "node --check blockbench_edu.js",
+    "sync": "powershell -NoProfile -File scripts/sync-plugin.ps1",
+    "build:web": "node web/build.mjs",
+    "preview:web": "node web/preview.mjs"
+  },
+  "devDependencies": {
+    "jszip": "3.10.1"
+  }
+}

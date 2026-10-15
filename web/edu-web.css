@@ -1,0 +1,11 @@
+body.edu-web-loading #page_wrapper,body.edu-web-home #page_wrapper{visibility:hidden!important}
+body.edu-web-loading>header,body.edu-web-home>header,body.edu-setup>header{visibility:hidden!important}
+body.edu-web-loading,body.edu-web-home{background:#14281f!important}
+#edu-web-start{position:fixed;inset:0;z-index:500;background:#14281f;color:#eaf5ee;display:grid;place-items:center;font:18px/1.5 system-ui,sans-serif;text-align:center;padding:24px}
+#edu-web-start[hidden]{display:none}
+#edu-web-start h1{font-size:clamp(28px,4vw,42px);color:#8beaab;margin:12px 0}
+#edu-web-start p{color:#cee0d5;margin:12px 0 28px}
+#edu-web-start button{font:inherit;font-weight:600;padding:12px 32px;border:0;border-radius:12px;background:#65d98a;color:#102c1c;cursor:pointer}
+#edu-web-start button:focus-visible{outline:3px solid white;outline-offset:4px}
+#edu-web-start>a{position:absolute;bottom:20px;left:16px;right:16px;color:#a8c7b4;font-size:13px}
+.edu-web-mark{color:#65d98a;font-size:64px}
