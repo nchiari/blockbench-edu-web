@@ -78,3 +78,11 @@
 - Se creó un cerdo desde el asistente y se entregó como **PRUEBA_CLOUDFLARE** desde el cuadro integrado. Aparecieron la ruedita y la confirmación grande; el receptor guardó **PRUEBA_CLOUDFLARE_10-11-26.mcaddon**.
 - Reenviar exactamente la misma solicitud devolvió el mismo recibo y nombre con `duplicate: true`. Una entrega distinta con el mismo nombre y fecha creó **PRUEBA_CLOUDFLARE_10-11-26_2.mcaddon**. Drive verificó ambos archivos privados, de 36.618 bytes cada uno.
 - Se mantuvo una sola pestaña, no hubo errores de JavaScript y, tras **Seguir creando**, se pudo volver a **Dale color**. Captura: `output/playwright/cloudflare-v5-delivery-success.png`.
+
+## Entrega doble con proyecto editable
+
+- Se agregó la captura estándar del codec de proyectos de Blockbench, con texturas incrustadas y sin rutas locales ni historial. La captura conserva las partes completas aunque se hayan ocultado para pintar.
+- En navegador local se creó un cerdo, se cambió su tamaño y se pintó su textura. La entrega generó un addon y un `.bbmodel`. Se simuló únicamente la respuesta de guardado para probar el cuadro; no se acredita todavía la escritura doble en Google.
+- El `.bbmodel` generado se volvió a abrir mediante el codec nativo de Blockbench. Se compararon geometría, UV, pintura y animaciones: coincidieron con el modelo anterior a la entrega. El archivo no incluyó el código de la clase ni la ruta privada usada en la prueba.
+- Las pruebas del receptor y transporte verifican nombres emparejados, contador, validación antes de escribir, recuperación de una pareja incompleta, reintento sin duplicados, recuperación tras fallar la descripción del modelo y rechazo de una confirmación que solo acredita el addon.
+- Pendiente: que el propietario publique la copia v6 de Apps Script y comprobar los dos archivos reales en Drive desde Cloudflare.

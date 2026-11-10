@@ -64,6 +64,18 @@ test('prepares bytes once with a random retry identifier',async()=>{
     await assert.rejects(env.api.prepare({size:10485761},'a','b','b.mcaddon'),/10 MB/);
 });
 
+test('paired preparation encodes the editable model and requires confirmation for both files',async()=>{
+    const env=environment();
+    const payload=await env.api.prepare(new Blob(['addon']),'Nico','Cerdo','cerdo.mcaddon',new Blob(['{"model":true}']));
+    assert.equal(Buffer.from(payload.modelBase64,'base64').toString(),'{"model":true}');
+    const first=env.api.send(payload),channel=env.ready();await tick();
+    env.event({type:'edu-drive-result',channel,submissionId:payload.submissionId,result:{ok:true,receipt:payload.submissionId,fileName:'test.mcaddon'}});
+    await assert.rejects(first,/falta confirmar/);
+    const retry=env.api.send(payload);await tick();
+    env.event({type:'edu-drive-result',channel,submissionId:payload.submissionId,result:{ok:true,receipt:payload.submissionId,fileName:'test.mcaddon',modelFileName:'test.bbmodel'}});
+    assert.equal((await retry).modelFileName,'test.bbmodel');
+});
+
 test('requires matching channel, Google origin, peer and receipt before confirming delivery',async()=>{
     const env=environment(), payload={submissionId:'b'.repeat(32)}, response=env.api.send(payload);
     assert.equal(env.frames.length,1);assert.equal(env.frames[0].hidden,true);

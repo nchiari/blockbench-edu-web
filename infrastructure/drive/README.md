@@ -15,7 +15,7 @@ Receptor de entregas en Google Apps Script. Recibe `.mcaddon` en una carpeta pri
 
 ## Actualizar una implementación existente para el editor
 
-1. Reemplazar `Código.gs` por la copia configurada `output/drive-buzon/Pegar-en-Apps-Script-v5.txt` y guardar. Las propiedades del proyecto conservan la carpeta, el código de clase y las entregas existentes. La versión v5 incluye los nombres cortos de v4 y autoriza el sitio de Cloudflare Pages.
+1. Reemplazar `Código.gs` por la copia configurada `output/drive-buzon/Pegar-en-Apps-Script-v6.txt` y guardar. Las propiedades del proyecto conservan la carpeta, el código de clase y las entregas existentes. La versión v6 agrega el `.bbmodel` editable, conserva los nombres cortos y autoriza Cloudflare Pages.
 2. **Implementar → Gestionar implementaciones → seleccionar la aplicación web → Editar (lápiz)**.
 3. En **Versión**, elegir **Nueva versión** y pulsar **Implementar**. Conservar ejecutar como **Yo** y acceso sin inicio de sesión. No crear otro proyecto ni otra implementación: la URL `/exec` debe seguir siendo la misma.
 4. Verificar una entrega real desde el editor local antes de publicar la actualización web. El modo manual anterior ya se comprobó con el cerdo de referencia.
@@ -31,6 +31,15 @@ Receptor de entregas en Google Apps Script. Recibe `.mcaddon` en una carpeta pri
 - Sin clase seleccionada, se conserva **3 · Llévala a Minecraft** y su descarga habitual.
 - La conexión usa un iframe oculto de Apps Script y mensajes con origen, ventana, canal aleatorio y recibo comprobados. Solo el modo de transporte permite incrustación; la página manual conserva la protección predeterminada. `EDU_EDITOR_ORIGINS` permite las direcciones exactas `https://blockbench-edu.pages.dev` y `https://nchiari.github.io`, además del servidor local de prueba. Los dominios de vista previa de Cloudflare y otros sitios `pages.dev` no se admiten automáticamente.
 - El plugin manual de Blockbench no incorpora este transporte web. El botón integrado se ofrece en el sitio web del proyecto.
+
+## Copia editable junto a la entrega
+
+- El botón envía dos archivos por entrega: `NOMBRE_DD-MM-AA.mcaddon` y `NOMBRE_DD-MM-AA.bbmodel`. Las entregas distintas del mismo nombre y fecha conservan el mismo sufijo en ambos archivos.
+- El `.bbmodel` es un proyecto estándar de Blockbench con geometría, UV, pintura PNG incrustada y animaciones. Se guarda la criatura completa, aunque se hayan ocultado partes temporalmente para pintar. No lleva rutas locales ni el código de clase.
+- El alumno sigue haciendo una sola entrega. La confirmación nueva exige que el receptor haya guardado ambos archivos. Un fallo parcial se puede completar con el mismo recibo sin duplicar los archivos que ya llegaron.
+- Para recuperar el modelo, el docente descarga el `.bbmodel` de Drive y lo abre en Blockbench con **Archivo → Abrir modelo**. Esta copia estándar recupera el modelo y la textura; no incluye el historial ni el estado completo del asistente educativo.
+- Límite: 10 MiB por archivo. El cupo de 200 archivos corresponde a unas 100 entregas dobles, según los archivos existentes; también se aplica el límite total de 500 MiB por clase.
+- Actualizar el receptor de Google a v6 antes de usar el cliente nuevo. Un receptor anterior puede guardar el addon y omitir el modelo; el cliente detecta que falta la confirmación del `.bbmodel` y pide actualizar y reintentar.
 
 ## Publicación en Cloudflare Pages
 

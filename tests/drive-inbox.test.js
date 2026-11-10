@@ -6,7 +6,7 @@ const crypto = require('node:crypto');
 
 function environment() {
     const files = [], props = new Map();
-    let busy = false, failDescription = false, failRename = false, activeUser = 'teacher@example.test';
+    let busy = false, failDescription = false, failModelDescription = false, failRename = false, activeUser = 'teacher@example.test';
     const folder = {
         getId: () => 'class-folder',
         createFolder: () => folder,
@@ -19,7 +19,7 @@ function environment() {
                 getDescription() { return this.description; },
                 getDateCreated: () => new Date('2026-11-10T12:00:00Z'),
                 getBlob() { return {getBytes: () => this.bytes}; },
-                setDescription(value) { if (failDescription) throw new Error('Drive interrupted'); this.description = value; }
+                setDescription(value) { if (failDescription || (failModelDescription && this.name.endsWith('.bbmodel'))) throw new Error('Drive interrupted'); this.description = value; }
             };
             files.push(file); return file;
         }
@@ -38,7 +38,7 @@ function environment() {
                 return new Intl.DateTimeFormat('en-GB',{timeZone, day:'2-digit', month:'2-digit', year:'2-digit'}).format(date).replaceAll('/','-');
             },
             DigestAlgorithm: {SHA_256: 'sha256'}, computeDigest: (_, bytes) => [...crypto.createHash('sha256').update(Buffer.from(bytes)).digest()],
-            newBlob: (bytes, mime, name) => ({bytes, mime, name})},
+            newBlob: (bytes, mime, name) => ({bytes, mime, name,getDataAsString:()=>Buffer.from(bytes).toString('utf8')})},
         HtmlService: {XFrameOptionsMode: {ALLOWALL: 'ALLOWALL'}, createHtmlOutput: html => ({html,
             setTitle() { return this; }, addMetaTag() { return this; }, setXFrameOptionsMode(mode) { this.frameMode = mode; return this; }})}
     });
@@ -48,6 +48,7 @@ function environment() {
         fileName: 'dragon.mcaddon', submissionId: 'a'.repeat(32), base64: Buffer.from([80,75,3,4,...Array(40).fill(0)]).toString('base64')});
     return {context, files, props, data, busy: value => { busy = value; }, failDescription: value => { failDescription = value; },
         failRename: value => { failRename = value; },
+        failModelDescription: value => { failModelDescription = value; },
         activeUser: value => { activeUser = value; }};
 }
 
@@ -166,6 +167,51 @@ test('retries recognize legacy receipts and preserve a teacher rename after succ
     file.name='Nombre elegido por el docente.mcaddon';
     assert.equal(env.context.entregarAddon(data).fileName,file.name);
     assert.equal(env.files.length,1);
+});
+
+function withModel(data) {
+    return {...data,modelBase64:Buffer.from(JSON.stringify({meta:{model_format:'bedrock'},elements:[],textures:[{source:'data:image/png;base64,dGVzdA=='}]})).toString('base64')};
+}
+test('paired delivery saves matching addon and bbmodel filenames and retries both without duplication',()=>{
+    const env=environment(),data=withModel(env.data());
+    const result=env.context.entregarAddon(data);
+    assert.equal(result.modelFileName,result.fileName.replace('.mcaddon','.bbmodel'));
+    assert.equal(env.files.length,2);
+    const retry=env.context.entregarAddon(data);
+    assert.equal(retry.duplicate,true);assert.equal(retry.modelDuplicate,true);assert.equal(env.files.length,2);
+    const second=env.context.entregarAddon({...data,submissionId:'b'.repeat(32)});
+    assert.equal(second.fileName,result.fileName.replace('.mcaddon','_2.mcaddon'));
+    assert.equal(second.modelFileName,second.fileName.replace('.mcaddon','.bbmodel'));
+});
+test('invalid bbmodel is rejected before creating the addon and changed model cannot reuse a receipt',()=>{
+    const env=environment(),data=withModel(env.data());
+    for(const modelBase64 of ['',Buffer.from('{}').toString('base64'),Buffer.from('broken').toString('base64')]){
+        assert.throws(()=>env.context.entregarAddon({...data,modelBase64}));assert.equal(env.files.length,0);
+    }
+    env.context.entregarAddon(data);
+    const model=JSON.parse(Buffer.from(data.modelBase64,'base64').toString());model.elements.push({name:'changed'});
+    assert.throws(()=>env.context.entregarAddon({...data,modelBase64:Buffer.from(JSON.stringify(model)).toString('base64')}),/cambió/);
+    assert.equal(env.files.length,2);
+});
+test('a partial pair completes on retry including an addon saved by an older receiver',()=>{
+    const env=environment(),data=withModel(env.data());
+    env.context.entregarAddon(env.data());
+    const result=env.context.entregarAddon(data);
+    assert.equal(result.duplicate,true);assert.equal(result.modelDuplicate,false);assert.equal(env.files.length,2);
+    const modelFile=env.files.find(f=>f.name.endsWith('.bbmodel'));modelFile.name='__edu_pending_'+data.submissionId+'.bbmodel';
+    const retried=env.context.entregarAddon(data);
+    assert.equal(retried.modelDuplicate,true);assert.equal(env.files.length,2);
+    assert.equal(modelFile.name,result.modelFileName);
+});
+
+test('a failure after saving the model bytes cannot confirm the pair and is recoverable',()=>{
+    const env=environment(),data=withModel(env.data());env.failModelDescription(true);
+    assert.throws(()=>env.context.entregarAddon(data),/Drive interrupted/);
+    assert.equal(env.files.length,2);
+    env.failModelDescription(false);
+    const result=env.context.entregarAddon(data);
+    assert.equal(result.duplicate,true);assert.equal(result.modelDuplicate,true);assert.equal(env.files.length,2);
+    assert.equal(result.modelFileName,result.fileName.replace('.mcaddon','.bbmodel'));
 });
 
 test('escapes class query input and emits syntactically valid browser script', () => {

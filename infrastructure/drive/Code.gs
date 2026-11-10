@@ -106,22 +106,31 @@ function nombreEntrega_(student, receivedAt, usedNames) {
   const date = Utilities.formatDate(new Date(receivedAt), EDU_TIME_ZONE, 'dd-MM-yy');
   const stem = nombreArchivo_(student) + '_' + date;
   let name = stem + '.mcaddon', number = 2;
-  while (usedNames.has(name)) name = stem + '_' + number++ + '.mcaddon';
+  while (usedNames.has(name) || usedNames.has(name.replace(/\.mcaddon$/, '.bbmodel'))) name = stem + '_' + number++ + '.mcaddon';
   return name;
 }
 
-function validarEntrega_(data) {
+function validarEntrega_(data, model) {
   if (!data || typeof data !== 'object') throw new Error('No llegó el archivo. Volvé a intentar.');
   const config = comprobarClase_(data.classCode);
   const alias = texto_(data.alias, 'tu nombre o número de alumno');
   const creature = texto_(data.creature, 'el nombre de la criatura');
   if (typeof data.submissionId !== 'string' || !/^[a-f0-9]{32}$/.test(data.submissionId)) throw new Error('La entrega no tiene un identificador válido.');
   if (typeof data.fileName !== 'string' || !/\.mcaddon$/i.test(data.fileName)) throw new Error('Elegí un archivo .mcaddon.');
-  const base64 = data.base64;
+  const base64 = model ? data.modelBase64 : data.base64;
   if (typeof base64 !== 'string' || !base64.length || base64.length > 4 * Math.ceil(EDU_MAX_BYTES / 3) ||
       base64.length % 4 || !/^[A-Za-z0-9+/]*={0,2}$/.test(base64)) throw new Error('El archivo no es válido o supera los 10 MB.');
   const bytes = Utilities.base64Decode(base64);
-  if (bytes.length < 22 || bytes.length > EDU_MAX_BYTES ||
+  if (bytes.length > EDU_MAX_BYTES) throw new Error('El archivo supera los 10 MB.');
+  if (model) {
+    let project;
+    try { project = JSON.parse(Utilities.newBlob(bytes).getDataAsString('UTF-8')); }
+    catch (_) { throw new Error('El proyecto .bbmodel no es válido.'); }
+    if (!project || project.meta?.model_format !== 'bedrock' || !Array.isArray(project.elements) || !Array.isArray(project.textures) ||
+        !project.textures.length || project.textures.some(texture => typeof texture.source !== 'string' || !texture.source.startsWith('data:image/png;base64,'))) {
+      throw new Error('El .bbmodel debe incluir el modelo Bedrock y sus texturas.');
+    }
+  } else if (bytes.length < 22 || bytes.length > EDU_MAX_BYTES ||
       bytes[0] !== 80 || bytes[1] !== 75 || bytes[2] !== 3 || bytes[3] !== 4) throw new Error('El archivo no parece un .mcaddon válido o supera los 10 MB.');
   return {config: config, alias: alias, creature: creature, bytes: bytes, digest: huella_(bytes),
     submissionId: data.submissionId};
@@ -135,15 +144,25 @@ function huella_(bytes) {
 // Student operation writes an upload; it never lists or returns Drive files to the caller.
 function entregarAddon(data) {
   const item = validarEntrega_(data);
+  // Validate both files before writing either one. Old clients may still send only an addon.
+  const model = data.modelBase64 === undefined ? null : validarEntrega_(data, true);
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(15000)) throw new Error('Hay otras entregas llegando. Esperá unos segundos y reintentá.');
   try {
+    const addon = guardarArchivo_(item, data, 'mcaddon');
+    if (!model) return addon;
+    const editable = guardarArchivo_(model, data, 'bbmodel', addon.fileName.replace(/\.mcaddon$/, '.bbmodel'));
+    return Object.assign({}, addon, {modelFileName: editable.fileName, modelDuplicate: editable.duplicate});
+  } finally { lock.releaseLock(); }
+}
+
+function guardarArchivo_(item, data, extension, targetName) {
     // Recheck closure/expiry after acquiring the lock.
     const config = comprobarClase_(data.classCode);
     const folder = DriveApp.getFolderById(config.folderId);
-    const legacySuffix = '__' + item.submissionId + '.mcaddon';
+    const legacySuffix = '__' + item.submissionId + '.' + extension;
     const legacyName = nombreArchivo_(item.alias) + '__' + nombreArchivo_(item.creature) + legacySuffix;
-    const pendingName = '__edu_pending_' + item.submissionId + '.mcaddon';
+    const pendingName = '__edu_pending_' + item.submissionId + '.' + extension;
     const usedNames = new Set();
     const files = folder.getFiles();
     let count = 0, total = 0, previous = null;
@@ -155,7 +174,7 @@ function entregarAddon(data) {
       usedNames.add(file.getName());
       // Reserve final names even if a previous rename was interrupted.
       if (receipt.fileName) usedNames.add(receipt.fileName);
-      if (receipt.receipt === item.submissionId || file.getName() === pendingName || file.getName().endsWith(legacySuffix)) {
+      if ((receipt.receipt === item.submissionId && (receipt.kind || 'mcaddon') === extension) || file.getName() === pendingName || file.getName().endsWith(legacySuffix)) {
         previous = {file: file, receipt: receipt};
       }
     }
@@ -165,29 +184,29 @@ function entregarAddon(data) {
       // The temporary name identifies a save interrupted before its description was written.
       if (!receipt.digest && [pendingName, legacyName].includes(file.getName()) && huella_(file.getBlob().getBytes()) === item.digest) {
         receipt = {alias: item.alias, creature: item.creature, digest: item.digest,
-          receivedAt: file.getDateCreated().toISOString(), receipt: item.submissionId};
+          receivedAt: file.getDateCreated().toISOString(), receipt: item.submissionId, kind: extension};
       }
       if (receipt.digest !== item.digest || receipt.alias !== item.alias || receipt.creature !== item.creature) {
         throw new Error('El trabajo cambió. Iniciá una entrega nueva.');
       }
       // Preserve pre-update filenames; new uploads always get the short display name.
-      if (!receipt.fileName) receipt.fileName = file.getName().endsWith(legacySuffix) ? file.getName()
-        : nombreEntrega_(item.alias, receipt.receivedAt, usedNames);
+      if (!receipt.fileName) receipt.fileName = targetName || (file.getName().endsWith(legacySuffix) ? file.getName()
+        : nombreEntrega_(item.alias, receipt.receivedAt, usedNames));
       file.setDescription(JSON.stringify(receipt));
       if (file.getName() === pendingName) file.setName(receipt.fileName);
       return {ok: true, receipt: item.submissionId, receivedAt: receipt.receivedAt, fileName: file.getName(), duplicate: true};
     }
     if (count >= EDU_MAX_FILES || total + item.bytes.length > EDU_MAX_CLASS_BYTES) throw new Error('El buzón está lleno. Avisale a tu profe.');
     const receivedAt = new Date().toISOString();
-    const name = nombreEntrega_(item.alias, receivedAt, usedNames);
+    const name = targetName || nombreEntrega_(item.alias, receivedAt, usedNames);
+    if (targetName && usedNames.has(targetName)) throw new Error('Ya existe otro proyecto con ese nombre. Avisale a tu docente.');
     const blob = Utilities.newBlob(item.bytes, 'application/octet-stream', pendingName);
     const file = folder.createFile(blob);
     // No sharing permissions are granted: uploads inherit the private class folder.
     file.setDescription(JSON.stringify({alias: item.alias, creature: item.creature,
-      digest: item.digest, receivedAt: receivedAt, receipt: item.submissionId, fileName: name}));
+      digest: item.digest, receivedAt: receivedAt, receipt: item.submissionId, fileName: name, kind: extension}));
     file.setName(name);
     return {ok: true, receipt: item.submissionId, receivedAt: receivedAt, fileName: name, duplicate: false};
-  } finally { lock.releaseLock(); }
 }
 
 function doGet(e) {

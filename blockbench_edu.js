@@ -813,17 +813,28 @@
         }
         return replacements;
     }
-    async function prepareExport(session, projectId) {
+    function captureDeliveryModel(session) {
+        const visibility = Cube.all.map(cube => cube.visibility);
+        try {
+            if (session.paintVisibility) for (const cube of Cube.all) cube.visibility = session.paintVisibility[cube.uuid] ?? cube.visibility;
+            const model = Codecs.project.compile({raw: true, bitmaps: true, backup: true, absolute_paths: false});
+            for (const texture of model.textures || []) { delete texture.path; delete texture.relative_path; }
+            delete model.history;
+            return new Blob([JSON.stringify(model)], {type: 'application/json'});
+        } finally { Cube.all.forEach((cube, i) => { cube.visibility = visibility[i]; }); }
+    }
+    async function prepareExport(session, projectId, includeModel = false) {
         const compiled = getGeometry();
         requireThat(session.prepared && Cube.all.every(c => !c.box_uv), 'Prepara la textura antes de exportar.');
         const faces = captureFaces(Texture.all[0]);
         const width = Project.texture_width, height = Project.texture_height;
         const png = Texture.all[0].canvas.toDataURL('image/png').split(',')[1];
+        const modelContent = includeModel ? captureDeliveryModel(session) : null;
         const auxiliary = await remapAuxiliaryTextures(session, faces, width, height);
         const result = await buildAddon(session.reference, compiled, png, JSZip, auxiliary);
         const content = await result.zip.generateAsync({type: 'blob'});
         requireThat(alive && Project?.uuid === projectId, 'Cambió el proyecto durante la exportación. Vuelve a exportar.');
-        return {result, content, creatureName: Project.name,
+        return {result, content, modelContent, creatureName: Project.name,
             fileName: `${Project.name.replace(/[^a-z0-9_-]+/gi, '_')}_${result.version.join('_')}`};
     }
     async function exportAddon() {
@@ -891,9 +902,9 @@
                         session.busy = true; session.deliveryAlias = this.alias.trim(); refresh();
                         try {
                             requireThat(Project?.uuid === projectId, 'Vuelve a tu criatura antes de entregarla.');
-                            if (!prepared) prepared = await prepareExport(session, projectId);
+                            if (!prepared) prepared = await prepareExport(session, projectId, true);
                             if (!payload) payload = await drive.prepare(prepared.content, session.deliveryAlias,
-                                prepared.creatureName, prepared.fileName + '.mcaddon');
+                                prepared.creatureName, prepared.fileName + '.mcaddon', prepared.modelContent);
                             this.message = 'Enviando… Espera la confirmación.';
                             await drive.send(payload);
                             session.reference.lastVersion = prepared.result.version;
@@ -913,7 +924,7 @@
                     }
                 },
                 template: `<div class="edu-delivery" :aria-busy="sending?'true':'false'">
-                    <section v-if="delivered" class="edu-delivery-success" role="status" aria-live="polite"><svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="29"/><path d="m18 32 10 10 19-20"/></svg><h2>¡Tu criatura fue entregada!</h2><p>Tu profe ya la recibió.<br>¡Puedes seguir creando!</p></section>
+                    <section v-if="delivered" class="edu-delivery-success" role="status" aria-live="polite"><svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="29"/><path d="m18 32 10 10 19-20"/></svg><h2>¡Tu criatura fue entregada!</h2><p>Tu profe recibió la criatura y una copia editable.<br>¡Puedes seguir creando!</p></section>
                     <section v-else-if="sending" ref="progress" tabindex="-1" class="edu-delivery-progress" role="status" aria-live="polite"><div class="edu-delivery-spinner" role="progressbar" aria-label="Entrega en curso"></div><h2>{{message}}</h2><p>Espera un momento.<br>Cuando termine, podrás seguir creando.</p></section>
                     <p v-else role="status" aria-live="polite">{{message}}</p>
                     <label v-if="!delivered && !sending">Tu nombre o número de alumno<input ref="studentName" type="text" v-model="alias" maxlength="80" autocomplete="off" :disabled="started" :aria-invalid="nameError?'true':'false'" aria-describedby="edu-delivery-name-help edu-delivery-error" @input="nameError && (nameError=false, error='')" @keyup.enter="send" placeholder="Por ejemplo: Nico o Alumno 07"/></label>
