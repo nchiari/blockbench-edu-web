@@ -385,6 +385,7 @@
         if (!session || session.busy || !bone) return;
         if (!session.paintVisibility) session.paintVisibility = Object.fromEntries(Cube.all.map(cube => [cube.uuid,cube.visibility]));
         if (!session.hiddenBones) session.hiddenBones = new Set();
+        delete session.soloBoneId; delete session.soloPreviousVisibility;
         const hidden = bone.children.filter(c => c instanceof Cube).every(c => !c.visibility);
         if (session.visibleBones) {
             if (hidden) session.visibleBones.add(bone.uuid);
@@ -398,6 +399,19 @@
         const session = current(), bone = Group.all.find(group => group.uuid === id);
         if (!session || session.busy || !bone) return;
         if (!session.paintVisibility) session.paintVisibility = Object.fromEntries(Cube.all.map(cube => [cube.uuid,cube.visibility]));
+        if (session.soloBoneId === id && session.soloPreviousVisibility) {
+            session.hiddenBones = session.soloPreviousVisibility.hiddenBones;
+            if (session.soloPreviousVisibility.visibleBones) session.visibleBones = session.soloPreviousVisibility.visibleBones;
+            else delete session.visibleBones;
+            delete session.soloBoneId; delete session.soloPreviousVisibility;
+            applyPaintVisibility(); refresh(); return;
+        }
+        // Switching the isolated part retains the view from before isolation began.
+        if (!session.soloPreviousVisibility) session.soloPreviousVisibility = {
+            hiddenBones: new Set(session.hiddenBones || []),
+            visibleBones: session.visibleBones ? new Set(session.visibleBones) : null
+        };
+        session.soloBoneId = id;
         session.hiddenBones = new Set();
         session.visibleBones = new Set([bone.uuid]);
         applyPaintVisibility(); refresh();
@@ -407,6 +421,7 @@
         if (!session?.paintVisibility) return;
         for (const cube of Cube.all) cube.visibility = session.paintVisibility[cube.uuid] ?? cube.visibility;
         delete session.paintVisibility; delete session.hiddenBones; delete session.visibleBones;
+        delete session.soloBoneId; delete session.soloPreviousVisibility;
         Canvas.updateVisibility(); refresh();
     }
     function selectPaintColor(texture, x, y) {
@@ -481,6 +496,7 @@
             classroom.selectedPixelCount = selection?.is_custom ? selection.array.reduce((count,value) => count+(value ? 1 : 0),0) : 0;
             // UV repacking can resize the native mask and leave an empty custom selection.
             if (selection?.is_custom && !classroom.selectedPixelCount) { selection.clear(); UVEditor.updateSelectionOutline(); }
+            classroom.soloBoneId = session?.soloBoneId || '';
             classroom.bones = paintBones().map((bone,index) => ({id:bone.uuid,label:pieceLabel(bone,index),
                 hidden:bone.children.filter(c => c instanceof Cube).every(c => !c.visibility)}));
             classroom.pieces = panel.vue.pieces;
@@ -924,7 +940,7 @@
         const mount = document.createElement('div'); document.body.append(mount);
         classroom = new Vue({el: mount,
             data: {sidebarWidth: current()?.sidebarWidth || 260, sidebarMax: 480, sidebarDragging: false, sidebarStartX: 0, sidebarStartWidth: 260, mode: 'shape', operation: 'size', position: [0,0,0], rotation: [0,0,0], axes: ['De lado', 'Arriba / abajo', 'Adelante / atrás'], turns: ['Inclinar', 'Girar', 'Ladear'], pieces: [], selectedId: '', dimensions: [0,0,0], maximum: [0,0,0], minimum: [1,1,1], busy: false, canUndo: false, canRedo: false,
-                bones: [], partsOpen: current()?.partsOpen ?? true, selectedPixelCount: 0, paintTool: 'brush_tool', brushSize: 1, cameraControlsOpen: false, cameraIsOrtho: false,
+                bones: [], partsOpen: current()?.partsOpen ?? true, soloBoneId: '', selectedPixelCount: 0, paintTool: 'brush_tool', brushSize: 1, cameraControlsOpen: false, cameraIsOrtho: false,
                 driveAvailable: !!window.BlockbenchEduDrive, driveClass: !!window.BlockbenchEduDrive?.classCode,
                 cameraRotate: Keybinds.extra.preview_rotate.keybind.toString(), cameraPan: Keybinds.extra.preview_drag.keybind.toString(), cameraZoom: Keybinds.extra.preview_scroll_zoom.keybind.toString(),
                 labels: ['Ancho', 'Alto', 'Profundidad'], color: ColorPanel.get(), colors: ['#ffffff','#20252d','#e85b61','#f7b45c','#f9e778','#60d98b','#63bee8','#8479df','#ed90c4','#986a48']},
@@ -1048,7 +1064,7 @@
                     <div class="edu-parts-heading"><h2 id="edu-parts-title"><i class="material-icons" aria-hidden="true">visibility</i>Partes</h2><button ref="partsClose" @click="setPartsOpen(false)" aria-label="Plegar panel de partes" title="Plegar panel de partes"><i class="material-icons" aria-hidden="true">chevron_right</i></button></div>
                     <button class="edu-parts-show-all" @click="showAllBones" :disabled="busy || !hiddenBoneCount"><i class="material-icons" aria-hidden="true">visibility</i>Mostrar todas</button>
                     <p class="edu-parts-count" role="status" aria-live="polite">{{bones.length-hiddenBoneCount}} de {{bones.length}} visibles</p>
-                    <ul class="edu-parts-list" aria-label="Visibilidad de las partes"><li v-for="bone in bones" :key="bone.id" :class="{'edu-part-hidden':bone.hidden}"><button class="edu-part-eye" @click="toggleBone(bone.id)" :disabled="busy" :aria-label="(bone.hidden?'Mostrar ':'Ocultar ')+bone.label" :aria-pressed="bone.hidden?'false':'true'"><i class="material-icons" aria-hidden="true">{{bone.hidden?'visibility_off':'visibility'}}</i><span>{{bone.label}}</span></button><button class="edu-part-solo" @click="showOnlyBone(bone.id)" :disabled="busy" :aria-label="'Ver solo '+bone.label" :title="'Ver solo '+bone.label"><i class="material-icons" aria-hidden="true">center_focus_strong</i></button></li></ul>
+                    <ul class="edu-parts-list" aria-label="Visibilidad de las partes"><li v-for="bone in bones" :key="bone.id" :class="{'edu-part-hidden':bone.hidden}"><button class="edu-part-eye" @click="toggleBone(bone.id)" :disabled="busy" :aria-label="(bone.hidden?'Mostrar ':'Ocultar ')+bone.label" :aria-pressed="bone.hidden?'false':'true'"><i class="material-icons" aria-hidden="true">{{bone.hidden?'visibility_off':'visibility'}}</i><span>{{bone.label}}</span></button><button class="edu-part-solo" :class="{active:soloBoneId===bone.id}" @click="showOnlyBone(bone.id)" :disabled="busy" :aria-pressed="soloBoneId===bone.id?'true':'false'" :aria-label="soloBoneId===bone.id?'Volver a la vista anterior':'Ver solo '+bone.label" :title="soloBoneId===bone.id?'Volver a la vista anterior':'Ver solo '+bone.label"><i class="material-icons" aria-hidden="true">center_focus_strong</i></button></li></ul>
                     <p class="edu-parts-help">Oculta partes para pintar debajo.<br>Tu criatura se exporta completa.</p>
                 </section>
                 <div class="edu-sidebar-resizer" :class="{dragging:sidebarDragging}" role="separator" tabindex="0" aria-label="Ancho del menú" aria-orientation="vertical" :aria-valuenow="sidebarWidth" :aria-valuemin="260" :aria-valuemax="sidebarMax" title="Arrastra para cambiar el ancho del menú" @pointerdown.prevent="startSidebarDrag" @pointermove="dragSidebar" @pointerup="endSidebarDrag" @pointercancel="endSidebarDrag" @lostpointercapture="endSidebarDrag" @keydown="keySidebar"><span aria-hidden="true"></span></div>
