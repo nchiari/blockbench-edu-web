@@ -24,7 +24,7 @@ Receptor de entregas en Google Apps Script. Recibe `.mcaddon` en una carpeta pri
 
 - La dirección pública del receptor está en `web/drive-inbox.js`; el código de cada clase no se incluye en el repositorio.
 - El docente abre **Para el docente → Prueba Edu → Entregas de la clase**, pega el código obtenido al preparar el buzón y pulsa **Seleccionar clase**. Copia el enlace del editor que aparece y lo comparte con los alumnos.
-- El enlace lleva la clase en el fragmento `#clase=…`. El alumno crea su criatura y pulsa **3 · Entregar al profe**, escribe un alias y confirma. El archivo se prepara y envía automáticamente.
+- El enlace lleva la clase en el fragmento `#clase=…`. El alumno crea su criatura y pulsa **3 · Entregar al profe**, escribe su nombre o número de alumno y confirma con el botón verde. El archivo se prepara y envía automáticamente. Si el campo está vacío, el botón explica qué falta y lleva el cursor al campo.
 - El cuadro muestra el resultado y ofrece descarga de respaldo. Tras un error conserva el mismo archivo e identificador para reintentar desde ese cuadro. Cerrar el cuadro y empezar de nuevo crea una entrega nueva.
 - Sin clase seleccionada, se conserva **3 · Llévala a Minecraft** y su descarga habitual.
 - La conexión usa un iframe oculto de Apps Script y mensajes con origen, ventana, canal aleatorio y recibo comprobados. Solo el modo de transporte permite incrustación; la página manual conserva la protección predeterminada. El modo interno permite el sitio publicado del proyecto y el servidor local de prueba.

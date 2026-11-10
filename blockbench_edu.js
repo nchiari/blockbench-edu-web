@@ -735,14 +735,17 @@
         dialog = new Dialog({id: 'blockbench_edu_delivery', title: 'Entregar al profe', width: 500, buttons: [],
             onCancel() { if (dialog.content_vue.sending) return false; },
             component: {
-                data: () => ({alias: session.deliveryAlias || '', sending: false, started: false, delivered: false,
+                data: () => ({alias: session.deliveryAlias || '', sending: false, started: false, delivered: false, nameError: false,
                     error: '', message: 'Tu criatura se guardará en el buzón de tu docente.'}),
                 methods: {
                     close() { if (!this.sending) dialog.hide(); },
                     async send() {
                         if (this.sending || this.delivered) return;
-                        if (!this.alias.trim()) { this.error = 'Escribe tu alias o número de alumno.'; return; }
-                        this.sending = true; this.started = true; this.error = ''; this.message = 'Preparando tu criatura…';
+                        if (!this.alias.trim()) {
+                            this.nameError = true; this.error = 'Escribe tu nombre o número de alumno para entregar.';
+                            this.$nextTick(() => this.$refs.studentName?.focus()); return;
+                        }
+                        this.sending = true; this.started = true; this.nameError = false; this.error = ''; this.message = 'Preparando tu criatura…';
                         session.busy = true; session.deliveryAlias = this.alias.trim(); refresh();
                         try {
                             requireThat(Project?.uuid === projectId, 'Vuelve a tu criatura antes de entregarla.');
@@ -765,11 +768,11 @@
                     }
                 },
                 template: `<div class="edu-delivery"><p role="status" aria-live="polite">{{message}}</p>
-                    <label v-if="!delivered">Tu alias o número de alumno<input v-model="alias" maxlength="80" autocomplete="off" :disabled="started" @keyup.enter="send" placeholder="Por ejemplo: Alumno 07"/></label>
-                    <small v-if="!delivered">No hace falta tu correo ni tu nombre completo.</small><p v-if="error" role="alert" class="edu-delivery-error">{{error}}</p>
+                    <label v-if="!delivered">Tu nombre o número de alumno<input ref="studentName" type="text" v-model="alias" maxlength="80" autocomplete="off" :disabled="started" :aria-invalid="nameError?'true':'false'" aria-describedby="edu-delivery-name-help edu-delivery-error" @input="nameError && (nameError=false, error='')" @keyup.enter="send" placeholder="Por ejemplo: Nico o Alumno 07"/></label>
+                    <small v-if="!delivered" id="edu-delivery-name-help">Puedes usar solo tu nombre o tu número de alumno.</small><p v-if="error" id="edu-delivery-error" role="alert" class="edu-delivery-error">{{error}}</p>
                     <div class="edu-delivery-actions"><button @click="close" :disabled="sending">{{delivered?'Seguir creando':'Cerrar'}}</button>
                     <button v-if="!delivered" @click="copy" :disabled="sending">Descargar copia</button>
-                    <button v-if="!delivered" @click="send" :disabled="sending || !alias.trim()">{{sending?'Enviando…':error?'Reintentar entrega':'Entregar'}}</button></div></div>`
+                    <button v-if="!delivered" class="edu-delivery-primary" @click="send" :disabled="sending">{{sending?'Enviando…':error && !nameError?'Reintentar entrega':'Entregar'}}</button></div></div>`
             }});
         dialog.show();
     }

@@ -12,8 +12,16 @@ body.edu-web-loading,body.edu-web-home{background:#14281f!important}
 .edu-delivery{padding:12px;font-size:16px;line-height:1.5}
 .edu-delivery label,.edu-drive-config label{display:block;margin:12px 0}
 .edu-delivery input,.edu-drive-config input{display:block;width:100%;margin-top:8px;padding:10px;box-sizing:border-box}
+#blockbench_edu_delivery .edu-delivery input[type="text"]{min-height:44px;height:auto;border:2px solid #829d8e;border-radius:8px;background:#14281f;color:#eaf5ee}
+#blockbench_edu_delivery .edu-delivery input[type="text"]::placeholder{color:#b1c5b8;opacity:1}
+#blockbench_edu_delivery .edu-delivery input[type="text"]:focus{border-color:#60d98b;outline:2px solid #60d98b;outline-offset:2px}
+#blockbench_edu_delivery .edu-delivery input[aria-invalid="true"]{border-color:#ff9b92}
 .edu-delivery small{display:block;margin:10px 0;color:var(--color-subtle_text)}
 .edu-delivery-error{color:#ff9b92}
 .edu-delivery-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;margin-top:24px}
 .edu-delivery-actions button{min-height:40px;padding:8px 14px}
+#blockbench_edu_delivery .edu-delivery-primary{height:auto;min-height:44px;padding:10px 20px;border:2px solid #60d98b;border-radius:8px;background:#60d98b;color:#102c1c;font-weight:700}
+#blockbench_edu_delivery .edu-delivery-primary:hover:not(:disabled){background:#8beaab;border-color:#8beaab}
+#blockbench_edu_delivery .edu-delivery-primary:focus-visible{outline:2px solid #eaf5ee;outline-offset:3px}
+#blockbench_edu_delivery .edu-delivery-primary:disabled{opacity:.65}
 .edu-drive-config{padding:12px 0;border-bottom:1px solid var(--color-border);margin-bottom:12px}

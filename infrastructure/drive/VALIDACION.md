@@ -42,3 +42,11 @@
 
 - Prueba física en Brave, equipos escolares y redes de aula, incluidos los bloqueos de contenido de terceros que pudieran impedir el iframe.
 - Importación en Minecraft Education de una entrega generada por este botón. El empaquetado conserva la ruta de exportación existente; esta etapa no acredita una nueva prueba en el juego.
+
+## Revisión del cuadro de entrega
+
+- Se reprodujo en el sitio público el estado de la captura del docente: el campo vacío dejaba **Entregar** deshabilitado sin mensaje; el borde calculado era `0px none` y el fondo transparente.
+- El cuadro ahora pide **Tu nombre o número de alumno**, muestra borde y fondo en el campo y destaca **Entregar** en verde y negrita.
+- Pulsar **Entregar** con el campo vacío o con espacios muestra una indicación, marca el campo como inválido y lleva el foco al campo. Escribir borra la indicación; se aceptó un número de alumno en la prueba.
+- En el editor local se comprobaron los estilos calculados, el cuadro en 1024 × 768 y una entrega real como **PRUEBA_NOMBRE_VERDE**, sin nuevas pestañas ni errores de JavaScript. Drive confirmó el archivo privado.
+- Captura: `output/playwright/delivery-name-green-before.png`.
