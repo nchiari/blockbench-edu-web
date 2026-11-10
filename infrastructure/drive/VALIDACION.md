@@ -74,4 +74,7 @@
 - Se reprodujo el bloqueo de Google solicitando el modo de editor con el origen de Cloudflare: el receptor publicado devolvió **Conexión de editor no válida**. Se confirmó que la lista de orígenes del receptor aún no incluía el nuevo dominio.
 - La copia v5 preparada en `output/drive-buzon/Pegar-en-Apps-Script-v5.txt` agrega exactamente `https://blockbench-edu.pages.dev` y conserva los orígenes anteriores. También incluye el formato **NOMBRE_DD-MM-AA.mcaddon** de v4.
 - Pasaron las 40 pruebas automáticas, incluidas la admisión del origen de Cloudflare, el enlace desde la raíz y el rechazo de dominios parecidos, de otros sitios Pages y de vistas previas no autorizadas.
-- Pendiente: que el propietario actualice la implementación de Apps Script con v5 y comprobar una entrega real desde Cloudflare. Los cambios del receptor no se activan al publicar el sitio estático.
+- El propietario confirmó la implementación de v5. Se probó la web pública de Cloudflare en una sesión privada nueva con cero cookies iniciales y sin cuenta de Google.
+- Se creó un cerdo desde el asistente y se entregó como **PRUEBA_CLOUDFLARE** desde el cuadro integrado. Aparecieron la ruedita y la confirmación grande; el receptor guardó **PRUEBA_CLOUDFLARE_10-11-26.mcaddon**.
+- Reenviar exactamente la misma solicitud devolvió el mismo recibo y nombre con `duplicate: true`. Una entrega distinta con el mismo nombre y fecha creó **PRUEBA_CLOUDFLARE_10-11-26_2.mcaddon**. Drive verificó ambos archivos privados, de 36.618 bytes cada uno.
+- Se mantuvo una sola pestaña, no hubo errores de JavaScript y, tras **Seguir creando**, se pudo volver a **Dale color**. Captura: `output/playwright/cloudflare-v5-delivery-success.png`.
