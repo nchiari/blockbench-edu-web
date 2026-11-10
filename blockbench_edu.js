@@ -727,16 +727,41 @@
             });
         } finally { session.busy = false; refresh(); }
     }
+    function lockDeliveryUi(dialogElement) {
+        const inertStates = new Map();
+        for (let node = dialogElement; node?.parentElement; node = node.parentElement) {
+            for (const sibling of node.parentElement.children) {
+                if (sibling !== node && !inertStates.has(sibling)) {
+                    inertStates.set(sibling, sibling.inert); sibling.inert = true;
+                }
+            }
+            if (node.parentElement === document.body) break;
+        }
+        const close = dialogElement.querySelector('.dialog_close_button');
+        if (close) { inertStates.set(close, close.inert); close.inert = true; }
+        const block = event => { event.preventDefault(); event.stopImmediatePropagation(); };
+        const events = ['keydown', 'keyup', 'pointerdown', 'click', 'dblclick', 'contextmenu'];
+        for (const type of events) window.addEventListener(type, block, true);
+        dialogElement.classList.add('edu-delivery-sending');
+        return () => {
+            for (const type of events) window.removeEventListener(type, block, true);
+            for (const [element, inert] of inertStates) element.inert = inert;
+            dialogElement.classList.remove('edu-delivery-sending');
+        };
+    }
     function deliverAddon() {
         const drive = window.BlockbenchEduDrive;
         requireThat(drive?.classCode, 'El docente todavía no seleccionó la clase. Pídele ayuda antes de entregar.');
         const session = validateSession(), projectId = Project.uuid;
-        let prepared, payload, dialog;
+        let prepared, payload, dialog, releaseUi = () => {};
         dialog = new Dialog({id: 'blockbench_edu_delivery', title: 'Entregar al profe', width: 500, buttons: [],
             onCancel() { if (dialog.content_vue.sending) return false; },
+            onConfirm() { return false; },
+            onButton() { if (dialog.content_vue.sending) return false; },
             component: {
                 data: () => ({alias: session.deliveryAlias || '', sending: false, started: false, delivered: false, nameError: false,
                     error: '', message: 'Tu criatura se guardará en el buzón de tu docente.'}),
+                beforeDestroy() { releaseUi(); },
                 methods: {
                     close() { if (!this.sending) dialog.hide(); },
                     async send() {
@@ -746,6 +771,8 @@
                             this.$nextTick(() => this.$refs.studentName?.focus()); return;
                         }
                         this.sending = true; this.started = true; this.nameError = false; this.error = ''; this.message = 'Preparando tu criatura…';
+                        releaseUi = lockDeliveryUi(dialog.object);
+                        this.$nextTick(() => this.$refs.progress?.focus());
                         session.busy = true; session.deliveryAlias = this.alias.trim(); refresh();
                         try {
                             requireThat(Project?.uuid === projectId, 'Vuelve a tu criatura antes de entregarla.');
@@ -758,7 +785,10 @@
                             this.delivered = true; this.message = '¡Tu criatura fue entregada! Puedes seguir creando.';
                         } catch (error) {
                             this.error = error.message; this.message = 'Tu criatura sigue abierta. Puedes reintentar la entrega o descargar una copia.';
-                        } finally { this.sending = false; session.busy = false; refresh(); }
+                        } finally {
+                            this.sending = false; session.busy = false; releaseUi(); refresh();
+                            if (this.delivered) this.$nextTick(() => this.$refs.continueButton?.focus());
+                        }
                     },
                     copy() {
                         if (this.sending) return;
@@ -767,10 +797,13 @@
                         else attempt(exportAddon);
                     }
                 },
-                template: `<div class="edu-delivery"><p role="status" aria-live="polite">{{message}}</p>
-                    <label v-if="!delivered">Tu nombre o número de alumno<input ref="studentName" type="text" v-model="alias" maxlength="80" autocomplete="off" :disabled="started" :aria-invalid="nameError?'true':'false'" aria-describedby="edu-delivery-name-help edu-delivery-error" @input="nameError && (nameError=false, error='')" @keyup.enter="send" placeholder="Por ejemplo: Nico o Alumno 07"/></label>
-                    <small v-if="!delivered" id="edu-delivery-name-help">Puedes usar solo tu nombre o tu número de alumno.</small><p v-if="error" id="edu-delivery-error" role="alert" class="edu-delivery-error">{{error}}</p>
-                    <div class="edu-delivery-actions"><button @click="close" :disabled="sending">{{delivered?'Seguir creando':'Cerrar'}}</button>
+                template: `<div class="edu-delivery" :aria-busy="sending?'true':'false'">
+                    <section v-if="delivered" class="edu-delivery-success" role="status" aria-live="polite"><svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="29"/><path d="m18 32 10 10 19-20"/></svg><h2>¡Tu criatura fue entregada!</h2><p>Tu profe ya la recibió.<br>¡Puedes seguir creando!</p></section>
+                    <section v-else-if="sending" ref="progress" tabindex="-1" class="edu-delivery-progress" role="status" aria-live="polite"><div class="edu-delivery-spinner" role="progressbar" aria-label="Entrega en curso"></div><h2>{{message}}</h2><p>Espera un momento.<br>Cuando termine, podrás seguir creando.</p></section>
+                    <p v-else role="status" aria-live="polite">{{message}}</p>
+                    <label v-if="!delivered && !sending">Tu nombre o número de alumno<input ref="studentName" type="text" v-model="alias" maxlength="80" autocomplete="off" :disabled="started" :aria-invalid="nameError?'true':'false'" aria-describedby="edu-delivery-name-help edu-delivery-error" @input="nameError && (nameError=false, error='')" @keyup.enter="send" placeholder="Por ejemplo: Nico o Alumno 07"/></label>
+                    <small v-if="!delivered && !sending" id="edu-delivery-name-help">Puedes usar solo tu nombre o tu número de alumno.</small><p v-if="error" id="edu-delivery-error" role="alert" class="edu-delivery-error">{{error}}</p>
+                    <div class="edu-delivery-actions"><button ref="continueButton" @click="close" :disabled="sending" :class="{'edu-delivery-primary':delivered}">{{delivered?'Seguir creando':'Cerrar'}}</button>
                     <button v-if="!delivered" @click="copy" :disabled="sending">Descargar copia</button>
                     <button v-if="!delivered" class="edu-delivery-primary" @click="send" :disabled="sending">{{sending?'Enviando…':error && !nameError?'Reintentar entrega':'Entregar'}}</button></div></div>`
             }});

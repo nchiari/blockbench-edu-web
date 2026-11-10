@@ -15,7 +15,7 @@ Receptor de entregas en Google Apps Script. Recibe `.mcaddon` en una carpeta pri
 
 ## Actualizar una implementación existente para el editor
 
-1. Reemplazar `Código.gs` por la copia configurada `output/drive-buzon/Pegar-en-Apps-Script-v3.txt` y guardar. Las propiedades del proyecto conservan la carpeta, el código de clase y las entregas existentes.
+1. Reemplazar `Código.gs` por la copia configurada `output/drive-buzon/Pegar-en-Apps-Script-v4.txt` y guardar. Las propiedades del proyecto conservan la carpeta, el código de clase y las entregas existentes. La versión v4 incorpora nombres cortos de archivo; el receptor v3 anterior sigue siendo compatible con el botón del editor.
 2. **Implementar → Gestionar implementaciones → seleccionar la aplicación web → Editar (lápiz)**.
 3. En **Versión**, elegir **Nueva versión** y pulsar **Implementar**. Conservar ejecutar como **Yo** y acceso sin inicio de sesión. No crear otro proyecto ni otra implementación: la URL `/exec` debe seguir siendo la misma.
 4. Verificar una entrega real desde el editor local antes de publicar la actualización web. El modo manual anterior ya se comprobó con el cerdo de referencia.
@@ -26,6 +26,8 @@ Receptor de entregas en Google Apps Script. Recibe `.mcaddon` en una carpeta pri
 - El docente abre **Para el docente → Prueba Edu → Entregas de la clase**, pega el código obtenido al preparar el buzón y pulsa **Seleccionar clase**. Copia el enlace del editor que aparece y lo comparte con los alumnos.
 - El enlace lleva la clase en el fragmento `#clase=…`. El alumno crea su criatura y pulsa **3 · Entregar al profe**, escribe su nombre o número de alumno y confirma con el botón verde. El archivo se prepara y envía automáticamente. Si el campo está vacío, el botón explica qué falta y lleva el cursor al campo.
 - El cuadro muestra el resultado y ofrece descarga de respaldo. Tras un error conserva el mismo archivo e identificador para reintentar desde ese cuadro. Cerrar el cuadro y empezar de nuevo crea una entrega nueva.
+- Durante la preparación y el envío aparece una ruedita sin porcentaje. Se bloquean los botones del cuadro, la cruz de cierre, el teclado y los controles del editor; el bloqueo se retira al guardar o al mostrar un error. La confirmación usa un recuadro verde, una marca de verificación y el botón **Seguir creando**.
+- Con el receptor v4, los archivos nuevos se guardan como **NOMBRE_DD-MM-AA.mcaddon**, por ejemplo `Nico_10-11-26.mcaddon`. Se usa la fecha de Madrid, se normalizan los caracteres del nombre para su descarga y se añade `_2`, `_3`, etc. si hay otra entrega con ese mismo nombre y fecha. Los reintentos reconocen el recibo guardado; los archivos de versiones anteriores conservan su nombre.
 - Sin clase seleccionada, se conserva **3 · Llévala a Minecraft** y su descarga habitual.
 - La conexión usa un iframe oculto de Apps Script y mensajes con origen, ventana, canal aleatorio y recibo comprobados. Solo el modo de transporte permite incrustación; la página manual conserva la protección predeterminada. El modo interno permite el sitio publicado del proyecto y el servidor local de prueba.
 - El plugin manual de Blockbench no incorpora este transporte web. El botón integrado se ofrece en el sitio web del proyecto.

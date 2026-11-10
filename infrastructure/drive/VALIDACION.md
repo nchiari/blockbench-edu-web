@@ -53,3 +53,12 @@
 - Se publicó el ajuste en `0afb2c4`; el [despliegue](https://github.com/nchiari/blockbench-edu-web/actions/runs/42804743331) terminó correctamente.
 - En una sesión privada nueva de Chromium, con cero cookies al comenzar, se repitieron las comprobaciones de campo vacío, espacios, número, foco, borde y botón verde desde el sitio público. La entrega real **PRUEBA_BOTON_PUBLICO** se guardó privada en Drive, sin abrir pestañas ni registrar errores de JavaScript.
 - Captura del sitio público: `output/playwright/delivery-name-green-public.png`.
+
+## Progreso, bloqueo y nombres de archivo
+
+- El envío muestra una ruedita y mensajes de preparación/envío sin inventar un porcentaje. La confirmación es un recuadro verde con icono de verificación y título grande.
+- En el navegador local se demoró intencionalmente un intento para comprobar el bloqueo: todos los botones visibles quedaron deshabilitados o inertes, la cruz se ocultó, y Escape, Enter, Tab, clics de fondo y las llamadas de cerrar/confirmar no cerraron el cuadro.
+- Se simuló un error de conexión y se comprobaron la recuperación de los controles y el reintento con el mismo contenido e identificador. El segundo intento guardó una entrega real; después de la confirmación se pudo seguir creando y volver a **Dale color**. No hubo errores de JavaScript ni nuevas pestañas.
+- Capturas: `output/playwright/delivery-progress-locked.png` y `output/playwright/delivery-prominent-success.png`.
+- Las 39 pruebas automáticas y la compilación pasaron. El receptor v4 incorpora **NOMBRE_DD-MM-AA.mcaddon**, con fecha de Madrid, contador para nuevas entregas coincidentes, recuperación si falló el renombrado y compatibilidad con recibos anteriores.
+- El nuevo formato de Drive requiere que el propietario pegue la copia v4 en Apps Script y actualice la misma implementación. Hasta entonces, el receptor publicado conserva los nombres anteriores; el progreso y el bloqueo son compatibles con él.

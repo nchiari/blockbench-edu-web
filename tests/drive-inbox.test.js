@@ -6,7 +6,7 @@ const crypto = require('node:crypto');
 
 function environment() {
     const files = [], props = new Map();
-    let busy = false, failDescription = false, activeUser = 'teacher@example.test';
+    let busy = false, failDescription = false, failRename = false, activeUser = 'teacher@example.test';
     const folder = {
         getId: () => 'class-folder',
         createFolder: () => folder,
@@ -15,6 +15,7 @@ function environment() {
             const file = {
                 name: blob.name, bytes: blob.bytes, description: '',
                 getName() { return this.name; }, getSize() { return this.bytes.length; },
+                setName(value) { if (failRename) throw new Error('Rename interrupted'); this.name = value; },
                 getDescription() { return this.description; },
                 getDateCreated: () => new Date('2026-11-10T12:00:00Z'),
                 getBlob() { return {getBytes: () => this.bytes}; },
@@ -32,6 +33,10 @@ function environment() {
         LockService: {getScriptLock: () => lock}, DriveApp: {getFolderById: () => folder},
         ScriptApp: {getService: () => ({getUrl: () => null})},
         Utilities: {getUuid: () => '01234567-89ab-cdef-0123-456789abcdef', base64Decode: value => [...Buffer.from(value, 'base64')],
+            formatDate: (date, timeZone, pattern) => {
+                assert.equal(pattern, 'dd-MM-yy');
+                return new Intl.DateTimeFormat('en-GB',{timeZone, day:'2-digit', month:'2-digit', year:'2-digit'}).format(date).replaceAll('/','-');
+            },
             DigestAlgorithm: {SHA_256: 'sha256'}, computeDigest: (_, bytes) => [...crypto.createHash('sha256').update(Buffer.from(bytes)).digest()],
             newBlob: (bytes, mime, name) => ({bytes, mime, name})},
         HtmlService: {XFrameOptionsMode: {ALLOWALL: 'ALLOWALL'}, createHtmlOutput: html => ({html,
@@ -42,6 +47,7 @@ function environment() {
     const data = () => ({classCode: '0123456789abcdef0123456789abcdef', alias: 'Alumno 07', creature: 'Dragón azul',
         fileName: 'dragon.mcaddon', submissionId: 'a'.repeat(32), base64: Buffer.from([80,75,3,4,...Array(40).fill(0)]).toString('base64')});
     return {context, files, props, data, busy: value => { busy = value; }, failDescription: value => { failDescription = value; },
+        failRename: value => { failRename = value; },
         activeUser: value => { activeUser = value; }};
 }
 
@@ -68,7 +74,7 @@ test('saves once, preserves identity on retry and uses a private friendly filena
     assert.equal(env.context.entregarAddon(data).ok, true);
     assert.equal(env.context.entregarAddon(data).duplicate, true);
     assert.equal(env.files.length, 1);
-    assert.match(env.files[0].name, /^Alumno_07__Dragon_azul__/);
+    assert.match(env.files[0].name, /^Alumno_07_\d{2}-\d{2}-\d{2}\.mcaddon$/);
     assert.equal(JSON.parse(env.files[0].description).alias, 'Alumno 07');
     env.context.prepararBuzon_();
     assert.equal(env.files.length, 1);
@@ -106,10 +112,10 @@ test('rejects invalid file, metadata, size and base64', () => {
 
 test('enforces file and byte quotas; releases locks after failure', () => {
     const env = environment();
-    for (let i=0;i<200;i++) env.files.push({getName:()=>`other-${i}`, getSize:()=>10});
+    for (let i=0;i<200;i++) env.files.push({getName:()=>`other-${i}`, getSize:()=>10, getDescription:()=>''});
     assert.throws(() => env.context.entregarAddon(env.data()), /lleno/);
     env.files.length=0;
-    env.files.push({getName:()=> 'large', getSize:()=>500*1024*1024});
+    env.files.push({getName:()=> 'large', getSize:()=>500*1024*1024, getDescription:()=>''});
     assert.throws(() => env.context.entregarAddon(env.data()), /lleno/);
     env.files.length=0;
     assert.equal(env.context.entregarAddon(env.data()).ok, true);
@@ -127,6 +133,39 @@ test('recovers a save interrupted before its description without creating a dupl
     env.failDescription(false);
     assert.equal(env.context.entregarAddon(env.data()).duplicate, true);
     assert.equal(env.files.length, 1);
+    assert.match(env.files[0].name, /^Alumno_07_\d{2}-\d{2}-\d{2}\.mcaddon$/);
+});
+
+test('uses Madrid calendar date and appends a counter only for distinct uploads with the same name', () => {
+    const env = environment();
+    assert.equal(env.context.nombreEntrega_('Nicolás', '2026-11-10T23:30:00Z', new Set()), 'Nicolas_11-11-26.mcaddon');
+    const data=env.data();
+    const first=env.context.entregarAddon(data);
+    const second=env.context.entregarAddon({...data, submissionId:'b'.repeat(32)});
+    assert.equal(second.fileName, first.fileName.replace('.mcaddon','_2.mcaddon'));
+    const retried=env.context.entregarAddon(data);
+    assert.equal(retried.fileName,first.fileName);
+    assert.equal(env.files.length,2);
+});
+
+test('a rename failure keeps the receipt and recovers the same final name on retry', () => {
+    const env=environment();env.failRename(true);
+    assert.throws(()=>env.context.entregarAddon(env.data()),/Rename interrupted/);
+    const expected=JSON.parse(env.files[0].description).fileName;
+    env.failRename(false);
+    const result=env.context.entregarAddon(env.data());
+    assert.equal(result.duplicate,true);assert.equal(result.fileName,expected);assert.equal(env.files.length,1);
+});
+
+test('retries recognize legacy receipts and preserve a teacher rename after successful delivery', () => {
+    const env=environment(), data=env.data();env.context.entregarAddon(data);
+    const file=env.files[0], receipt=JSON.parse(file.description);
+    delete receipt.fileName;file.description=JSON.stringify(receipt);
+    file.name='Alumno_07__Dragon_azul__'+data.submissionId+'.mcaddon';
+    assert.equal(env.context.entregarAddon(data).fileName,file.name);
+    file.name='Nombre elegido por el docente.mcaddon';
+    assert.equal(env.context.entregarAddon(data).fileName,file.name);
+    assert.equal(env.files.length,1);
 });
 
 test('escapes class query input and emits syntactically valid browser script', () => {
