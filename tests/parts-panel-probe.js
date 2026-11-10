@@ -149,10 +149,14 @@ async (page) => {
     });
     await settle();
     await page.screenshot({path:'output/playwright/parts-panel-final.png'});
-    await page.getByRole('button',{name:'Para el docente',exact:true}).click();
-    check((await visible()).length===7,'Teacher mode restores all parts for native editing');
-    check(await page.evaluate(() => !document.body.style.getPropertyValue('--edu-parts-inset')), 'Teacher mode removes the panel layout reservation');
-    await page.locator('#edu-return-students').click();
-    check(await page.locator('#edu-parts-panel').isVisible(), 'Returning to students restores the open panel');
+    if (await page.evaluate(() => window.BlockbenchEduWeb?.role === 'student')) {
+        check(await page.locator('.edu-teacher').count()===0,'Student stays in classroom');
+    } else {
+        await page.getByRole('button',{name:'Para el docente',exact:true}).click();
+        check((await visible()).length===7,'Teacher mode restores all parts for native editing');
+        check(await page.evaluate(() => !document.body.style.getPropertyValue('--edu-parts-inset')), 'Teacher mode removes the panel layout reservation');
+        await page.locator('#edu-return-students').click();
+        check(await page.locator('#edu-parts-panel').isVisible(), 'Returning to students restores the open panel');
+    }
     return report;
 }

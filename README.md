@@ -4,7 +4,7 @@ Plugin local en español para Blockbench web 5.2.2, con teclado y ratón. Incluy
 
 ## Web con inicio directo
 
-Abre **https://nchiari.github.io/blockbench-edu-web/**. Edu se carga automáticamente y abre su asistente, sin instalar plugins ni iniciar sesión. Si cancelas, pulsa «Comenzar» para volver. La versión web usa Blockbench 5.2.2 fijado a una revisión exacta; la compilación y publicación manual se describen en [web/README.md](web/README.md).
+Abre **[Blockbench Edu](https://blockbench-edu.pages.dev/)**. Edu se carga automáticamente y abre su asistente, sin instalar plugins ni iniciar sesión. Si cancelas, pulsa «Comenzar» para volver. La versión web usa Blockbench 5.2.2 fijado a una revisión exacta. Cloudflare Pages publica la web desde la rama `main` del repositorio `nchiari/blockbench-edu-web`; la compilación y publicación se describen en [web/README.md](web/README.md).
 
 El guardado de una sesión educativa completa sigue pendiente: cerrar la pestaña no conserva el estado completo de Edu. La web genera el addon en el navegador y no requiere cuentas de alumnos ni base de datos. Las clases con buzón configurado permiten entregar la criatura directamente al Drive del docente desde el editor; ver [infraestructura de Drive](infrastructure/drive/README.md) y [validación](infrastructure/drive/VALIDACION.md).
 
@@ -24,9 +24,15 @@ Puedes arrastrar el separador entre el menú izquierdo y la vista 3D para amplia
 
 Deshacer y rehacer permanecen fijos al pie del menú, tanto en «Dale forma» como en «Dale color».
 
+El panel «Partes», a la derecha de la vista 3D, permite mostrar u ocultar partes con el ojo, dejar una sola visible con el botón de enfoque y recuperar la vista completa con «Mostrar todas». Está abierto al iniciar y disponible en forma y color. La lista tiene desplazamiento propio y conserva las partes ocultas al cambiar entre esos dos modos. La flecha superior pliega el panel para ampliar la vista 3D; el botón «Partes» permite abrirlo de nuevo e indica cuántas partes están ocultas. Esc también lo pliega cuando el foco está dentro del panel. La exportación incluye las partes temporalmente ocultas; al pasar a la vista del docente se restaura la visibilidad original.
+
+En «Dale color», «Seleccionar color» permite hacer clic directamente sobre la criatura para seleccionar todos los píxeles de ese mismo color y transparencia en la textura, aunque estén separados o en partes ocultas. Seleccionar no cambia la pintura. La selección permanece activa al cambiar de herramienta: el pincel, el borrador y Suavizar actúan únicamente dentro de ella; Rellenar pinta toda la selección al hacer clic sobre un píxel seleccionado. «Quitar selección» permite volver a pintar libremente. La selección muestra cuántos píxeles contiene y cada acción de pintura se puede deshacer o rehacer.
+
 «Controles de cámara», junto a las vistas inferiores, abre botones para girar y desplazar la vista y acercar o alejar. Permite manejar la cámara con clics de touchpad sin rueda ni clic derecho. En las vistas ortográficas, el giro queda deshabilitado; «Vista 3D» lo habilita de nuevo. Los botones de cámara no modifican las piezas ni el historial.
 
-«Para el docente» vuelve a la interfaz general de Blockbench. Allí aparece un botón verde «Volver a alumnos» independiente del panel «Prueba Edu», que también conserva su propio botón de regreso. La pantalla educativa oculta los menús y paneles generales mientras se trabaja. La sesión educativa y el addon base se conservan en memoria: no cerrar la pestaña esperando recuperar después todo ese estado. El guardado y reapertura de una sesión educativa completa sigue pendiente.
+La web tiene dos accesos: la dirección principal abre la versión alumno, sin «Para el docente» ni la barra general de Blockbench; `/docente/` abre la versión docente y, al terminar el asistente, muestra el editor completo con el panel «Prueba Edu». Desde allí se puede configurar la clase y copiar su enlace, que siempre apunta a la versión alumno. El docente conserva «Volver a alumnos» para probar la pantalla educativa y «Para el docente» para regresar a sus controles. El plugin instalado manualmente conserva también ese cambio de vista.
+
+La sesión educativa y el addon base se conservan en memoria: no cerrar la pestaña esperando recuperar después todo ese estado. El guardado y reapertura de una sesión educativa completa sigue pendiente. Cada acceso trabaja en su propia pestaña; abrir el acceso docente no transfiere la criatura de una pestaña de alumno.
 
 ## Tamaño, pintura e historial
 
@@ -58,3 +64,7 @@ npm run sync
 Las capturas, descargas y resultados generados van en `output/`. La pareja original `reference/cerdo_edu.bbmodel` y `reference/cerdo_edu.mcaddon` se conserva para las pruebas de referencia.
 
 La prueba de interfaz `tests/classroom-ui-probe.js` se ejecuta con `playwright-cli run-code` en una pestaña web de prueba. Revisa el asistente, el catálogo, los controles de cámara y las acciones fijas en tres resoluciones, al 100 % y con la distribución equivalente al 125 %. La comodidad con un touchpad físico requiere una prueba manual.
+
+`tests/parts-panel-probe.js`, sobre el zombi temporal de esa prueba, comprueba los ojos, el aislamiento de una parte, el cambio entre forma y color, el teclado, el encuadre disponible al plegar, el historial y la descarga con partes ocultas. También revisa el panel en las mismas tres resoluciones y dos escalas, con el menú izquierdo en su ancho mínimo y máximo y los controles de cámara abiertos.
+
+`tests/color-selection-probe.js`, en una pestaña de prueba nueva, comprueba la selección por color desde el modelo 3D, el uso del bote, pincel, borrador y Suavizar, la conservación de todos los píxeles no seleccionados y la recuperación de la pintura con el historial nativo.

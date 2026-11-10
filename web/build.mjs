@@ -68,12 +68,12 @@ const pluginBytes = await fs.readFile(path.join(root, 'blockbench_edu.js'));
 const digest = bytes => createHash('sha256').update(bytes).digest('hex').slice(0, 16);
 const pluginName = `blockbench_edu.${digest(pluginBytes)}.js`;
 const hostCode = (await fs.readFile(path.join(web, 'drive-inbox.js'), 'utf8')) + '\n' + (await fs.readFile(path.join(web, 'edu-web.js'), 'utf8'))
-  .replace("new URL('blockbench_edu.js', location.href)", `new URL('${pluginName}', location.href)`);
+  .replace("new URL('blockbench_edu.js', document.baseURI)", `new URL('${pluginName}', document.baseURI)`);
 const hostName = `edu-web.${digest(hostCode)}.js`;
 const styleBytes = await fs.readFile(path.join(web, 'edu-web.css'));
 const styleName = `edu-web.${digest(styleBytes)}.css`;
 html = html.replace('<title>Blockbench</title>', '<title>Blockbench Edu</title>');
-html = html.replace('<html lang="en">', '<html lang="es">');
+html = html.replace('<html lang="en">', '<html lang="es" data-edu-role="student">');
 html = html.replace('<link rel="manifest" href="manifest.webmanifest">', '');
 html = html.replace('</head>', `<link rel="stylesheet" href="${styleName}">\n</head>`);
 html = html.replace('<body ', '<body class="edu-web-loading" ');
@@ -83,6 +83,13 @@ html = html.replace(/(<body[^>]*>)/, '$1\n<main id="edu-web-start"><section><div
 // Replace only the bootstrap reference inserted above.
 html = html.replace('src="edu-web.js"', `src="${hostName}"`);
 await fs.writeFile(path.join(dist, 'index.html'), html);
+// Both entries share the same assets. The teacher base keeps relative upstream
+// resources and student delivery links at the deployment root, including GitHub Pages.
+await fs.mkdir(path.join(dist, 'docente'), {recursive: true});
+await fs.writeFile(path.join(dist, 'docente', 'index.html'), html
+  .replace('data-edu-role="student"', 'data-edu-role="teacher"')
+  .replace('<head>', '<head>\n<base href="../">')
+  .replace('<title>Blockbench Edu</title>', '<title>Blockbench Edu · Docente</title>'));
 await fs.writeFile(path.join(dist, pluginName), pluginBytes);
 await fs.writeFile(path.join(dist, hostName), hostCode);
 await fs.writeFile(path.join(dist, styleName), styleBytes);

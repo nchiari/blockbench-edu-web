@@ -23,7 +23,7 @@ Receptor de entregas en Google Apps Script. Recibe `.mcaddon` en una carpeta pri
 ## Entregar desde Blockbench Edu web
 
 - La dirección pública del receptor está en `web/drive-inbox.js`; el código de cada clase no se incluye en el repositorio.
-- El docente abre **Para el docente → Prueba Edu → Entregas de la clase**, pega el código obtenido al preparar el buzón y pulsa **Seleccionar clase**. Copia el enlace del editor que aparece y lo comparte con los alumnos.
+- El docente entra por **/docente/** y abre **Prueba Edu → Entregas de la clase**, pega el código obtenido al preparar el buzón y pulsa **Seleccionar clase**. Copia el enlace del editor que aparece y lo comparte con los alumnos: siempre lleva a la entrada alumno, sin `/docente/`.
 - El enlace lleva la clase en el fragmento `#clase=…`. El alumno crea su criatura y pulsa **3 · Entregar al profe**, escribe su nombre o número de alumno y confirma con el botón verde. El archivo se prepara y envía automáticamente. Si el campo está vacío, el botón explica qué falta y lleva el cursor al campo.
 - El cuadro muestra el resultado y ofrece descarga de respaldo. Tras un error conserva el mismo archivo e identificador para reintentar desde ese cuadro. Cerrar el cuadro y empezar de nuevo crea una entrega nueva.
 - Durante la preparación y el envío aparece una ruedita sin porcentaje. Se bloquean los botones del cuadro, la cruz de cierre, el teclado y los controles del editor; el bloqueo se retira al guardar o al mostrar un error. La confirmación usa un recuadro verde, una marca de verificación y el botón **Seguir creando**.

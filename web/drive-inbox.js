@@ -63,7 +63,7 @@
         },
         get classLink() {
             if (!classCode) return '';
-            const url = new URL(location.href); url.search = ''; url.hash = new URLSearchParams({clase: classCode}).toString();
+            const url = new URL(window.BlockbenchEduWeb?.studentUrl || location.href); url.search = ''; url.hash = new URLSearchParams({clase: classCode}).toString();
             return url.href;
         },
         async prepare(content, alias, creature, fileName) {

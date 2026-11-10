@@ -4,12 +4,13 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const {webcrypto} = require('node:crypto');
 
-function environment(hash = '#clase=' + 'a'.repeat(32), origin = 'http://localhost:4173', pathname = '/blockbench-edu-web/') {
+function environment(hash = '#clase=' + 'a'.repeat(32), origin = 'http://localhost:4173', pathname = '/blockbench-edu-web/', studentUrl) {
     const frames=[], listeners=new Set(), timers=new Map(), otherListeners=new Map(); let next=0;
     const location = {href:origin+pathname+hash, hash, origin};
     const window={addEventListener:(type,fn)=>type==='message'?listeners.add(fn):otherListeners.set(type,fn),
         removeEventListener:(type,fn)=>type==='message'?listeners.delete(fn):otherListeners.delete(type),
         dispatchEvent:event=>otherListeners.get(event.type)?.(event)};
+    if (studentUrl) window.BlockbenchEduWeb = {studentUrl};
     const context=vm.createContext({window,location,URL,URLSearchParams,crypto:webcrypto,Uint8Array,Event,
         document:{createElement:()=>({remove(){this.removed=true;}}),body:{append:frame=>frames.push(frame)}},
         setTimeout:(fn,ms)=>{timers.set(++next,{fn,ms});return next;},clearTimeout:id=>timers.delete(id),
@@ -43,6 +44,15 @@ test('Cloudflare root links and bridge requests use the current host without a G
     const channel=env.ready();await tick();
     env.event({type:'edu-drive-result',channel,submissionId:payload.submissionId,result:{ok:true,receipt:payload.submissionId}});
     assert.equal((await response).ok,true);
+});
+
+test('teacher entry shares the student entry with the class fragment on both hosting paths',()=>{
+    for (const [origin,base] of [['https://blockbench-edu.pages.dev','/'],['https://nchiari.github.io','/blockbench-edu-web/']]) {
+        const env=environment('#clase='+'a'.repeat(32),origin,base+'docente/',origin+base);
+        assert.equal(env.api.classLink,origin+base+'#clase='+'a'.repeat(32));
+        env.api.setClassCode('b'.repeat(32));
+        assert.equal(env.api.classLink,origin+base+'#clase='+'b'.repeat(32));
+    }
 });
 
 test('prepares bytes once with a random retry identifier',async()=>{

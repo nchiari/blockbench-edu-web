@@ -1,14 +1,24 @@
 /* Web-only host. The standalone plugin remains the single editor implementation. */
 (() => {
   'use strict';
+  const role = document.documentElement.dataset.eduRole === 'teacher' ? 'teacher' : 'student';
+  const studentUrl = new URL('./', document.baseURI).href;
+  document.body.classList.add(`edu-web-${role}`);
   const preferences = JSON.parse(localStorage.getItem('settings') || '{}');
   preferences.language = {value: 'es'};
   localStorage.setItem('settings', JSON.stringify(preferences));
   let overlay, started = false, failed = false;
   const host = window.BlockbenchEduWeb = {
     autostart: true,
+    role,
+    studentUrl,
     showHome() {
       document.body.classList.remove('edu-web-loading');
+      if (role === 'teacher') {
+        document.body.classList.remove('edu-web-home');
+        overlay.hidden = true;
+        return;
+      }
       document.body.classList.add('edu-web-home');
       overlay.hidden = false;
       overlay.querySelector('h1').textContent = 'Blockbench Edu';
@@ -19,7 +29,7 @@
       button.onclick = () => ModelLoader.loaders.blockbench_edu.onStart();
     },
     showWizard() {
-      document.title = 'Blockbench Edu';
+      document.title = role === 'teacher' ? 'Blockbench Edu · Docente' : 'Blockbench Edu';
       document.body.classList.remove('edu-web-loading', 'edu-web-home');
       overlay.hidden = true;
     }
@@ -47,7 +57,7 @@
       try {
         Plugins.registered.blockbench_edu = new Plugin('blockbench_edu');
         const script = document.createElement('script');
-        script.src = new URL('blockbench_edu.js', location.href).href;
+        script.src = new URL('blockbench_edu.js', document.baseURI).href;
         script.onerror = () => failure(new Error('Edu script could not load'));
         script.onload = () => {
           if (failed) return;

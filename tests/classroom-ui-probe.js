@@ -79,10 +79,17 @@ async (page) => {
         }
     }
     const original = await documentState();
-    await page.getByRole('button',{name:'Para el docente',exact:true}).click();
-    const returnButton=page.locator('#edu-return-students'); assert(await returnButton.isVisible(),'Independent teacher return visible');
-    await returnButton.click(); assert(original===await documentState(),'Teacher round trip preserves project');
-    assert(await returnButton.isHidden(),'Teacher return hidden in classroom');
+    const student = await page.evaluate(() => window.BlockbenchEduWeb?.role === 'student');
+    if (student) {
+        assert(await page.locator('.edu-teacher').count()===0,'Student has no teacher switch');
+        assert(await page.locator('body>header').isHidden(),'Student native header hidden');
+        assert(original===await documentState(),'Student checks preserve project');
+    } else {
+        await page.getByRole('button',{name:'Para el docente',exact:true}).click();
+        const returnButton=page.locator('#edu-return-students'); assert(await returnButton.isVisible(),'Independent teacher return visible');
+        await returnButton.click(); assert(original===await documentState(),'Teacher round trip preserves project');
+        assert(await returnButton.isHidden(),'Teacher return hidden in classroom');
+    }
     await page.screenshot({path:'output/playwright/feedback-final.png'});
     return report;
 }

@@ -328,6 +328,7 @@
     let panel, style, wizardStyle, action, loader, wizard, classroom, classroomStyle, selectionTool, smoothTool, colorSelectionTool, selectionFillTool, previousTool, teacherReturn, alive = false;
     const EDU_ICON = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="5" fill="#123d27"/><path d="m16 3 12 7v13l-12 7-12-7V10Z" fill="#53d983"/><path d="m4 10 12 7 12-7M16 17v13" fill="none" stroke="#143e28" stroke-width="2"/><path d="m8 9 8-4 8 4-8 5Z" fill="#b8ffd1"/><path d="M8 18v5m16-5v5" stroke="#143e28" stroke-width="3"/></svg>');
     const sessions = new Map(), listeners = [];
+    const allowsTeacherView = () => window.BlockbenchEduWeb?.role !== 'student';
     function current() { return typeof Project !== 'undefined' && Project ? sessions.get(Project.uuid) : null; }
     function selectedPiece() {
         const session = current();
@@ -472,7 +473,7 @@
     }
     function refreshTeacherReturn() {
         if (teacherReturn) {
-            teacherReturn.hidden = !alive || !!classroom || !current()?.prepared || document.body.classList.contains('edu-setup');
+            teacherReturn.hidden = !allowsTeacherView() || !alive || !!classroom || !current()?.prepared || document.body.classList.contains('edu-setup');
             teacherReturn.disabled = !!current()?.busy;
         }
     }
@@ -941,7 +942,7 @@
         classroom = new Vue({el: mount,
             data: {sidebarWidth: current()?.sidebarWidth || 260, sidebarMax: 480, sidebarDragging: false, sidebarStartX: 0, sidebarStartWidth: 260, mode: 'shape', operation: 'size', position: [0,0,0], rotation: [0,0,0], axes: ['De lado', 'Arriba / abajo', 'Adelante / atrás'], turns: ['Inclinar', 'Girar', 'Ladear'], pieces: [], selectedId: '', dimensions: [0,0,0], maximum: [0,0,0], minimum: [1,1,1], busy: false, canUndo: false, canRedo: false,
                 bones: [], partsOpen: current()?.partsOpen ?? true, soloBoneId: '', selectedPixelCount: 0, paintTool: 'brush_tool', brushSize: 1, cameraControlsOpen: false, cameraIsOrtho: false,
-                driveAvailable: !!window.BlockbenchEduDrive, driveClass: !!window.BlockbenchEduDrive?.classCode,
+                teacherViewAvailable: allowsTeacherView(), driveAvailable: !!window.BlockbenchEduDrive, driveClass: !!window.BlockbenchEduDrive?.classCode,
                 cameraRotate: Keybinds.extra.preview_rotate.keybind.toString(), cameraPan: Keybinds.extra.preview_drag.keybind.toString(), cameraZoom: Keybinds.extra.preview_scroll_zoom.keybind.toString(),
                 labels: ['Ancho', 'Alto', 'Profundidad'], color: ColorPanel.get(), colors: ['#ffffff','#20252d','#e85b61','#f7b45c','#f9e778','#60d98b','#63bee8','#8479df','#ed90c4','#986a48']},
             mounted() {
@@ -1033,7 +1034,7 @@
                         : Math.max(260, Math.min(this.sidebarMax, this.sidebarWidth + (event.key === 'ArrowRight' ? 10 : -10)));
                 },
                 cameraArrow(direction) { return {left:'arrow_back',right:'arrow_forward',up:'arrow_upward',down:'arrow_downward'}[direction]; },
-                selectPiece, camera, cameraControl, exit() { leaveClassroom(); panel.selectTab(); refresh(); },
+                selectPiece, camera, cameraControl, exit() { if (!allowsTeacherView()) return; leaveClassroom(); panel.selectTab(); refresh(); },
                 resize: (axis, step) => attempt(() => resize(axis, step)),
                 transform: (kind, axis, step) => attempt(() => transformPiece(kind, axis, step)),
                 move: (axis, step) => attempt(() => transformPiece('move', axis, axis === 0 ? -step : step)),
@@ -1046,7 +1047,7 @@
                 clearColorSelection: clearPaintColorSelection,
                 toggleBone: togglePaintBone, showOnlyBone: showOnlyPaintBone, showAllBones: showPaintBones
             },
-            template: `<div id="edu-classroom"><header><strong>Blockbench Edu</strong><nav aria-label="Crear tu criatura"><button @click="setMode('shape')" :class="{active:mode==='shape'}">1 · Dale forma</button><button @click="setMode('paint')" :class="{active:mode==='paint'}">2 · Dale color</button><button v-if="driveClass" @click="deliver" :disabled="busy">3 · Entregar al profe</button><button v-else @click="download" :disabled="busy">3 · Llévala a Minecraft</button></nav><button @click="exit" class="edu-teacher">Para el docente</button></header>
+            template: `<div id="edu-classroom"><header><strong>Blockbench Edu</strong><nav aria-label="Crear tu criatura"><button @click="setMode('shape')" :class="{active:mode==='shape'}">1 · Dale forma</button><button @click="setMode('paint')" :class="{active:mode==='paint'}">2 · Dale color</button><button v-if="driveClass" @click="deliver" :disabled="busy">3 · Entregar al profe</button><button v-else @click="download" :disabled="busy">3 · Llévala a Minecraft</button></nav><button v-if="teacherViewAvailable" @click="exit" class="edu-teacher">Para el docente</button></header>
                 <aside><div class="edu-sidebar-scroll"><template v-if="mode==='shape'"><h2>Dale forma</h2><label>¿Qué parte quieres cambiar?<select :value="selectedId" @change="selectPiece($event.target.value)"><option v-for="piece in pieces" :key="piece.id" :value="piece.id">{{piece.label}}</option></select></label><div class="edu-paint-tools edu-shape-tools" role="group" aria-label="¿Qué quieres hacer?"><button @click="operation='size'" :class="{active:operation==='size'}" :aria-pressed="operation==='size'"><i class="material-icons" aria-hidden="true">open_in_full</i>Tamaño</button><button @click="operation='move'" :class="{active:operation==='move'}" :aria-pressed="operation==='move'"><i class="material-icons" aria-hidden="true">open_with</i>Mover</button><button @click="operation='rotate'" :class="{active:operation==='rotate'}" :aria-pressed="operation==='rotate'"><i class="material-icons" aria-hidden="true">rotate_right</i>Girar</button></div><template v-if="operation==='size'"><div class="edu-size"><span>Tamaño general</span><button @click="resize('all',-1)" :disabled="busy || dimensions.some((value,axis) => value-1 &lt; minimum[axis])" aria-label="Reducir tamaño general">−</button><b></b><button @click="resize('all',1)" :disabled="busy || dimensions.some((value,axis) => value+1 &gt; maximum[axis])" aria-label="Aumentar tamaño general">+</button></div><p>Cambia el ancho, el alto y la profundidad a la vez.</p><div class="edu-size" v-for="(label,axis) in labels" :key="label"><span>{{label}}</span><button @click="resize(axis,-1)" :disabled="busy || dimensions[axis]&lt;=minimum[axis]" :aria-label="'Reducir '+label">−</button><b>{{dimensions[axis]}}</b><button @click="resize(axis,1)" :disabled="busy || dimensions[axis]&gt;=maximum[axis]" :aria-label="'Aumentar '+label">+</button></div><p>Usa − para reducir y + para aumentar.<br>Puedes deshacer si no te gusta.</p></template><template v-else-if="operation==='move'"><div class="edu-move-arrows"><strong>Mover</strong><div class="edu-size" v-for="(label,axis) in axes" :key="'move-'+axis"><span>{{label}}</span><button @click="move(axis,-1)" :disabled="busy" :aria-label="'Mover '+label+' menos'">{{axis===1?'↓':axis===2?'↙':'←'}}</button><b></b><button @click="move(axis,1)" :disabled="busy" :aria-label="'Mover '+label+' más'">{{axis===1?'↑':axis===2?'↗':'→'}}</button></div><p>Las capas de esta parte se mueven y cambian de tamaño juntas.</p></div></template><template v-else><div class="edu-size" v-for="(label,index) in turns" :key="label"><span>{{label}}</span><button :aria-label="'Girar menos: '+label" @click="transform('rotate',index,-15)" :disabled="busy">−</button><b>{{rotation[index]}}</b><button :aria-label="'Girar más: '+label" @click="transform('rotate',index,15)" :disabled="busy">+</button></div><p>Usa − y + para girar esta parte poco a poco.</p></template></template>
                 <template v-else><h2>Dale color</h2><p>Elige un color y pinta sobre tu criatura.</p><div class="edu-palette"><button v-for="swatch in colors" :key="swatch" :style="{background:swatch}" :aria-label="'Color '+swatch" @click="paintColor(swatch)"></button></div><label>Otro color<input type="color" :value="color" @input="paintColor($event.target.value)"/></label><div class="edu-paint-tools">
                     <button @click="tool('brush_tool')" :class="{active:paintTool==='brush_tool'}"><i class="material-icons" aria-hidden="true">brush</i>Pincel</button>
@@ -1128,7 +1129,8 @@
                             panel.selectTab();
                             panel.position_data.height = 520; panel.position_data.fixed_height = true; panel.update();
                             panel.vue.$el.scrollTop = 0;
-                            enterClassroom();
+                            if (window.BlockbenchEduWeb?.role !== 'teacher') enterClassroom();
+                            else refresh();
                         } catch (error) { this.error = 'No pudimos abrir esta criatura. Puedes elegir otra o pedirle ayuda a tu docente.'; console.error('[Blockbench Edu]', error); }
                         finally { this.busy = false; }
                     }
