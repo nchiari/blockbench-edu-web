@@ -41,6 +41,11 @@ async page => {
     }),'Click on the 3D model selects both disconnected exact RGBA matches, including a hidden part');
     check(await page.evaluate(()=>Texture.all[0].canvas.toDataURL()===eduColorTest.png),'Selecting a color does not repaint the texture');
     check(await page.evaluate(()=>document.getElementById('edu-classroom').__vue__.selectedPixelCount===2),'Selected-pixel count is visible in the classroom');
+    check(await page.evaluate(()=>Cube.all.every(c=>c.mesh.children.some(child=>child.name==='edu_color_selection_preview'))),'Selected pixels have a separate 3D preview overlay');
+    await page.getByRole('button',{name:'1 · Dale forma',exact:true}).click();
+    check(await page.evaluate(()=>Cube.all.every(c=>!c.mesh.children.some(child=>child.name==='edu_color_selection_preview'))),'Shape mode removes the visual overlay');
+    await page.getByRole('button',{name:'2 · Dale color',exact:true}).click();
+    check(await page.evaluate(()=>Cube.all.every(c=>c.mesh.children.some(child=>child.name==='edu_color_selection_preview'))),'Returning to Paint restores the visual selection');
     await page.getByRole('button',{name:'Color #e85b61',exact:true}).click();
     await page.getByRole('button',{name:'Rellenar',exact:true}).click();
     await page.mouse.click(point.x,point.y);
@@ -97,6 +102,7 @@ async page => {
     await page.waitForFunction(()=>Texture.all[0].canvas.toDataURL()===eduColorTest.png);
     await page.getByRole('button',{name:'Quitar selección',exact:true}).click();
     check(await page.evaluate(()=>!Texture.all[0].selection.is_custom&&document.getElementById('edu-classroom').__vue__.selectedPixelCount===0),'Clear Selection releases native painting restrictions and removes contextual controls');
+    check(await page.evaluate(()=>Cube.all.every(c=>!c.mesh.children.some(child=>child.name==='edu_color_selection_preview'))),'Clear Selection removes all 3D selection overlays');
     await page.getByRole('button',{name:'Deshacer',exact:true}).click();
     check(await page.evaluate(()=>document.getElementById('edu-classroom').__vue__.selectedPixelCount===2),'Undo restores the color selection and its displayed count');
     await page.getByRole('button',{name:'Quitar selección',exact:true}).click();

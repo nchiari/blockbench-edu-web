@@ -34,6 +34,8 @@ La web tiene dos accesos: la dirección principal abre la versión alumno, sin �
 
 La sesión educativa y el addon base se conservan en memoria: no cerrar la pestaña esperando recuperar después todo ese estado. El guardado y reapertura de una sesión educativa completa sigue pendiente. Cada acceso trabaja en su propia pestaña; abrir el acceso docente no transfiere la criatura de una pestaña de alumno.
 
+Los píxeles seleccionados se destacan sobre el modelo con un tinte celeste transparente y un borde de contraste. La marca se mantiene al cambiar de herramienta, desaparece con «Quitar selección» y solo se muestra en Pintura. Es una ayuda visual del editor: no modifica la textura ni se incluye en el addon exportado.
+
 ## Tamaño, pintura e historial
 
 - Cada pulsación cambia la dimensión total en 1 y mantiene el centro. Las medidas fraccionarias originales se conservan: 2,5 → 3,5. No se redondea la silueta para preparar el modelo.

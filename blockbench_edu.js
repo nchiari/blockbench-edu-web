@@ -446,6 +446,41 @@
         UVEditor.updateSelectionOutline(); Undo.finishSelection('Seleccionar un color Edu');
         classroom.tool('brush_tool'); refresh();
     }
+    let colorSelectionPreview;
+    function clearColorSelectionPreview() {
+        if (!colorSelectionPreview) return;
+        for (const mesh of colorSelectionPreview.meshes) mesh.parent?.remove(mesh);
+        colorSelectionPreview.material.dispose(); colorSelectionPreview.texture.dispose();
+        colorSelectionPreview = null;
+    }
+    function updateColorSelectionPreview() {
+        clearColorSelectionPreview();
+        const texture = Texture.all.find(texture => texture.uuid === current()?.textureId);
+        if (!classroom || classroom.mode !== 'paint' || !classroom.selectedPixelCount || !texture?.selection.is_custom) return;
+        const selection = texture.selection, scale = 4;
+        const canvas = document.createElement('canvas'); canvas.width = selection.width*scale; canvas.height = selection.height*scale;
+        const ctx = canvas.getContext('2d');
+        for (let y=0;y<selection.height;y++) for (let x=0;x<selection.width;x++) {
+            if (!selection.get(x,y)) continue;
+            ctx.fillStyle = 'rgba(0,230,255,0.35)'; ctx.fillRect(x*scale,y*scale,scale,scale);
+            ctx.fillStyle = (x+y)%2 ? '#101010' : '#ffffff';
+            if (!selection.get(x-1,y)) ctx.fillRect(x*scale,y*scale,1,scale);
+            if (!selection.get(x+1,y)) ctx.fillRect((x+1)*scale-1,y*scale,1,scale);
+            if (!selection.get(x,y-1)) ctx.fillRect(x*scale,y*scale,scale,1);
+            if (!selection.get(x,y+1)) ctx.fillRect(x*scale,(y+1)*scale-1,scale,1);
+        }
+        const map = new THREE.CanvasTexture(canvas); map.magFilter = THREE.NearestFilter; map.minFilter = THREE.NearestFilter; map.generateMipmaps = false;
+        const material = new THREE.MeshBasicMaterial({map,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2,side:THREE.DoubleSide});
+        const meshes = [];
+        for (const cube of Cube.all) {
+            if (!cube.mesh) continue;
+            // Share the live geometry so the marker follows UVs and shape without editing either.
+            const mesh = new THREE.Mesh(cube.mesh.geometry,material); mesh.name = 'edu_color_selection_preview';
+            mesh.raycast = () => {}; mesh.renderOrder = 10;
+            cube.mesh.add(mesh); meshes.push(mesh);
+        }
+        colorSelectionPreview = {meshes,material,texture:map};
+    }
     function clearPaintColorSelection() {
         const texture = Texture.all.find(texture => texture.uuid === current()?.textureId);
         if (!texture || current()?.busy) return;
@@ -511,6 +546,7 @@
             classroom.position = head ? head.from.map((v,i) => (v + head.to[i]) / 2) : [0,0,0];
             classroom.rotation = head ? head.rotation.slice() : [0,0,0];
         }
+        updateColorSelectionPreview();
     }
     function validateSession() {
         const session = current();
@@ -923,6 +959,7 @@
     }
     function leaveClassroom() {
         showPaintBones();
+        clearColorSelectionPreview();
         document.body.classList.remove('edu-classroom', 'edu-sidebar-dragging');
         document.body.style.removeProperty('--edu-sidebar-width');
         document.body.style.removeProperty('--edu-preview-bottom');
@@ -1040,7 +1077,7 @@
                 move: (axis, step) => attempt(() => transformPiece('move', axis, axis === 0 ? -step : step)),
                 undo: () => Undo.undo(), redo: () => Undo.redo(), download: () => attempt(exportAddon),
                 deliver: () => attempt(deliverAddon),
-                setMode(mode) { this.mode = mode; Modes.options[mode === 'paint' ? 'paint' : 'edit'].select(); if (mode === 'paint') { this.tool(this.paintTool); ColorPanel.set(this.color); } else { selectClassroomTool(); } applyPaintVisibility(); window.dispatchEvent(new Event('resize')); },
+                setMode(mode) { this.mode = mode; Modes.options[mode === 'paint' ? 'paint' : 'edit'].select(); if (mode === 'paint') { this.tool(this.paintTool); ColorPanel.set(this.color); } else { selectClassroomTool(); } applyPaintVisibility(); updateColorSelectionPreview(); window.dispatchEvent(new Event('resize')); },
                 paintColor(color) { this.color = color; ColorPanel.set(color); },
                 tool(id) { this.paintTool = id; BarItems[id==='fill_tool' && this.selectedPixelCount ? 'blockbench_edu_fill_selection' : id].select(); if (['brush_tool','eraser','blockbench_edu_smooth'].includes(id)) BarItems.slider_brush_size.setValue(this.brushSize); },
                 changeBrushSize(step) { this.brushSize = Math.max(1,Math.min(64,this.brushSize+step)); if (['brush_tool','eraser','blockbench_edu_smooth'].includes(this.paintTool)) BarItems.slider_brush_size.setValue(this.brushSize); },
