@@ -325,7 +325,7 @@
     const core = {resizePixels, smoothPixels, extractPixels, extractSurface, sampleRegion, packFaces, centeredBounds, geometryEntries, signature, syncManifests, readAddon, buildAddon, createStarter, createMobAddon, compatibleSounds};
     if (typeof module !== 'undefined' && module.exports) { module.exports = core; return; }
 
-    let panel, style, wizardStyle, action, loader, wizard, classroom, classroomStyle, selectionTool, smoothTool, previousTool, teacherReturn, alive = false;
+    let panel, style, wizardStyle, action, loader, wizard, classroom, classroomStyle, selectionTool, smoothTool, colorSelectionTool, selectionFillTool, previousTool, teacherReturn, alive = false;
     const EDU_ICON = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="5" fill="#123d27"/><path d="m16 3 12 7v13l-12 7-12-7V10Z" fill="#53d983"/><path d="m4 10 12 7 12-7M16 17v13" fill="none" stroke="#143e28" stroke-width="2"/><path d="m8 9 8-4 8 4-8 5Z" fill="#b8ffd1"/><path d="M8 18v5m16-5v5" stroke="#143e28" stroke-width="3"/></svg>');
     const sessions = new Map(), listeners = [];
     function current() { return typeof Project !== 'undefined' && Project ? sessions.get(Project.uuid) : null; }
@@ -374,28 +374,86 @@
             for (let parent = cube.parent; parent instanceof Group; parent = parent.parent) {
                 if (session.hiddenBones.has(parent.uuid)) hidden = true;
             }
-            cube.visibility = session.paintVisibility[cube.uuid] !== false && !hidden;
+            cube.visibility = session.paintVisibility[cube.uuid] !== false && !hidden &&
+                (!session.visibleBones || session.visibleBones.has(cube.parent?.uuid));
         }
         Canvas.updateVisibility();
     }
     function togglePaintBone(id) {
         const session = current();
-        if (!session) return;
+        const bone = Group.all.find(group => group.uuid === id);
+        if (!session || session.busy || !bone) return;
         if (!session.paintVisibility) session.paintVisibility = Object.fromEntries(Cube.all.map(cube => [cube.uuid,cube.visibility]));
         if (!session.hiddenBones) session.hiddenBones = new Set();
-        const bone = Group.all.find(group => group.uuid === id);
-        const hidden = bone?.children.filter(c => c instanceof Cube).every(c => !c.visibility);
-        if (hidden) {
+        const hidden = bone.children.filter(c => c instanceof Cube).every(c => !c.visibility);
+        if (session.visibleBones) {
+            if (hidden) session.visibleBones.add(bone.uuid);
+            else session.visibleBones.delete(bone.uuid);
+        } else if (hidden) {
             for (let parent = bone; parent instanceof Group; parent = parent.parent) session.hiddenBones.delete(parent.uuid);
         } else session.hiddenBones.add(id);
+        applyPaintVisibility(); refresh();
+    }
+    function showOnlyPaintBone(id) {
+        const session = current(), bone = Group.all.find(group => group.uuid === id);
+        if (!session || session.busy || !bone) return;
+        if (!session.paintVisibility) session.paintVisibility = Object.fromEntries(Cube.all.map(cube => [cube.uuid,cube.visibility]));
+        session.hiddenBones = new Set();
+        session.visibleBones = new Set([bone.uuid]);
         applyPaintVisibility(); refresh();
     }
     function showPaintBones() {
         const session = current();
         if (!session?.paintVisibility) return;
         for (const cube of Cube.all) cube.visibility = session.paintVisibility[cube.uuid] ?? cube.visibility;
-        delete session.paintVisibility; delete session.hiddenBones;
+        delete session.paintVisibility; delete session.hiddenBones; delete session.visibleBones;
         Canvas.updateVisibility(); refresh();
+    }
+    function selectPaintColor(texture, x, y) {
+        const session = current();
+        if (!session || session.busy || texture?.uuid !== session.textureId) return;
+        x = Math.max(0, Math.min(texture.canvas.width-1, Math.floor(x)));
+        y = Math.max(0, Math.min(texture.canvas.height-1, Math.floor(y)));
+        const {width, height, data} = texture.ctx.getImageData(0,0,texture.canvas.width,texture.canvas.height);
+        const offset = (y*width+x)*4, rgba = data.slice(offset,offset+4);
+        if (!rgba[3]) { Blockbench.showQuickMessage('Elige un color visible de la criatura.'); return; }
+        if (Texture.selected !== texture) texture.select();
+        UVEditor.vue.texture = texture;
+        Undo.initSelection({texture_selection:true});
+        texture.selection.changeSize(width,height); texture.selection.clear();
+        for (let pixel=0; pixel<width*height; pixel++) {
+            const i=pixel*4;
+            if (data[i]===rgba[0] && data[i+1]===rgba[1] && data[i+2]===rgba[2] && data[i+3]===rgba[3]) {
+                texture.selection.set(pixel%width,Math.floor(pixel/width),1);
+            }
+        }
+        UVEditor.updateSelectionOutline(); Undo.finishSelection('Seleccionar un color Edu');
+        classroom.tool('brush_tool'); refresh();
+    }
+    function clearPaintColorSelection() {
+        const texture = Texture.all.find(texture => texture.uuid === current()?.textureId);
+        if (!texture || current()?.busy) return;
+        if (Texture.selected !== texture) texture.select();
+        UVEditor.vue.texture = texture;
+        Undo.initSelection({texture_selection:true}); texture.selection.clear();
+        UVEditor.updateSelectionOutline(); Undo.finishSelection('Quitar selección de color Edu'); refresh();
+    }
+    function paintColorSelection() {
+        validateSession();
+        const texture = Texture.all[0], selection = texture.selection;
+        if (!selection.is_custom || !selection.hasSelection()) return;
+        const image = texture.ctx.getImageData(0,0,texture.canvas.width,texture.canvas.height);
+        const rgb = tinycolor(classroom.color).toRgb();
+        Undo.initEdit({textures:[texture],bitmap:true});
+        try {
+            for (let pixel=0; pixel<image.width*image.height; pixel++) {
+                if (!selection.array[pixel]) continue;
+                image.data[pixel*4]=rgb.r; image.data[pixel*4+1]=rgb.g; image.data[pixel*4+2]=rgb.b; image.data[pixel*4+3]=255;
+            }
+            texture.ctx.putImageData(image,0,0); texture.updateChangesAfterEdit();
+            Undo.finishEdit('Pintar selección de color Edu');
+        } catch (error) { Undo.cancelEdit(true); throw error; }
+        refresh();
     }
     function refreshTeacherReturn() {
         if (teacherReturn) {
@@ -419,6 +477,10 @@
         panel.vue.version = session?.reference.lastVersion?.join('.') || 'Referencia original';
         panel.vue.status = session ? 'Tu cerdo está listo para crear.' : 'Empieza desde Blockbench Edu en Cargadores.';
         if (classroom) {
+            const selection = Texture.all.find(texture => texture.uuid === session?.textureId)?.selection;
+            classroom.selectedPixelCount = selection?.is_custom ? selection.array.reduce((count,value) => count+(value ? 1 : 0),0) : 0;
+            // UV repacking can resize the native mask and leave an empty custom selection.
+            if (selection?.is_custom && !classroom.selectedPixelCount) { selection.clear(); UVEditor.updateSelectionOutline(); }
             classroom.bones = paintBones().map((bone,index) => ({id:bone.uuid,label:pieceLabel(bone,index),
                 hidden:bone.children.filter(c => c instanceof Cube).every(c => !c.visibility)}));
             classroom.pieces = panel.vue.pieces;
@@ -847,6 +909,8 @@
         document.body.classList.remove('edu-classroom', 'edu-sidebar-dragging');
         document.body.style.removeProperty('--edu-sidebar-width');
         document.body.style.removeProperty('--edu-preview-bottom');
+        document.body.style.removeProperty('--edu-parts-panel-width');
+        document.body.style.removeProperty('--edu-parts-inset');
         if (classroom && classroom.mode === 'shape') (BarItems[previousTool] || BarItems.move_tool).select();
         previousTool = null;
         if (classroom) { const node = classroom.$el; classroom.$destroy(); node.remove(); classroom = null; }
@@ -860,11 +924,19 @@
         const mount = document.createElement('div'); document.body.append(mount);
         classroom = new Vue({el: mount,
             data: {sidebarWidth: current()?.sidebarWidth || 260, sidebarMax: 480, sidebarDragging: false, sidebarStartX: 0, sidebarStartWidth: 260, mode: 'shape', operation: 'size', position: [0,0,0], rotation: [0,0,0], axes: ['De lado', 'Arriba / abajo', 'Adelante / atrás'], turns: ['Inclinar', 'Girar', 'Ladear'], pieces: [], selectedId: '', dimensions: [0,0,0], maximum: [0,0,0], minimum: [1,1,1], busy: false, canUndo: false, canRedo: false,
-                bones: [], paintTool: 'brush_tool', brushSize: 1, cameraControlsOpen: false, cameraIsOrtho: false,
+                bones: [], partsOpen: current()?.partsOpen ?? true, selectedPixelCount: 0, paintTool: 'brush_tool', brushSize: 1, cameraControlsOpen: false, cameraIsOrtho: false,
                 driveAvailable: !!window.BlockbenchEduDrive, driveClass: !!window.BlockbenchEduDrive?.classCode,
                 cameraRotate: Keybinds.extra.preview_rotate.keybind.toString(), cameraPan: Keybinds.extra.preview_drag.keybind.toString(), cameraZoom: Keybinds.extra.preview_scroll_zoom.keybind.toString(),
                 labels: ['Ancho', 'Alto', 'Profundidad'], color: ColorPanel.get(), colors: ['#ffffff','#20252d','#e85b61','#f7b45c','#f9e778','#60d98b','#63bee8','#8479df','#ed90c4','#986a48']},
             mounted() {
+                // The native preview is above the classroom root: mount its launcher beside that root.
+                this.partsToggleButton = document.createElement('button');
+                this.partsToggleButton.id = 'edu-parts-toggle'; this.partsToggleButton.className = 'edu-parts-toggle';
+                this.partsToggleButton.type = 'button'; this.partsToggleButton.setAttribute('aria-controls', 'edu-parts-panel');
+                const eye = document.createElement('i'); eye.className = 'material-icons'; eye.setAttribute('aria-hidden', 'true'); eye.textContent = 'visibility';
+                this.partsToggleButton.append(eye, document.createTextNode('Partes'));
+                this.partsToggleButton.addEventListener('click', () => this.setPartsOpen(true));
+                document.body.append(this.partsToggleButton); this.refreshPartsToggle();
                 this.driveClassChanged = () => { this.driveClass = !!window.BlockbenchEduDrive?.classCode; };
                 window.addEventListener('edu-drive-class-changed', this.driveClassChanged);
                 this.fitSidebar();
@@ -875,14 +947,24 @@
                 this.cameraFooterObserver.observe(this.$el.querySelector('footer'));
             },
             beforeDestroy() {
+                this.partsToggleButton?.remove();
                 window.removeEventListener('edu-drive-class-changed', this.driveClassChanged);
                 window.removeEventListener('resize', this.sidebarWindowResize);
                 this.cameraFooterObserver?.disconnect();
                 document.body.classList.remove('edu-sidebar-dragging');
             },
-            watch: {operation() { selectClassroomTool(); }, sidebarWidth(width) {
+            computed: {hiddenBoneCount() { return this.bones.filter(bone => bone.hidden).length; }},
+            watch: {operation() { selectClassroomTool(); }, selectedPixelCount() {
+                if (this.mode==='paint' && this.paintTool==='fill_tool') this.tool('fill_tool');
+            }, hiddenBoneCount() { this.refreshPartsToggle(); }, partsOpen(open) {
+                if (current()) current().partsOpen = open;
+                this.refreshPartsToggle();
+                this.fitPartsPanel();
+                this.$nextTick(() => window.dispatchEvent(new Event('resize')));
+            }, sidebarWidth(width) {
                 document.body.style.setProperty('--edu-sidebar-width', width + 'px');
                 if (current()) current().sidebarWidth = width;
+                this.fitPartsPanel();
                 this.$nextTick(() => window.dispatchEvent(new Event('resize')));
             }},
             methods: {
@@ -895,6 +977,23 @@
                 fitSidebar() {
                     this.sidebarMax = Math.max(260, Math.min(480, Math.floor(window.innerWidth * 0.4)));
                     this.sidebarWidth = Math.max(260, Math.min(this.sidebarMax, this.sidebarWidth));
+                    this.fitPartsPanel();
+                },
+                fitPartsPanel() {
+                    const width = Math.max(172, Math.min(224, window.innerWidth - this.sidebarWidth - 300));
+                    document.body.style.setProperty('--edu-parts-panel-width', width + 'px');
+                    document.body.style.setProperty('--edu-parts-inset', (this.partsOpen ? width + 12 : 0) + 'px');
+                },
+                setPartsOpen(open) {
+                    this.partsOpen = open;
+                    this.$nextTick(() => (open ? this.$refs.partsClose : this.partsToggleButton)?.focus());
+                },
+                refreshPartsToggle() {
+                    const button = this.partsToggleButton;
+                    if (!button) return;
+                    button.hidden = this.partsOpen;
+                    button.setAttribute('aria-expanded', String(this.partsOpen));
+                    button.lastChild.textContent = 'Partes' + (this.hiddenBoneCount ? ` · ${this.hiddenBoneCount} ${this.hiddenBoneCount===1?'oculta':'ocultas'}` : '');
                 },
                 startSidebarDrag(event) {
                     if (event.button !== 0) return;
@@ -924,11 +1023,12 @@
                 move: (axis, step) => attempt(() => transformPiece('move', axis, axis === 0 ? -step : step)),
                 undo: () => Undo.undo(), redo: () => Undo.redo(), download: () => attempt(exportAddon),
                 deliver: () => attempt(deliverAddon),
-                setMode(mode) { this.mode = mode; Modes.options[mode === 'paint' ? 'paint' : 'edit'].select(); if (mode === 'paint') { this.tool(this.paintTool); ColorPanel.set(this.color); } else { showPaintBones(); selectClassroomTool(); } window.dispatchEvent(new Event('resize')); },
+                setMode(mode) { this.mode = mode; Modes.options[mode === 'paint' ? 'paint' : 'edit'].select(); if (mode === 'paint') { this.tool(this.paintTool); ColorPanel.set(this.color); } else { selectClassroomTool(); } applyPaintVisibility(); window.dispatchEvent(new Event('resize')); },
                 paintColor(color) { this.color = color; ColorPanel.set(color); },
-                tool(id) { this.paintTool = id; BarItems[id].select(); if (['brush_tool','eraser','blockbench_edu_smooth'].includes(id)) BarItems.slider_brush_size.setValue(this.brushSize); },
+                tool(id) { this.paintTool = id; BarItems[id==='fill_tool' && this.selectedPixelCount ? 'blockbench_edu_fill_selection' : id].select(); if (['brush_tool','eraser','blockbench_edu_smooth'].includes(id)) BarItems.slider_brush_size.setValue(this.brushSize); },
                 changeBrushSize(step) { this.brushSize = Math.max(1,Math.min(64,this.brushSize+step)); if (['brush_tool','eraser','blockbench_edu_smooth'].includes(this.paintTool)) BarItems.slider_brush_size.setValue(this.brushSize); },
-                toggleBone: togglePaintBone, showAllBones: showPaintBones
+                clearColorSelection: clearPaintColorSelection,
+                toggleBone: togglePaintBone, showOnlyBone: showOnlyPaintBone, showAllBones: showPaintBones
             },
             template: `<div id="edu-classroom"><header><strong>Blockbench Edu</strong><nav aria-label="Crear tu criatura"><button @click="setMode('shape')" :class="{active:mode==='shape'}">1 · Dale forma</button><button @click="setMode('paint')" :class="{active:mode==='paint'}">2 · Dale color</button><button v-if="driveClass" @click="deliver" :disabled="busy">3 · Entregar al profe</button><button v-else @click="download" :disabled="busy">3 · Llévala a Minecraft</button></nav><button @click="exit" class="edu-teacher">Para el docente</button></header>
                 <aside><div class="edu-sidebar-scroll"><template v-if="mode==='shape'"><h2>Dale forma</h2><label>¿Qué parte quieres cambiar?<select :value="selectedId" @change="selectPiece($event.target.value)"><option v-for="piece in pieces" :key="piece.id" :value="piece.id">{{piece.label}}</option></select></label><div class="edu-paint-tools edu-shape-tools" role="group" aria-label="¿Qué quieres hacer?"><button @click="operation='size'" :class="{active:operation==='size'}" :aria-pressed="operation==='size'"><i class="material-icons" aria-hidden="true">open_in_full</i>Tamaño</button><button @click="operation='move'" :class="{active:operation==='move'}" :aria-pressed="operation==='move'"><i class="material-icons" aria-hidden="true">open_with</i>Mover</button><button @click="operation='rotate'" :class="{active:operation==='rotate'}" :aria-pressed="operation==='rotate'"><i class="material-icons" aria-hidden="true">rotate_right</i>Girar</button></div><template v-if="operation==='size'"><div class="edu-size"><span>Tamaño general</span><button @click="resize('all',-1)" :disabled="busy || dimensions.some((value,axis) => value-1 &lt; minimum[axis])" aria-label="Reducir tamaño general">−</button><b></b><button @click="resize('all',1)" :disabled="busy || dimensions.some((value,axis) => value+1 &gt; maximum[axis])" aria-label="Aumentar tamaño general">+</button></div><p>Cambia el ancho, el alto y la profundidad a la vez.</p><div class="edu-size" v-for="(label,axis) in labels" :key="label"><span>{{label}}</span><button @click="resize(axis,-1)" :disabled="busy || dimensions[axis]&lt;=minimum[axis]" :aria-label="'Reducir '+label">−</button><b>{{dimensions[axis]}}</b><button @click="resize(axis,1)" :disabled="busy || dimensions[axis]&gt;=maximum[axis]" :aria-label="'Aumentar '+label">+</button></div><p>Usa − para reducir y + para aumentar.<br>Puedes deshacer si no te gusta.</p></template><template v-else-if="operation==='move'"><div class="edu-move-arrows"><strong>Mover</strong><div class="edu-size" v-for="(label,axis) in axes" :key="'move-'+axis"><span>{{label}}</span><button @click="move(axis,-1)" :disabled="busy" :aria-label="'Mover '+label+' menos'">{{axis===1?'↓':axis===2?'↙':'←'}}</button><b></b><button @click="move(axis,1)" :disabled="busy" :aria-label="'Mover '+label+' más'">{{axis===1?'↑':axis===2?'↗':'→'}}</button></div><p>Las capas de esta parte se mueven y cambian de tamaño juntas.</p></div></template><template v-else><div class="edu-size" v-for="(label,index) in turns" :key="label"><span>{{label}}</span><button :aria-label="'Girar menos: '+label" @click="transform('rotate',index,-15)" :disabled="busy">−</button><b>{{rotation[index]}}</b><button :aria-label="'Girar más: '+label" @click="transform('rotate',index,15)" :disabled="busy">+</button></div><p>Usa − y + para girar esta parte poco a poco.</p></template></template>
@@ -937,10 +1037,20 @@
                     <button @click="tool('eraser')" :class="{active:paintTool==='eraser'}"><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14 14 4a2 2 0 0 1 3 0l4 4a2 2 0 0 1 0 3L11 21H7l-3-3a3 3 0 0 1 0-4Z M9 9l8 8 M11 21h10" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>Borrador</button>
                     <button @click="tool('blockbench_edu_smooth')" :class="{active:paintTool==='blockbench_edu_smooth'}"><i class="material-icons" aria-hidden="true">blur_on</i>Suavizar</button>
                     <button @click="tool('fill_tool')" :class="{active:paintTool==='fill_tool'}"><i class="material-icons" aria-hidden="true">format_color_fill</i>Rellenar</button>
-                    <button @click="tool('color_picker')" :class="{active:paintTool==='color_picker'}"><i class="material-icons" aria-hidden="true">colorize</i>Copiar color</button></div>
+                    <button @click="tool('color_picker')" :class="{active:paintTool==='color_picker'}"><i class="material-icons" aria-hidden="true">colorize</i>Copiar color</button>
+                    <button @click="tool('blockbench_edu_select_color')" :disabled="busy" :class="{active:paintTool==='blockbench_edu_select_color'}"><i class="material-icons" aria-hidden="true">select_all</i>Seleccionar color</button></div>
+                    <p v-if="paintTool==='blockbench_edu_select_color'">Haz clic en un color de la criatura para seleccionar todos sus píxeles iguales.</p>
+                    <div v-if="selectedPixelCount" class="edu-color-selection" role="group" aria-label="Selección de color"><p role="status" aria-live="polite">{{selectedPixelCount}} píxeles seleccionados.<br>Incluye las partes ocultas.</p><p>Usa el pincel, el bote, el borrador o Suavizar sobre la selección. El bote pinta toda la selección.</p><button @click="clearColorSelection" :disabled="busy"><i class="material-icons" aria-hidden="true">deselect</i>Quitar selección</button></div>
                     <div v-if="paintTool==='brush_tool' || paintTool==='eraser' || paintTool==='blockbench_edu_smooth'" class="edu-size"><span>Tamaño</span><button @click="changeBrushSize(-1)" :disabled="brushSize===1" aria-label="Reducir pincel un píxel">−</button><b>{{brushSize}}</b><button @click="changeBrushSize(1)" :disabled="brushSize===64" aria-label="Aumentar pincel un píxel">+</button></div>
                     <p v-if="paintTool==='brush_tool' || paintTool==='eraser' || paintTool==='blockbench_edu_smooth'">Tamaño en píxeles.</p><p v-if="paintTool==='blockbench_edu_smooth'">Mezcla los colores cercanos.</p>
-                    <details class="edu-bones"><summary><i class="material-icons" aria-hidden="true">visibility</i>Mostrar u ocultar partes</summary><p>Oculta una parte para pintar debajo. Se guardará la criatura completa.</p><button @click="showAllBones"><i class="material-icons" aria-hidden="true">visibility</i>Mostrar todas</button><button v-for="bone in bones" :key="bone.id" @click="toggleBone(bone.id)" :aria-label="(bone.hidden?'Mostrar ':'Ocultar ')+bone.label" :aria-pressed="!bone.hidden"><i class="material-icons" aria-hidden="true">{{bone.hidden?'visibility_off':'visibility'}}</i>{{bone.label}}</button></details></template></div><div class="edu-history" role="group" aria-label="Historial de cambios"><button @click="undo" :disabled="busy || !canUndo" title="Volver un paso atrás"><i class="material-icons" aria-hidden="true">undo</i>Deshacer</button><button @click="redo" :disabled="busy || !canRedo" title="Recuperar el paso que deshiciste"><i class="material-icons" aria-hidden="true">redo</i>Rehacer</button></div></aside>
+                    </template></div><div class="edu-history" role="group" aria-label="Historial de cambios"><button @click="undo" :disabled="busy || !canUndo" title="Volver un paso atrás"><i class="material-icons" aria-hidden="true">undo</i>Deshacer</button><button @click="redo" :disabled="busy || !canRedo" title="Recuperar el paso que deshiciste"><i class="material-icons" aria-hidden="true">redo</i>Rehacer</button></div></aside>
+                <section v-if="partsOpen" id="edu-parts-panel" class="edu-parts-panel" role="region" aria-labelledby="edu-parts-title" @keydown.esc.stop.prevent="setPartsOpen(false)">
+                    <div class="edu-parts-heading"><h2 id="edu-parts-title"><i class="material-icons" aria-hidden="true">visibility</i>Partes</h2><button ref="partsClose" @click="setPartsOpen(false)" aria-label="Plegar panel de partes" title="Plegar panel de partes"><i class="material-icons" aria-hidden="true">chevron_right</i></button></div>
+                    <button class="edu-parts-show-all" @click="showAllBones" :disabled="busy || !hiddenBoneCount"><i class="material-icons" aria-hidden="true">visibility</i>Mostrar todas</button>
+                    <p class="edu-parts-count" role="status" aria-live="polite">{{bones.length-hiddenBoneCount}} de {{bones.length}} visibles</p>
+                    <ul class="edu-parts-list" aria-label="Visibilidad de las partes"><li v-for="bone in bones" :key="bone.id" :class="{'edu-part-hidden':bone.hidden}"><button class="edu-part-eye" @click="toggleBone(bone.id)" :disabled="busy" :aria-label="(bone.hidden?'Mostrar ':'Ocultar ')+bone.label" :aria-pressed="bone.hidden?'false':'true'"><i class="material-icons" aria-hidden="true">{{bone.hidden?'visibility_off':'visibility'}}</i><span>{{bone.label}}</span></button><button class="edu-part-solo" @click="showOnlyBone(bone.id)" :disabled="busy" :aria-label="'Ver solo '+bone.label" :title="'Ver solo '+bone.label"><i class="material-icons" aria-hidden="true">center_focus_strong</i></button></li></ul>
+                    <p class="edu-parts-help">Oculta partes para pintar debajo.<br>Tu criatura se exporta completa.</p>
+                </section>
                 <div class="edu-sidebar-resizer" :class="{dragging:sidebarDragging}" role="separator" tabindex="0" aria-label="Ancho del menú" aria-orientation="vertical" :aria-valuenow="sidebarWidth" :aria-valuemin="260" :aria-valuemax="sidebarMax" title="Arrastra para cambiar el ancho del menú" @pointerdown.prevent="startSidebarDrag" @pointermove="dragSidebar" @pointerup="endSidebarDrag" @pointercancel="endSidebarDrag" @lostpointercapture="endSidebarDrag" @keydown="keySidebar"><span aria-hidden="true"></span></div>
                 <footer aria-label="Vistas de la criatura"><button @click="camera('orbit')">Vista 3D</button><button @click="camera('front')">Frente</button><button @click="camera('back')">Atrás</button><button @click="camera('side')">Derecha</button><button @click="camera('left')">Izquierda</button><button @click="camera('top')">Arriba</button><button @click="camera('bottom')">Abajo</button><button @click="camera('frame')">Ver todo</button><button @click="cameraControlsOpen=!cameraControlsOpen" :aria-expanded="cameraControlsOpen" aria-controls="edu-camera-controls" class="edu-camera-toggle"><i class="material-icons" aria-hidden="true">videogame_asset</i>Controles de cámara</button>
                     <div id="edu-camera-controls" v-if="cameraControlsOpen" class="edu-camera-controls">
@@ -1027,6 +1137,31 @@
         variant: 'both', min_version: '5.2.2',
         onload() {
             alive = true;
+            colorSelectionTool = new Tool('blockbench_edu_select_color', {name:'Seleccionar un color',icon:'select_all',modes:['paint'],
+                paintTool:true,selectElements:false,cursor:'crosshair',condition:() => !!classroom,
+                onCanvasClick(data) {
+                    if (!data?.intersects?.length || data.element.locked) return;
+                    const texture = data.element.faces[data.face].getTexture();
+                    if (!texture) return;
+                    const [x,y] = Painter.getCanvasToolPixelCoords(data.intersects[0].uv,texture);
+                    attempt(() => selectPaintColor(texture,x,y));
+                },
+                onTextureEditorClick(texture,x,y) { attempt(() => selectPaintColor(texture,x,y)); return false; }
+            });
+            selectionFillTool = new Tool('blockbench_edu_fill_selection', {name:'Rellenar selección de color',icon:'format_color_fill',modes:['paint'],
+                paintTool:true,selectElements:false,cursor:'crosshair',condition:() => !!classroom && classroom.selectedPixelCount>0,
+                onCanvasClick(data) {
+                    if (!data?.intersects?.length || data.element.locked) return;
+                    const texture = data.element.faces[data.face].getTexture();
+                    if (texture?.uuid !== current()?.textureId || current()?.busy) return;
+                    const [x,y] = Painter.getCanvasToolPixelCoords(data.intersects[0].uv,texture);
+                    if (texture.selection.allow(x,y)) attempt(paintColorSelection);
+                },
+                onTextureEditorClick(texture,x,y) {
+                    if (texture?.uuid===current()?.textureId && texture.selection.allow(Math.floor(x),Math.floor(y))) attempt(paintColorSelection);
+                    return false;
+                }
+            });
             smoothTool = new Tool('blockbench_edu_smooth', {name: 'Suavizar colores', icon: 'blur_on', modes: ['paint'],
                 paintTool: true, selectElements: false, condition: () => !!classroom,
                 onCanvasClick(data) { Painter.startPaintToolCanvas(data, data.event); },
@@ -1046,13 +1181,41 @@
                         const result = smoothPixels(source, Math.floor(x)-left+offset, Math.floor(y)-top+offset, size / 2);
                         const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height;
                         canvas.getContext('2d').putImageData(new ImageData(result.data,width,height),0,0);
-                        // drawImage respects the native face/selection clip, unlike putImageData.
-                        ctx.globalCompositeOperation = 'copy'; ctx.drawImage(canvas,left,top);
+                        // Custom brush draw callbacks receive the face clip but must apply the pixel selection themselves.
+                        texture.selection.maskCanvas(ctx);
+                        try { ctx.globalCompositeOperation = 'copy'; ctx.drawImage(canvas,left,top); }
+                        finally { ctx.restore(); }
                     }}
             });
             selectionTool = new Tool('blockbench_edu_select', {name: 'Elegir una parte', icon: 'touch_app', modes: ['edit'],
                 selectElements: true, condition: () => !!classroom});
-            classroomStyle = Blockbench.addCSS(`body.edu-classroom #blackout{z-index:200!important}body.edu-classroom #dialog_wrapper .dialog{z-index:201!important}body.edu-setup #page_wrapper,body.edu-classroom #page_wrapper{visibility:hidden}body.edu-setup:before{content:"";position:fixed;inset:0;background:#141e24;z-index:10}body.edu-setup #blackout{background:#141e24}body.edu-classroom #preview{visibility:visible!important;position:fixed!important;left:calc(var(--edu-sidebar-width,260px) + 32px)!important;top:84px!important;right:16px!important;bottom:var(--edu-preview-bottom,116px)!important;width:calc(100vw - var(--edu-sidebar-width,260px) - 48px)!important;height:calc(100vh - 84px - var(--edu-preview-bottom,116px))!important;z-index:101;background:#202b32;border-radius:20px}body.edu-classroom #preview .preview_menu,body.edu-classroom #preview .orbit_gizmo{display:none!important}#edu-classroom{position:fixed;inset:0;z-index:100;background:#141e24;color:#eaf5ee;font-size:16px}#edu-classroom button,#edu-classroom select{min-width:0;max-width:100%;min-height:42px;border-radius:10px;background:#30423b;color:#eaf5ee;padding:8px 12px;border:0;cursor:pointer}#edu-classroom button:disabled{opacity:.4;cursor:default}#edu-classroom button:hover:not(:disabled),#edu-classroom button.active{background:#65d98a;color:#102c1c}#edu-classroom header{height:76px;display:flex;gap:24px;align-items:center;padding:12px 20px}#edu-classroom header strong{color:#65d98a;font-size:20px}#edu-classroom nav{display:flex;gap:10px}#edu-classroom .edu-teacher{margin-left:auto;font-size:12px;background:transparent}#edu-classroom aside{position:absolute;left:16px;top:84px;bottom:86px;width:var(--edu-sidebar-width,260px);background:#21302e;border-radius:20px;padding:22px;display:flex;flex-direction:column;gap:0;overflow:hidden}#edu-classroom h2{font-size:24px;color:#b8ffd1}#edu-classroom label{display:grid;gap:10px}#edu-classroom select{width:100%}#edu-classroom .edu-size{display:grid;grid-template-columns:1fr 38px 32px 38px;align-items:center;gap:4px}#edu-classroom .edu-size button{padding:0;font-size:24px}#edu-classroom .edu-size b{text-align:center}#edu-classroom p{line-height:1.5;color:#bed0c7}#edu-classroom .edu-history{flex-shrink:0;margin-top:12px;padding-top:12px;border-top:1px solid #456052;display:grid;grid-template-columns:1fr 1fr;gap:8px}#edu-classroom .edu-history button{display:flex;justify-content:center;align-items:center;gap:4px;padding:8px 4px;font-size:13px}#edu-classroom .edu-sidebar-scroll{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;gap:16px;padding-right:4px}#edu-classroom .edu-sidebar-scroll>*{flex-shrink:0;min-width:0}#edu-classroom footer{position:absolute;bottom:18px;left:calc(var(--edu-sidebar-width,260px) + 32px);right:16px;display:flex;justify-content:center;gap:8px;flex-wrap:wrap}#edu-classroom .edu-palette{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}#edu-classroom .edu-palette button{padding:0;border:2px solid #71877c;min-height:34px}#edu-classroom input[type=color]{height:42px;width:100%;min-width:0}#edu-classroom aside>*{flex-shrink:0;min-width:0}#edu-classroom .edu-palette button{width:100%}#edu-classroom .edu-paint-tools{display:grid;grid-template-columns:1fr 1fr;gap:8px}#edu-classroom .edu-paint-tools button{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:14px;height:auto;min-height:66px;line-height:18px}#edu-classroom .edu-paint-tools button>*{flex-shrink:0}#edu-classroom .edu-bones summary{cursor:pointer;display:flex;gap:6px;align-items:center}#edu-classroom .edu-bones button{display:flex;align-items:center;gap:8px;width:100%;margin-top:6px;text-align:left}#edu-classroom .edu-bones p{margin:10px 0}#edu-classroom .edu-shape-tools{grid-template-columns:repeat(3,minmax(0,1fr))}#edu-classroom .edu-shape-tools button{padding:8px 4px}#edu-classroom .edu-camera-help{flex-basis:100%;display:flex;justify-content:center;flex-wrap:wrap;gap:4px 18px;margin:0;font-size:12px;line-height:1.4}#edu-classroom .edu-camera-help span{white-space:nowrap}#edu-classroom .edu-camera-toggle{display:flex;align-items:center;gap:6px}#edu-classroom .edu-camera-controls{flex-basis:100%;display:flex;justify-content:center;gap:16px;flex-wrap:wrap;background:#21302e;border-radius:12px;padding:10px}#edu-classroom .edu-camera-controls>div{display:flex;flex-direction:column;align-items:center;gap:6px}#edu-classroom .edu-camera-controls strong{font-size:13px}#edu-classroom .edu-camera-controls>div>div{display:flex;gap:4px}#edu-classroom .edu-camera-controls button{padding:6px;min-width:36px;min-height:36px}#edu-classroom .edu-camera-controls small{font-size:11px}#edu-return-students{position:fixed;right:20px;top:84px;z-index:110;display:flex;align-items:center;gap:8px;border:0;border-radius:10px;background:#65d98a;color:#102c1c;padding:10px 16px;min-height:42px;cursor:pointer;box-shadow:0 3px 12px #0006}#edu-return-students[hidden]{display:none}#edu-return-students:focus-visible{outline:3px solid #fff;outline-offset:2px}#edu-classroom .edu-sidebar-resizer{position:fixed;left:calc(var(--edu-sidebar-width,260px) + 16px);top:84px;bottom:var(--edu-preview-bottom,116px);width:16px;z-index:102;cursor:col-resize;touch-action:none;display:flex;align-items:center;justify-content:center;border-radius:8px}#edu-classroom .edu-sidebar-resizer span{width:4px;height:48px;border-radius:4px;background:#71877c;pointer-events:none}#edu-classroom .edu-sidebar-resizer:hover span,#edu-classroom .edu-sidebar-resizer:focus-visible span,#edu-classroom .edu-sidebar-resizer.dragging span{background:#65d98a}#edu-classroom .edu-sidebar-resizer:focus-visible{outline:2px solid #65d98a;outline-offset:-2px}body.edu-sidebar-dragging,body.edu-sidebar-dragging *{cursor:col-resize!important;user-select:none!important}`);
+            classroomStyle = Blockbench.addCSS(`body.edu-classroom #blackout{z-index:200!important}body.edu-classroom #dialog_wrapper .dialog{z-index:201!important}body.edu-setup #page_wrapper,body.edu-classroom #page_wrapper{visibility:hidden}body.edu-setup:before{content:"";position:fixed;inset:0;background:#141e24;z-index:10}body.edu-setup #blackout{background:#141e24}body.edu-classroom #preview{visibility:visible!important;position:fixed!important;left:calc(var(--edu-sidebar-width,260px) + 32px)!important;top:84px!important;right:calc(16px + var(--edu-parts-inset,0px))!important;bottom:var(--edu-preview-bottom,116px)!important;width:calc(100vw - var(--edu-sidebar-width,260px) - 48px - var(--edu-parts-inset,0px))!important;height:calc(100vh - 84px - var(--edu-preview-bottom,116px))!important;z-index:101;background:#202b32;border-radius:20px}body.edu-classroom #preview .preview_menu,body.edu-classroom #preview .orbit_gizmo{display:none!important}#edu-classroom{position:fixed;inset:0;z-index:100;background:#141e24;color:#eaf5ee;font-size:16px}#edu-classroom button,#edu-classroom select{min-width:0;max-width:100%;min-height:42px;border-radius:10px;background:#30423b;color:#eaf5ee;padding:8px 12px;border:0;cursor:pointer}#edu-classroom button:disabled{opacity:.4;cursor:default}#edu-classroom button:hover:not(:disabled),#edu-classroom button.active{background:#65d98a;color:#102c1c}#edu-classroom header{height:76px;display:flex;gap:24px;align-items:center;padding:12px 20px}#edu-classroom header strong{color:#65d98a;font-size:20px}#edu-classroom nav{display:flex;gap:10px}#edu-classroom .edu-teacher{margin-left:auto;font-size:12px;background:transparent}#edu-classroom aside{position:absolute;left:16px;top:84px;bottom:86px;width:var(--edu-sidebar-width,260px);background:#21302e;border-radius:20px;padding:22px;display:flex;flex-direction:column;gap:0;overflow:hidden}#edu-classroom h2{font-size:24px;color:#b8ffd1}#edu-classroom label{display:grid;gap:10px}#edu-classroom select{width:100%}#edu-classroom .edu-size{display:grid;grid-template-columns:1fr 38px 32px 38px;align-items:center;gap:4px}#edu-classroom .edu-size button{padding:0;font-size:24px}#edu-classroom .edu-size b{text-align:center}#edu-classroom p{line-height:1.5;color:#bed0c7}#edu-classroom .edu-history{flex-shrink:0;margin-top:12px;padding-top:12px;border-top:1px solid #456052;display:grid;grid-template-columns:1fr 1fr;gap:8px}#edu-classroom .edu-history button{display:flex;justify-content:center;align-items:center;gap:4px;padding:8px 4px;font-size:13px}#edu-classroom .edu-sidebar-scroll{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;gap:16px;padding-right:4px}#edu-classroom .edu-sidebar-scroll>*{flex-shrink:0;min-width:0}#edu-classroom footer{position:absolute;bottom:18px;left:calc(var(--edu-sidebar-width,260px) + 32px);right:16px;display:flex;justify-content:center;gap:8px;flex-wrap:wrap}#edu-classroom .edu-palette{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}#edu-classroom .edu-palette button{padding:0;border:2px solid #71877c;min-height:34px}#edu-classroom input[type=color]{height:42px;width:100%;min-width:0}#edu-classroom aside>*{flex-shrink:0;min-width:0}#edu-classroom .edu-palette button{width:100%}#edu-classroom .edu-paint-tools{display:grid;grid-template-columns:1fr 1fr;gap:8px}#edu-classroom .edu-paint-tools button{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:14px;height:auto;min-height:66px;line-height:18px}#edu-classroom .edu-paint-tools button>*{flex-shrink:0}#edu-classroom .edu-shape-tools{grid-template-columns:repeat(3,minmax(0,1fr))}#edu-classroom .edu-shape-tools button{padding:8px 4px}#edu-classroom .edu-camera-help{flex-basis:100%;display:flex;justify-content:center;flex-wrap:wrap;gap:4px 18px;margin:0;font-size:12px;line-height:1.4}#edu-classroom .edu-camera-help span{white-space:nowrap}#edu-classroom .edu-camera-toggle{display:flex;align-items:center;gap:6px}#edu-classroom .edu-camera-controls{flex-basis:100%;display:flex;justify-content:center;gap:16px;flex-wrap:wrap;background:#21302e;border-radius:12px;padding:10px}#edu-classroom .edu-camera-controls>div{display:flex;flex-direction:column;align-items:center;gap:6px}#edu-classroom .edu-camera-controls strong{font-size:13px}#edu-classroom .edu-camera-controls>div>div{display:flex;gap:4px}#edu-classroom .edu-camera-controls button{padding:6px;min-width:36px;min-height:36px}#edu-classroom .edu-camera-controls small{font-size:11px}#edu-return-students{position:fixed;right:20px;top:84px;z-index:110;display:flex;align-items:center;gap:8px;border:0;border-radius:10px;background:#65d98a;color:#102c1c;padding:10px 16px;min-height:42px;cursor:pointer;box-shadow:0 3px 12px #0006}#edu-return-students[hidden]{display:none}#edu-return-students:focus-visible{outline:3px solid #fff;outline-offset:2px}#edu-classroom .edu-sidebar-resizer{position:fixed;left:calc(var(--edu-sidebar-width,260px) + 16px);top:84px;bottom:var(--edu-preview-bottom,116px);width:16px;z-index:102;cursor:col-resize;touch-action:none;display:flex;align-items:center;justify-content:center;border-radius:8px}#edu-classroom .edu-sidebar-resizer span{width:4px;height:48px;border-radius:4px;background:#71877c;pointer-events:none}#edu-classroom .edu-sidebar-resizer:hover span,#edu-classroom .edu-sidebar-resizer:focus-visible span,#edu-classroom .edu-sidebar-resizer.dragging span{background:#65d98a}#edu-classroom .edu-sidebar-resizer:focus-visible{outline:2px solid #65d98a;outline-offset:-2px}body.edu-sidebar-dragging,body.edu-sidebar-dragging *{cursor:col-resize!important;user-select:none!important}
+                #edu-classroom .edu-parts-panel{position:absolute;right:16px;top:84px;bottom:var(--edu-preview-bottom,116px);width:var(--edu-parts-panel-width,224px);z-index:102;background:#21302e;border-radius:20px;padding:14px 10px;display:flex;flex-direction:column;gap:10px;min-height:0;overflow:hidden}
+                #edu-classroom .edu-parts-heading{display:flex;align-items:center;justify-content:space-between;gap:4px;flex-shrink:0}
+                #edu-classroom .edu-parts-heading h2{display:flex;align-items:center;gap:7px;font-size:18px;margin:0;color:#eaf5ee}
+                #edu-classroom .edu-parts-heading button{padding:4px;min-width:34px;min-height:34px;background:transparent}
+                #edu-classroom .edu-parts-show-all{display:flex;align-items:center;justify-content:center;gap:6px;flex-shrink:0;width:100%;font-size:13px;border:1px solid #456052}
+                #edu-classroom .edu-parts-count{margin:0;font-size:12px;flex-shrink:0;padding:0 4px}
+                #edu-classroom .edu-parts-list{list-style:none;padding:0 2px 0 0;margin:0;flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden}
+                #edu-classroom .edu-parts-list li{display:grid;grid-template-columns:minmax(0,1fr) 34px;gap:2px;align-items:center;margin:0 0 4px;padding:0;border-radius:9px}
+                #edu-classroom .edu-part-eye{display:flex;align-items:center;gap:7px;text-align:left;padding:8px 5px;background:transparent;font-size:13px;min-width:0;width:100%}
+                #edu-classroom .edu-part-eye i{font-size:20px;flex-shrink:0}
+                #edu-classroom .edu-part-eye span{overflow-wrap:anywhere;min-width:0;line-height:1.4}
+                #edu-classroom .edu-part-solo{padding:5px;min-height:34px;background:transparent}
+                #edu-classroom .edu-part-solo i{font-size:19px}
+                #edu-classroom .edu-part-hidden{background:#182823}
+                #edu-classroom .edu-part-hidden .edu-part-eye{color:#a1afa7}
+                #edu-classroom .edu-parts-help{font-size:11px;line-height:1.5;margin:0;padding:0 4px;flex-shrink:0}
+                #edu-parts-toggle{position:fixed;top:96px;right:28px;z-index:102;display:flex;align-items:center;gap:6px;border:1px solid #456052;box-shadow:0 3px 12px #0004;font-size:13px;background:#30423b;color:#eaf5ee;border-radius:10px;padding:8px 12px;min-height:42px;cursor:pointer}
+                #edu-parts-toggle[hidden]{display:none}
+                #edu-parts-toggle:hover{background:#65d98a;color:#102c1c}
+                #edu-classroom .edu-parts-panel button:focus-visible,#edu-parts-toggle:focus-visible{outline:3px solid #65d98a;outline-offset:-3px}
+                #edu-classroom .edu-color-selection{display:flex;flex-direction:column;gap:8px;border-top:1px solid #456052;padding-top:12px}
+                #edu-classroom .edu-color-selection p{margin:0;font-size:12px}
+                #edu-classroom .edu-color-selection button{display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px}
+                @media(max-height:680px){#edu-classroom .edu-parts-panel{gap:6px;padding:10px 8px}#edu-classroom .edu-parts-help{display:none}}
+                @media(pointer:coarse){#edu-classroom .edu-parts-list li{grid-template-columns:minmax(0,1fr) 44px}#edu-classroom .edu-parts-panel button{min-height:44px}}
+`);
             loader = new ModelLoader('blockbench_edu', {
                 name: 'Blockbench Edu', icon: EDU_ICON, category: 'loaders', target: 'Minecraft Education',
                 description: 'Crea tu propia criatura de Minecraft, paso a paso.',
@@ -1139,7 +1302,7 @@
             Blockbench.on('update_selection', followSelection); listeners.push(['update_selection', followSelection]);
             const restoreVisibility = () => { applyPaintVisibility(); refresh(); };
             for (const event of ['undo','redo']) { Blockbench.on(event, restoreVisibility); listeners.push([event,restoreVisibility]); }
-            for (const event of ['select_project', 'finished_edit']) {
+            for (const event of ['select_project', 'finished_edit', 'finished_selection_change', 'update_texture_selection']) {
                 Blockbench.on(event, refresh); listeners.push([event, refresh]);
             }
             const close = event => { sessions.delete((event.project || event).uuid); refreshTeacherReturn(); };
@@ -1154,6 +1317,10 @@
             selectionTool?.delete(); selectionTool = null;
             if (Toolbox.selected === smoothTool) BarItems.brush_tool.select();
             smoothTool?.delete(); smoothTool = null;
+            if (Toolbox.selected === colorSelectionTool) BarItems.brush_tool.select();
+            colorSelectionTool?.delete(); colorSelectionTool = null;
+            if (Toolbox.selected === selectionFillTool) BarItems.fill_tool.select();
+            selectionFillTool?.delete(); selectionFillTool = null;
             wizard?.delete(); loader?.delete(); wizardStyle?.delete(); wizard = null; loader = null;
             for (const [event, listener] of listeners) {
                 if (event === 'edu_transform_start') Transformer.removeEventListener('mouseDown', listener);
