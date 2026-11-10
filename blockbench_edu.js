@@ -397,7 +397,7 @@
         const name = cube.name.toLowerCase();
         const labels = [['tentacle','Tentáculo'],['antenna','Antena'],['sleeve','Manga'],['pants','Pantalón'],['jacket','Chaqueta'],['body','Cuerpo'],['head','Cabeza'],['wing','Ala'],['tail','Cola'],['leg','Pata'],['arm','Brazo'],['ear','Oreja'],['nose','Nariz'],['horn','Cuerno'],['mouth','Boca'],['eye','Ojo'],['fin','Aleta'],['foot','Pie'],['hand','Mano'],['hat','Sombrero'],['shell','Caparazón']];
         const label = labels.find(([word]) => name.includes(word))?.[1] || 'Parte';
-        return `${index + 1}. ${label}`;
+        return `${index + 1}. ${label}${name.includes('_copy') ? ' (copia)' : ''}`;
     }
     function attempt(work) { return Promise.resolve().then(work).catch(error => { console.error('[Blockbench Edu]', error); notify(error.message); }); }
     function getGeometry() {
@@ -410,6 +410,46 @@
     }
     function paintBones() {
         return Group.all.filter(group => group.children.some(child => child instanceof Cube));
+    }
+    function reconcileEduPieces(session) {
+        if (!session || !Cube.all.every(cube => session.initialSizes[cube.uuid])) return;
+        session.cubeIds = Cube.all.map(cube => cube.uuid);
+        session.pieceLinks = buildPieceLinks();
+        if (!session.cubeIds.includes(session.selectedId)) session.selectedId = session.headId;
+    }
+    function duplicatePaintBone(id) {
+        const session = validateSession(), bone = Group.all.find(group => group.uuid === id);
+        requireThat(bone && session.prepared, 'Elige una parte de la criatura para duplicarla.');
+        const texture = Texture.all[0], beforeIds = new Set(Cube.all.map(cube => cube.uuid));
+        const oldMap = Clipbench.duplicate_map;
+        Undo.initEdit({elements:Cube.all.slice(),groups:Group.all.slice(),outliner:true,textures:[texture],bitmap:true,uv_mode:true,selection:true});
+        try {
+            Clipbench.duplicate_map = new Map();
+            const copy = bone.duplicate(); copy.name = bone.name+'_copy'; copy.createUniqueName();
+            const added = Cube.all.filter(cube => !beforeIds.has(cube.uuid));
+            for (const [source,target] of Clipbench.duplicate_map) {
+                if (source instanceof Group && target instanceof Group) { target.name=source.name+'_copy'; target.createUniqueName(); }
+                if (!(source instanceof Cube) || !(target instanceof Cube)) continue;
+                session.initialSizes[target.uuid] = session.initialSizes[source.uuid].slice();
+                session.originalFaces.push(...session.originalFaces.filter(face => face.cubeId===source.uuid).map(face=>({...clone(face),cubeId:target.uuid})));
+                if (session.paintVisibility) session.paintVisibility[target.uuid] = true;
+                target.visibility = true;
+                target.name = source.name+'_copy';
+            }
+            // Repacking copies the current face pixels to separate UV regions for each new cube.
+            const atlas = packFaces(captureFaces(texture));
+            texture.selection.clear(); UVEditor.updateSelectionOutline();
+            updateAtlas(texture,atlas);
+            if (session.visibleBones) for (const cube of added) session.visibleBones.add(cube.parent.uuid);
+            delete session.soloBoneId; delete session.soloPreviousVisibility;
+            reconcileEduPieces(session);
+            selectPiece(added[0].uuid);
+            Undo.finishEdit('Duplicar parte Edu',{elements:Cube.all.slice(),groups:Group.all.slice(),outliner:true,textures:[texture],bitmap:true,uv_mode:true,selection:true});
+            if (classroom) { classroom.setMode('shape'); classroom.operation='move'; }
+            Blockbench.showQuickMessage('Copia creada en el mismo lugar. Usa Mover para colocarla.');
+        } catch (error) { Undo.cancelEdit(true); reconcileEduPieces(session); throw error; }
+        finally { Clipbench.duplicate_map = oldMap; }
+        refresh();
     }
     function applyPaintVisibility() {
         const session = current();
@@ -559,7 +599,9 @@
     function refresh() {
         refreshTeacherReturn();
         if (!panel || !panel.vue) return;
-        const session = current(), head = selectedPiece();
+        const session = current();
+        reconcileEduPieces(session);
+        const head = selectedPiece();
         panel.vue.ready = !!session;
         panel.vue.busy = !!session?.busy;
         panel.vue.prepared = !!session?.prepared && Cube.all.every(c => !c.box_uv);
@@ -594,6 +636,7 @@
     }
     function validateSession() {
         const session = current();
+        reconcileEduPieces(session);
         requireThat(session, 'Vincula el addon de referencia para este proyecto.');
         requireThat(!session.busy, 'Espera a que termine la operación actual.');
         requireThat(Texture.all.length === 1 && Texture.all[0].uuid === session.textureId, 'La prueba necesita la textura original, sin texturas adicionales.');
@@ -839,7 +882,7 @@
         for (const texture of model.textures) { delete texture.path; delete texture.relative_path; }
         const state = clone({prepared:true, cubeIds:session.cubeIds, textureId:session.textureId,
             headId:session.headId, selectedId:session.selectedId, initial:session.initial, initialSizes:session.initialSizes,
-            originalFaces:session.originalFaces, originalResolution:session.originalResolution,
+            originalFaces:session.originalFaces.filter(face=>session.cubeIds.includes(face.cubeId)), originalResolution:session.originalResolution,
             lastVersion:session.reference.lastVersion});
         const name = Project.name.replace(/[^\p{L}\p{N}_-]+/gu,'_') || 'Mi_criatura';
         session.busy = true; refresh();
@@ -1234,7 +1277,7 @@
                 tool(id) { this.paintTool = id; BarItems[id==='fill_tool' && this.selectedPixelCount ? 'blockbench_edu_fill_selection' : id].select(); if (['brush_tool','eraser','blockbench_edu_smooth'].includes(id)) BarItems.slider_brush_size.setValue(this.brushSize); },
                 changeBrushSize(step) { this.brushSize = Math.max(1,Math.min(64,this.brushSize+step)); if (['brush_tool','eraser','blockbench_edu_smooth'].includes(this.paintTool)) BarItems.slider_brush_size.setValue(this.brushSize); },
                 clearColorSelection: clearPaintColorSelection,
-                toggleBone: togglePaintBone, showOnlyBone: showOnlyPaintBone, showAllBones: showPaintBones
+                toggleBone: togglePaintBone, showOnlyBone: showOnlyPaintBone, showAllBones: showPaintBones, duplicateBone: id => attempt(()=>duplicatePaintBone(id))
             },
             template: `<div id="edu-classroom"><header><strong>Blockbench Edu</strong><nav aria-label="Crear tu criatura"><button @click="setMode('shape')" :class="{active:mode==='shape'}">1 · Dale forma</button><button @click="setMode('paint')" :class="{active:mode==='paint'}">2 · Dale color</button><button @click="saveOptions" :disabled="busy">3 · Guardar y compartir</button></nav><button v-if="teacherViewAvailable" @click="exit" class="edu-teacher">Para el docente</button></header>
                 <aside><div class="edu-sidebar-scroll"><template v-if="mode==='shape'"><h2>Dale forma</h2><label>¿Qué parte quieres cambiar?<select :value="selectedId" @change="selectPiece($event.target.value)"><option v-for="piece in pieces" :key="piece.id" :value="piece.id">{{piece.label}}</option></select></label><div class="edu-paint-tools edu-shape-tools" role="group" aria-label="¿Qué quieres hacer?"><button @click="operation='size'" :class="{active:operation==='size'}" :aria-pressed="operation==='size'"><i class="material-icons" aria-hidden="true">open_in_full</i>Tamaño</button><button @click="operation='move'" :class="{active:operation==='move'}" :aria-pressed="operation==='move'"><i class="material-icons" aria-hidden="true">open_with</i>Mover</button><button @click="operation='rotate'" :class="{active:operation==='rotate'}" :aria-pressed="operation==='rotate'"><i class="material-icons" aria-hidden="true">rotate_right</i>Girar</button></div><template v-if="operation==='size'"><div class="edu-size"><span>Tamaño general</span><button @click="resize('all',-1)" :disabled="busy || dimensions.some((value,axis) => value-1 &lt; minimum[axis])" aria-label="Reducir tamaño general">−</button><b></b><button @click="resize('all',1)" :disabled="busy || dimensions.some((value,axis) => value+1 &gt; maximum[axis])" aria-label="Aumentar tamaño general">+</button></div><p>Cambia el ancho, el alto y la profundidad a la vez.</p><div class="edu-size" v-for="(label,axis) in labels" :key="label"><span>{{label}}</span><button @click="resize(axis,-1)" :disabled="busy || dimensions[axis]&lt;=minimum[axis]" :aria-label="'Reducir '+label">−</button><b>{{dimensions[axis]}}</b><button @click="resize(axis,1)" :disabled="busy || dimensions[axis]&gt;=maximum[axis]" :aria-label="'Aumentar '+label">+</button></div><p>Usa − para reducir y + para aumentar.<br>Puedes deshacer si no te gusta.</p></template><template v-else-if="operation==='move'"><div class="edu-move-arrows"><strong>Mover</strong><div class="edu-size" v-for="(label,axis) in axes" :key="'move-'+axis"><span>{{label}}</span><button @click="move(axis,-1)" :disabled="busy" :aria-label="'Mover '+label+' menos'">{{axis===1?'↓':axis===2?'↙':'←'}}</button><b></b><button @click="move(axis,1)" :disabled="busy" :aria-label="'Mover '+label+' más'">{{axis===1?'↑':axis===2?'↗':'→'}}</button></div><p>Las capas de esta parte se mueven y cambian de tamaño juntas.</p></div></template><template v-else><div class="edu-size" v-for="(label,index) in turns" :key="label"><span>{{label}}</span><button :aria-label="'Girar menos: '+label" @click="transform('rotate',index,-15)" :disabled="busy">−</button><b>{{rotation[index]}}</b><button :aria-label="'Girar más: '+label" @click="transform('rotate',index,15)" :disabled="busy">+</button></div><p>Usa − y + para girar esta parte poco a poco.</p></template></template>
@@ -1254,7 +1297,7 @@
                     <div class="edu-parts-heading"><h2 id="edu-parts-title"><i class="material-icons" aria-hidden="true">visibility</i>Partes</h2><button ref="partsClose" @click="setPartsOpen(false)" aria-label="Plegar panel de partes" title="Plegar panel de partes"><i class="material-icons" aria-hidden="true">chevron_right</i></button></div>
                     <button class="edu-parts-show-all" @click="showAllBones" :disabled="busy || !hiddenBoneCount"><i class="material-icons" aria-hidden="true">visibility</i>Mostrar todas</button>
                     <p class="edu-parts-count" role="status" aria-live="polite">{{bones.length-hiddenBoneCount}} de {{bones.length}} visibles</p>
-                    <ul class="edu-parts-list" aria-label="Visibilidad de las partes"><li v-for="bone in bones" :key="bone.id" :class="{'edu-part-hidden':bone.hidden}"><button class="edu-part-eye" @click="toggleBone(bone.id)" :disabled="busy" :aria-label="(bone.hidden?'Mostrar ':'Ocultar ')+bone.label" :aria-pressed="bone.hidden?'false':'true'"><i class="material-icons" aria-hidden="true">{{bone.hidden?'visibility_off':'visibility'}}</i><span>{{bone.label}}</span></button><button class="edu-part-solo" :class="{active:soloBoneId===bone.id}" @click="showOnlyBone(bone.id)" :disabled="busy" :aria-pressed="soloBoneId===bone.id?'true':'false'" :aria-label="soloBoneId===bone.id?'Volver a la vista anterior':'Ver solo '+bone.label" :title="soloBoneId===bone.id?'Volver a la vista anterior':'Ver solo '+bone.label"><i class="material-icons" aria-hidden="true">center_focus_strong</i></button></li></ul>
+                    <ul class="edu-parts-list" aria-label="Visibilidad de las partes"><li v-for="bone in bones" :key="bone.id" :class="{'edu-part-hidden':bone.hidden}"><button class="edu-part-eye" @click="toggleBone(bone.id)" :disabled="busy" :aria-label="(bone.hidden?'Mostrar ':'Ocultar ')+bone.label" :aria-pressed="bone.hidden?'false':'true'"><i class="material-icons" aria-hidden="true">{{bone.hidden?'visibility_off':'visibility'}}</i><span>{{bone.label}}</span></button><button class="edu-part-solo" :class="{active:soloBoneId===bone.id}" @click="showOnlyBone(bone.id)" :disabled="busy" :aria-pressed="soloBoneId===bone.id?'true':'false'" :aria-label="soloBoneId===bone.id?'Volver a la vista anterior':'Ver solo '+bone.label" :title="soloBoneId===bone.id?'Volver a la vista anterior':'Ver solo '+bone.label"><i class="material-icons" aria-hidden="true">center_focus_strong</i></button><button class="edu-part-solo" @click="duplicateBone(bone.id)" :disabled="busy" :aria-label="'Duplicar '+bone.label" :title="'Duplicar '+bone.label"><i class="material-icons" aria-hidden="true">content_copy</i></button></li></ul>
                     <p class="edu-parts-help">Oculta partes para pintar debajo.<br>Tu criatura se exporta completa.</p>
                 </section>
                 <div class="edu-sidebar-resizer" :class="{dragging:sidebarDragging}" role="separator" tabindex="0" aria-label="Ancho del menú" aria-orientation="vertical" :aria-valuenow="sidebarWidth" :aria-valuemin="260" :aria-valuemax="sidebarMax" title="Arrastra para cambiar el ancho del menú" @pointerdown.prevent="startSidebarDrag" @pointermove="dragSidebar" @pointerup="endSidebarDrag" @pointercancel="endSidebarDrag" @lostpointercapture="endSidebarDrag" @keydown="keySidebar"><span aria-hidden="true"></span></div>
@@ -1407,7 +1450,7 @@
                 #edu-classroom .edu-parts-show-all{display:flex;align-items:center;justify-content:center;gap:6px;flex-shrink:0;width:100%;font-size:13px;border:1px solid #456052}
                 #edu-classroom .edu-parts-count{margin:0;font-size:12px;flex-shrink:0;padding:0 4px}
                 #edu-classroom .edu-parts-list{list-style:none;padding:0 2px 0 0;margin:0;flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden}
-                #edu-classroom .edu-parts-list li{display:grid;grid-template-columns:minmax(0,1fr) 34px;gap:2px;align-items:center;margin:0 0 4px;padding:0;border-radius:9px}
+                #edu-classroom .edu-parts-list li{display:grid;grid-template-columns:minmax(0,1fr) 34px 34px;gap:2px;align-items:center;margin:0 0 4px;padding:0;border-radius:9px}
                 #edu-classroom .edu-part-eye{display:flex;align-items:center;gap:7px;text-align:left;padding:8px 5px;background:transparent;font-size:13px;min-width:0;width:100%}
                 #edu-classroom .edu-part-eye i{font-size:20px;flex-shrink:0}
                 #edu-classroom .edu-part-eye span{overflow-wrap:anywhere;min-width:0;line-height:1.4}
@@ -1424,7 +1467,7 @@
                 #edu-classroom .edu-color-selection p{margin:0;font-size:12px}
                 #edu-classroom .edu-color-selection button{display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px}
                 @media(max-height:680px){#edu-classroom .edu-parts-panel{gap:6px;padding:10px 8px}#edu-classroom .edu-parts-help{display:none}}
-                @media(pointer:coarse){#edu-classroom .edu-parts-list li{grid-template-columns:minmax(0,1fr) 44px}#edu-classroom .edu-parts-panel button{min-height:44px}}
+                @media(pointer:coarse){#edu-classroom .edu-parts-list li{grid-template-columns:minmax(0,1fr) 44px 44px}#edu-classroom .edu-parts-panel button{min-height:44px}}
 `);
             loader = new ModelLoader('blockbench_edu', {
                 name: 'Blockbench Edu', icon: EDU_ICON, category: 'loaders', target: 'Minecraft Education',
