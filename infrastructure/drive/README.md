@@ -15,7 +15,7 @@ Receptor de entregas en Google Apps Script. Recibe `.mcaddon` en una carpeta pri
 
 ## Actualizar una implementación existente para el editor
 
-1. Reemplazar `Código.gs` por la copia configurada `output/drive-buzon/Pegar-en-Apps-Script-v4.txt` y guardar. Las propiedades del proyecto conservan la carpeta, el código de clase y las entregas existentes. La versión v4 incorpora nombres cortos de archivo; el receptor v3 anterior sigue siendo compatible con el botón del editor.
+1. Reemplazar `Código.gs` por la copia configurada `output/drive-buzon/Pegar-en-Apps-Script-v5.txt` y guardar. Las propiedades del proyecto conservan la carpeta, el código de clase y las entregas existentes. La versión v5 incluye los nombres cortos de v4 y autoriza el sitio de Cloudflare Pages.
 2. **Implementar → Gestionar implementaciones → seleccionar la aplicación web → Editar (lápiz)**.
 3. En **Versión**, elegir **Nueva versión** y pulsar **Implementar**. Conservar ejecutar como **Yo** y acceso sin inicio de sesión. No crear otro proyecto ni otra implementación: la URL `/exec` debe seguir siendo la misma.
 4. Verificar una entrega real desde el editor local antes de publicar la actualización web. El modo manual anterior ya se comprobó con el cerdo de referencia.
@@ -29,8 +29,15 @@ Receptor de entregas en Google Apps Script. Recibe `.mcaddon` en una carpeta pri
 - Durante la preparación y el envío aparece una ruedita sin porcentaje. Se bloquean los botones del cuadro, la cruz de cierre, el teclado y los controles del editor; el bloqueo se retira al guardar o al mostrar un error. La confirmación usa un recuadro verde, una marca de verificación y el botón **Seguir creando**.
 - Con el receptor v4, los archivos nuevos se guardan como **NOMBRE_DD-MM-AA.mcaddon**, por ejemplo `Nico_10-11-26.mcaddon`. Se usa la fecha de Madrid, se normalizan los caracteres del nombre para su descarga y se añade `_2`, `_3`, etc. si hay otra entrega con ese mismo nombre y fecha. Los reintentos reconocen el recibo guardado; los archivos de versiones anteriores conservan su nombre.
 - Sin clase seleccionada, se conserva **3 · Llévala a Minecraft** y su descarga habitual.
-- La conexión usa un iframe oculto de Apps Script y mensajes con origen, ventana, canal aleatorio y recibo comprobados. Solo el modo de transporte permite incrustación; la página manual conserva la protección predeterminada. El modo interno permite el sitio publicado del proyecto y el servidor local de prueba.
+- La conexión usa un iframe oculto de Apps Script y mensajes con origen, ventana, canal aleatorio y recibo comprobados. Solo el modo de transporte permite incrustación; la página manual conserva la protección predeterminada. `EDU_EDITOR_ORIGINS` permite las direcciones exactas `https://blockbench-edu.pages.dev` y `https://nchiari.github.io`, además del servidor local de prueba. Los dominios de vista previa de Cloudflare y otros sitios `pages.dev` no se admiten automáticamente.
 - El plugin manual de Blockbench no incorpora este transporte web. El botón integrado se ofrece en el sitio web del proyecto.
+
+## Publicación en Cloudflare Pages
+
+- Sitio: https://blockbench-edu.pages.dev/. El editor carga desde la raíz y los recursos usan rutas relativas; no necesita la subruta `/blockbench-edu-web/` de GitHub Pages.
+- Para conservar una clase al cambiar de alojamiento, abrir el nuevo dominio con el mismo fragmento `#clase=…`. El receptor y la carpeta de Drive siguen siendo los mismos. El docente puede copiar el enlace nuevo desde **Entregas de la clase**.
+- Configuración de compilación para Cloudflare: comando `npm run build:web`, directorio de salida `web/dist`, raíz del repositorio sin cambiar. Los cambios exclusivos de Apps Script se activan al actualizar su implementación en Google, independientemente del despliegue de Cloudflare.
+- El transporte del navegador ya usa `location.origin` y `location.href`; no requiere cambiar su endpoint de Google al mover el sitio. Si cambia el dominio público, también hay que agregar su origen exacto en `EDU_EDITOR_ORIGINS` y actualizar la implementación de Apps Script.
 
 ## Límites y permisos
 

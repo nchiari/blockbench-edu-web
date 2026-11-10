@@ -65,3 +65,13 @@
 - Se publicó el commit `885e630` mediante [este despliegue](https://github.com/nchiari/blockbench-edu-web/actions/runs/42806572491), con compilación, 39 pruebas y publicación correctas. Los cambios locales de otras áreas del editor quedaron fuera de este commit.
 - En una sesión privada nueva del sitio público se repitió la prueba de bloqueo con un primer intento demorado y un error controlado. Escape, Enter, Tab, los clics de fondo y cerrar/confirmar no alteraron el proyecto ni el modo del editor. El reintento usó el mismo archivo y se guardó realmente en Drive como **PRUEBA_ESPERA_PUBLICA**, con el receptor v3 aún publicado.
 - Se verificaron el panel de confirmación de 28 px, su icono, la recuperación de los controles, el regreso a **Dale color**, una sola pestaña y cero errores de JavaScript. Capturas públicas: `output/playwright/delivery-progress-locked-public.png` y `output/playwright/delivery-prominent-success-public.png`.
+
+## Cambio a Cloudflare Pages
+
+- Se abrió `https://blockbench-edu.pages.dev/` en un navegador nuevo sin sesión de Google. El asistente y el editor de un cerdo cargaron sin errores de JavaScript. Las rutas relativas de los recursos funcionaron desde la raíz del dominio.
+- El sitio sirvió `blockbench_edu.ea3db0c10879ff17.js`, idéntico por huella a la revisión publicada del plugin, y `edu-web.800ad91336c063a2.js`. Se verificó que incluye el transporte de Drive, el bloqueo de entrega y la confirmación grande. No hubo un service worker controlador ni cabeceras CSP/X-Frame-Options en el documento que bloquearan la conexión.
+- El enlace de clase generado por el transporte ya usa el dominio de Cloudflare y la raíz, con el mismo código de clase en el fragmento.
+- Se reprodujo el bloqueo de Google solicitando el modo de editor con el origen de Cloudflare: el receptor publicado devolvió **Conexión de editor no válida**. Se confirmó que la lista de orígenes del receptor aún no incluía el nuevo dominio.
+- La copia v5 preparada en `output/drive-buzon/Pegar-en-Apps-Script-v5.txt` agrega exactamente `https://blockbench-edu.pages.dev` y conserva los orígenes anteriores. También incluye el formato **NOMBRE_DD-MM-AA.mcaddon** de v4.
+- Pasaron las 40 pruebas automáticas, incluidas la admisión del origen de Cloudflare, el enlace desde la raíz y el rechazo de dominios parecidos, de otros sitios Pages y de vistas previas no autorizadas.
+- Pendiente: que el propietario actualice la implementación de Apps Script con v5 y comprobar una entrega real desde Cloudflare. Los cambios del receptor no se activan al publicar el sitio estático.

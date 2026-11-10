@@ -4,9 +4,9 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const {webcrypto} = require('node:crypto');
 
-function environment(hash = '#clase=' + 'a'.repeat(32)) {
+function environment(hash = '#clase=' + 'a'.repeat(32), origin = 'http://localhost:4173', pathname = '/blockbench-edu-web/') {
     const frames=[], listeners=new Set(), timers=new Map(), otherListeners=new Map(); let next=0;
-    const location = {href:'http://localhost:4173/blockbench-edu-web/'+hash, hash, origin:'http://localhost:4173'};
+    const location = {href:origin+pathname+hash, hash, origin};
     const window={addEventListener:(type,fn)=>type==='message'?listeners.add(fn):otherListeners.set(type,fn),
         removeEventListener:(type,fn)=>type==='message'?listeners.delete(fn):otherListeners.delete(type),
         dispatchEvent:event=>otherListeners.get(event.type)?.(event)};
@@ -32,6 +32,17 @@ test('class link uses a fragment and rejects invalid class codes',()=>{
     assert.equal(environment('#clase=bad').api.classLink,'');
     env.hash('#clase='+'c'.repeat(32));assert.equal(env.api.classCode,'c'.repeat(32));
     env.hash('#clase=bad');assert.equal(env.api.classCode,'');
+});
+
+test('Cloudflare root links and bridge requests use the current host without a GitHub subpath',async()=>{
+    const env=environment('#clase='+'a'.repeat(32),'https://blockbench-edu.pages.dev','/');
+    assert.equal(env.api.classLink,'https://blockbench-edu.pages.dev/#clase='+'a'.repeat(32));
+    const payload={submissionId:'c'.repeat(32)},response=env.api.send(payload);
+    const frameUrl=new URL(env.frames[0].src);
+    assert.equal(frameUrl.searchParams.get('origen'),'https://blockbench-edu.pages.dev');
+    const channel=env.ready();await tick();
+    env.event({type:'edu-drive-result',channel,submissionId:payload.submissionId,result:{ok:true,receipt:payload.submissionId}});
+    assert.equal((await response).ok,true);
 });
 
 test('prepares bytes once with a random retry identifier',async()=>{

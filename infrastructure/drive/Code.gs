@@ -6,6 +6,12 @@ const EDU_MAX_FILES = 200;
 const EDU_MAX_CLASS_BYTES = 500 * 1024 * 1024;
 const EDU_CLASS_DAYS = 7;
 const EDU_TIME_ZONE = 'Europe/Madrid';
+const EDU_EDITOR_ORIGINS = [
+  'https://blockbench-edu.pages.dev',
+  'https://nchiari.github.io',
+  'http://localhost:4173',
+  'http://127.0.0.1:4173'
+];
 
 // Visible editor commands check the caller before reaching private teacher operations.
 function prepararBuzon() {
@@ -188,7 +194,7 @@ function doGet(e) {
   if (e && e.parameter && e.parameter.modo === 'editor') {
     const origin = e.parameter.origen || '';
     const channel = e.parameter.canal || '';
-    if (!['https://nchiari.github.io', 'http://localhost:4173', 'http://127.0.0.1:4173'].includes(origin) ||
+    if (!EDU_EDITOR_ORIGINS.includes(origin) ||
         !/^[a-f0-9]{32}$/.test(channel)) throw new Error('Conexión de editor no válida.');
     return HtmlService.createHtmlOutput(puenteEditor_(origin, channel))
       .setTitle('Conexión de entrega de Blockbench Edu')

@@ -179,13 +179,20 @@ test('escapes class query input and emits syntactically valid browser script', (
 
 test('editor transport permits only known editor origins and random channels', () => {
     const env = environment();
-    for (const origen of ['https://evil.example', 'https://nchiari.github.io.evil.example', 'null']) {
+    for (const origen of ['https://evil.example', 'https://nchiari.github.io.evil.example',
+        'https://blockbench-edu.pages.dev.evil.example', 'https://other.pages.dev',
+        'https://preview.blockbench-edu.pages.dev', 'http://blockbench-edu.pages.dev', 'null']) {
         assert.throws(() => env.context.doGet({parameter:{modo:'editor', origen, canal:'a'.repeat(32)}}), /no válida/);
     }
     assert.throws(() => env.context.doGet({parameter:{modo:'editor', origen:'https://nchiari.github.io', canal:'short'}}));
     const output = env.context.doGet({parameter:{modo:'editor', origen:'http://localhost:4173', canal:'a'.repeat(32)}});
     assert.equal(output.frameMode, 'ALLOWALL');
     new vm.Script(output.html.match(/<script>([\s\S]*)<\/script>/)[1]);
+    for (const origen of ['https://blockbench-edu.pages.dev', 'https://nchiari.github.io', 'http://127.0.0.1:4173']) {
+        const bridge = env.context.doGet({parameter:{modo:'editor', origen, canal:'a'.repeat(32)}});
+        assert.equal(bridge.frameMode, 'ALLOWALL');
+        new vm.Script(bridge.html.match(/<script>([\s\S]*)<\/script>/)[1]);
+    }
     assert.equal(env.context.doGet({parameter:{}}).frameMode, undefined);
 });
 
@@ -196,7 +203,7 @@ test('embedded receiver ignores unknown windows, origins and channels and forwar
     const run = {withSuccessHandler(fn) { success=fn; return this; }, withFailureHandler() { return this; },
         entregarAddon(payload) { calls.push(payload); }};
     const sandbox = {window:{top, addEventListener: (_, fn) => {listener=fn;}}, google:{script:{run}}};
-    const origin='https://nchiari.github.io', channel='a'.repeat(32);
+    const origin='https://blockbench-edu.pages.dev', channel='a'.repeat(32);
     vm.runInNewContext(env.context.puenteEditor_(origin, channel).match(/<script>([\s\S]*)<\/script>/)[1], sandbox);
     assert.equal(replies[0].message.type, 'edu-drive-ready');
     const event = {origin, source:top, data:{channel, type:'edu-drive-upload', payload:{submissionId:'b'.repeat(32)}}};
