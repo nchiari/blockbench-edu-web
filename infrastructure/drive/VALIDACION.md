@@ -50,3 +50,6 @@
 - Pulsar **Entregar** con el campo vacío o con espacios muestra una indicación, marca el campo como inválido y lleva el foco al campo. Escribir borra la indicación; se aceptó un número de alumno en la prueba.
 - En el editor local se comprobaron los estilos calculados, el cuadro en 1024 × 768 y una entrega real como **PRUEBA_NOMBRE_VERDE**, sin nuevas pestañas ni errores de JavaScript. Drive confirmó el archivo privado.
 - Captura: `output/playwright/delivery-name-green-before.png`.
+- Se publicó el ajuste en `0afb2c4`; el [despliegue](https://github.com/nchiari/blockbench-edu-web/actions/runs/42804743331) terminó correctamente.
+- En una sesión privada nueva de Chromium, con cero cookies al comenzar, se repitieron las comprobaciones de campo vacío, espacios, número, foco, borde y botón verde desde el sitio público. La entrega real **PRUEBA_BOTON_PUBLICO** se guardó privada en Drive, sin abrir pestañas ni registrar errores de JavaScript.
+- Captura del sitio público: `output/playwright/delivery-name-green-public.png`.
