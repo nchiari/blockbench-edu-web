@@ -27,6 +27,13 @@
       button.hidden = false;
       button.textContent = 'Comenzar';
       button.onclick = () => ModelLoader.loaders.blockbench_edu.onStart();
+      if (!overlay.querySelector('#edu-home-open')) {
+        const open = document.createElement('button');
+        open.id = 'edu-home-open';
+        open.textContent = 'Abrir una criatura';
+        open.onclick = () => host.openCreature?.();
+        button.after(open);
+      }
     },
     showWizard() {
       document.title = role === 'teacher' ? 'Blockbench Edu · Docente' : 'Blockbench Edu';

@@ -322,10 +322,54 @@
         zip.file('RP/texts/languages.json', JSON.stringify(['en_US', 'es_ES']));
         return {geometry, identifier, name: title, addon: await zip.generateAsync({type: 'uint8array'})};
     }
-    const core = {resizePixels, smoothPixels, extractPixels, extractSurface, sampleRegion, packFaces, centeredBounds, geometryEntries, signature, syncManifests, readAddon, buildAddon, createStarter, createMobAddon, compatibleSounds};
+    // A portable project contains the untouched source addon as well as the edited model.
+    // Exporting an mcaddon alone cannot reconstruct the original UVs or size limits.
+    function validateCreatureProject(model, state) {
+        requireThat(model?.meta?.model_format === 'bedrock' && model.meta.format_version === '5.0', 'El modelo guardado no es compatible con esta versión de Edu.');
+        const cubes = model.elements?.filter(e => e.type === 'cube');
+        const vector = (v, n) => Array.isArray(v) && v.length === n && v.every(Number.isFinite);
+        requireThat(cubes?.length > 0 && state?.prepared === true && Array.isArray(state.cubeIds) &&
+            new Set(state.cubeIds).size === cubes.length && state.cubeIds.length === cubes.length &&
+            cubes.every(c => state.cubeIds.includes(c.uuid) && vector(c.from,3) && vector(c.to,3) && c.to.every((v,i) => v >= c.from[i]) &&
+                vector(state.initialSizes?.[c.uuid],3) && state.initialSizes[c.uuid].every(v => v >= 0)), 'Faltan piezas o medidas del proyecto guardado.');
+        requireThat(state.cubeIds.includes(state.headId) && state.cubeIds.includes(state.selectedId) &&
+            vector(state.originalResolution,2) && state.originalResolution.every(v => v > 0), 'Faltan datos de la criatura original.');
+        requireThat(model.textures?.length === 1 && model.textures[0].uuid === state.textureId &&
+            /^data:image\/png;base64,/.test(model.textures[0].source) && !model.textures[0].layers_enabled,
+            'El proyecto necesita su pintura incluida en el archivo.');
+        requireThat(Array.isArray(state.originalFaces) && state.originalFaces.length === cubes.reduce((n,c) => n + Object.values(c.faces).filter(f => f.texture !== null).length,0) &&
+            cubes.every(c => Object.keys(c.faces).filter(name => c.faces[name].texture !== null).every(name => {
+                const faces = state.originalFaces.filter(f => f.cubeId === c.uuid && f.name === name);
+                return faces.length === 1 && vector(faces[0].uv,4) && vector(faces[0].signs,2) &&
+                    Number.isInteger(faces[0].width) && faces[0].width > 0 && Number.isInteger(faces[0].height) && faces[0].height > 0;
+            })), 'Faltan datos de la pintura original.');
+        requireThat(state.lastVersion === null || (vector(state.lastVersion,3) && state.lastVersion.every(v => Number.isInteger(v) && v >= 0)), 'La versión del addon guardado no es válida.');
+    }
+    async function writeCreatureProject(model, state, reference, Zip) {
+        validateCreatureProject(model, state);
+        const zip = new Zip();
+        zip.file('project.json', JSON.stringify({format: 'blockbench-edu', version: 1, model, state}));
+        zip.file('reference.mcaddon', await reference.root.generateAsync({type:'uint8array'}));
+        return zip.generateAsync({type:'uint8array', compression:'DEFLATE'});
+    }
+    async function readCreatureProject(content, Zip) {
+        let data, zip;
+        try {
+            zip = await Zip.loadAsync(content);
+            data = JSON.parse(await zip.file('project.json').async('string'));
+        } catch { throw new Error('Este archivo no es un proyecto de Blockbench Edu o está dañado. Elige el archivo .bbedu que guardaste.'); }
+        requireThat(data.format === 'blockbench-edu' && data.version === 1, 'Este proyecto necesita otra versión de Blockbench Edu.');
+        validateCreatureProject(data.model, data.state);
+        requireThat(zip.file('reference.mcaddon'), 'El proyecto no contiene su addon base.');
+        const reference = await readAddon(await zip.file('reference.mcaddon').async('uint8array'), Zip);
+        requireThat('geometry.' + data.model.model_identifier === reference.geometryId, 'El modelo y el addon base no corresponden a la misma criatura.');
+        reference.lastVersion = data.state.lastVersion;
+        return {...data, reference};
+    }
+    const core = {resizePixels, smoothPixels, extractPixels, extractSurface, sampleRegion, packFaces, centeredBounds, geometryEntries, signature, syncManifests, readAddon, buildAddon, createStarter, createMobAddon, compatibleSounds, writeCreatureProject, readCreatureProject};
     if (typeof module !== 'undefined' && module.exports) { module.exports = core; return; }
 
-    let panel, style, wizardStyle, action, loader, wizard, classroom, classroomStyle, selectionTool, smoothTool, colorSelectionTool, selectionFillTool, previousTool, teacherReturn, alive = false;
+    let panel, style, projectStyle, wizardStyle, action, loader, wizard, classroom, classroomStyle, selectionTool, smoothTool, colorSelectionTool, selectionFillTool, previousTool, teacherReturn, alive = false;
     const EDU_ICON = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="5" fill="#123d27"/><path d="m16 3 12 7v13l-12 7-12-7V10Z" fill="#53d983"/><path d="m4 10 12 7 12-7M16 17v13" fill="none" stroke="#143e28" stroke-width="2"/><path d="m8 9 8-4 8 4-8 5Z" fill="#b8ffd1"/><path d="M8 18v5m16-5v5" stroke="#143e28" stroke-width="3"/></svg>');
     const sessions = new Map(), listeners = [];
     const allowsTeacherView = () => window.BlockbenchEduWeb?.role !== 'student';
@@ -781,6 +825,82 @@
             if (files.length) attempt(() => linkAddon(files[0].content));
         });
     }
+    let openingCreature = false;
+    async function saveCreature() {
+        const session = validateSession();
+        requireThat(session.prepared, 'Prepara la criatura antes de guardarla.');
+        const visibility = Cube.all.map(c => c.visibility);
+        let model;
+        try {
+            if (session.paintVisibility) for (const cube of Cube.all) cube.visibility = session.paintVisibility[cube.uuid] ?? cube.visibility;
+            model = Codecs.project.compile({raw:true, bitmaps:true, backup:true, absolute_paths:false});
+        } finally { Cube.all.forEach((c,i) => c.visibility = visibility[i]); }
+        // Never carry local paths or classroom access codes into a child's file.
+        for (const texture of model.textures) { delete texture.path; delete texture.relative_path; }
+        const state = clone({prepared:true, cubeIds:session.cubeIds, textureId:session.textureId,
+            headId:session.headId, selectedId:session.selectedId, initial:session.initial, initialSizes:session.initialSizes,
+            originalFaces:session.originalFaces, originalResolution:session.originalResolution,
+            lastVersion:session.reference.lastVersion});
+        const name = Project.name.replace(/[^\p{L}\p{N}_-]+/gu,'_') || 'Mi_criatura';
+        session.busy = true; refresh();
+        try {
+            const bytes = await writeCreatureProject(model,state,session.reference,JSZip);
+            Blockbench.export({type:'Proyecto de Blockbench Edu', extensions:['bbedu'], savetype:'zip',
+                name, content:new Blob([bytes],{type:'application/zip'})}, () => {
+                Blockbench.showMessageBox({title:'Tu proyecto está listo para guardar',
+                    message:'Busca el archivo **.bbedu** en tus descargas y guárdalo en tu carpeta. También puedes enviárselo a tu docente.\n\nLa próxima clase, entra en Blockbench Edu y pulsa **Abrir una criatura** para continuar.\n\nSi haces más cambios, vuelve a guardar tu criatura.', buttons:['Seguir creando']});
+            });
+        } finally { session.busy = false; refresh(); }
+    }
+    async function openCreatureFile(content) {
+        requireThat(!openingCreature && !current()?.busy, 'Espera a que termine la operación actual.');
+        openingCreature = true;
+        const previous = Project, wasClassroom = !!classroom;
+        let loaded;
+        try {
+            // Validate the complete archive before changing the editor.
+            const data = await readCreatureProject(content,JSZip);
+            requireThat(alive && Project === previous, 'Cambió el proyecto mientras se abría el archivo. Vuelve a intentarlo.');
+            leaveClassroom();
+            Codecs.project.load(data.model,{path:'Mi_criatura.bbmodel',no_file:true});
+            loaded = Project;
+            requireThat(loaded && loaded !== previous, 'No se pudo abrir un proyecto nuevo.');
+            await Promise.all(Texture.all.map(texture => new Promise((resolve,reject) => {
+                // The codec can return with a cached image already marked complete
+                // but its canvas still blank. Use Blockbench's post-copy callback.
+                const failed = () => { clearTimeout(timer); reject(new Error('No se pudo recuperar la pintura del archivo.')); };
+                const timer = setTimeout(failed,15000);
+                texture.img.addEventListener('error',failed,{once:true});
+                texture.load(() => { clearTimeout(timer); texture.img.removeEventListener('error',failed); resolve(); });
+            })));
+            requireThat(alive && Project === loaded, 'Cambió el proyecto mientras se recuperaba la pintura.');
+            sessions.set(loaded.uuid,{...data.state,reference:data.reference,busy:false,pieceLinks:buildPieceLinks()});
+            validateSession(); captureFaces(Texture.all[0]);
+            loaded.name = data.model.name || 'Mi criatura'; loaded.saved = false;
+            Undo.history.length = 0; Undo.index = 0;
+            selectPiece(data.state.selectedId);
+            document.body.classList.remove('edu-setup');
+            wizard?.hide();
+            window.BlockbenchEduWeb?.showWizard();
+            if (window.BlockbenchEduWeb?.role !== 'teacher') enterClassroom();
+            else { Modes.options.edit.select(); panel.selectTab(); refresh(); }
+            camera('frame');
+        } catch (error) {
+            if (loaded && loaded !== previous) { sessions.delete(loaded.uuid); await loaded.close(true); }
+            if (previous && ModelProject.all.includes(previous)) previous.select();
+            if (wasClassroom && current()) enterClassroom();
+            throw error;
+        } finally { openingCreature = false; }
+    }
+    function importCreature() {
+        if (openingCreature || current()?.busy) return;
+        Blockbench.import({extensions:['bbedu'],type:'Proyecto de Blockbench Edu',readtype:'binary'},files => {
+            if (files.length) openCreatureFile(files[0].content).catch(error => {
+                console.error('[Blockbench Edu]',error);
+                Blockbench.showMessageBox({title:'No pudimos abrir la criatura',message:error.message,buttons:['Volver']});
+            });
+        });
+    }
     async function remapAuxiliaryTextures(session, finalFaces, width, height) {
         const reference = session.reference, replacements = {};
         const paths = [...new Set(Object.entries(reference.entity.description.textures).filter(([alias]) => {
@@ -852,6 +972,26 @@
                 });
             });
         } finally { session.busy = false; refresh(); }
+    }
+    function showSaveOptions() {
+        validateSession();
+        const projectId = Project.uuid;
+        let dialog;
+        const choose = work => {
+            if (Project?.uuid !== projectId || current()?.busy) return;
+            dialog.hide(); attempt(work);
+        };
+        dialog = new Dialog({id:'blockbench_edu_save_options', title:'Guardar y compartir', width:540,
+            buttons:['Seguir creando'], component:{
+                data:() => ({hasClass:!!window.BlockbenchEduDrive?.classCode}),
+                methods:{save:() => choose(saveCreature), minecraft:() => choose(exportAddon), deliver:() => choose(deliverAddon)},
+                template:`<div class="edu-save-options"><p>¿Qué quieres hacer con tu criatura?</p>
+                    <button class="edu-save-choice" @click="save"><i class="material-icons" aria-hidden="true">save</i><span><strong>Guardar para seguir editando</strong><small>Guarda tu proyecto .bbedu en el ordenador. Ábrelo en Edu la próxima clase para continuar.</small></span></button>
+                    <button class="edu-save-choice" @click="minecraft"><i class="material-icons" aria-hidden="true">sports_esports</i><span><strong>Llevar a Minecraft</strong><small>Descarga el addon .mcaddon para abrirlo con Minecraft Education y usar tu criatura en un mundo.</small></span></button>
+                    <button v-if="hasClass" class="edu-save-choice" @click="deliver"><i class="material-icons" aria-hidden="true">school</i><span><strong>Entregar al profe</strong><small>Envía tu trabajo al buzón de la clase.</small></span></button>
+                </div>`
+            }});
+        dialog.show();
     }
     function lockDeliveryUi(dialogElement) {
         const inertStates = new Map();
@@ -1087,7 +1227,8 @@
                 transform: (kind, axis, step) => attempt(() => transformPiece(kind, axis, step)),
                 move: (axis, step) => attempt(() => transformPiece('move', axis, axis === 0 ? -step : step)),
                 undo: () => Undo.undo(), redo: () => Undo.redo(), download: () => attempt(exportAddon),
-                deliver: () => attempt(deliverAddon),
+                deliver: () => attempt(deliverAddon), saveCreature: () => attempt(saveCreature), openCreature: importCreature,
+                saveOptions: () => attempt(showSaveOptions),
                 setMode(mode) { this.mode = mode; Modes.options[mode === 'paint' ? 'paint' : 'edit'].select(); if (mode === 'paint') { this.tool(this.paintTool); ColorPanel.set(this.color); } else { selectClassroomTool(); } applyPaintVisibility(); updateColorSelectionPreview(); window.dispatchEvent(new Event('resize')); },
                 paintColor(color) { this.color = color; ColorPanel.set(color); },
                 tool(id) { this.paintTool = id; BarItems[id==='fill_tool' && this.selectedPixelCount ? 'blockbench_edu_fill_selection' : id].select(); if (['brush_tool','eraser','blockbench_edu_smooth'].includes(id)) BarItems.slider_brush_size.setValue(this.brushSize); },
@@ -1095,7 +1236,7 @@
                 clearColorSelection: clearPaintColorSelection,
                 toggleBone: togglePaintBone, showOnlyBone: showOnlyPaintBone, showAllBones: showPaintBones
             },
-            template: `<div id="edu-classroom"><header><strong>Blockbench Edu</strong><nav aria-label="Crear tu criatura"><button @click="setMode('shape')" :class="{active:mode==='shape'}">1 · Dale forma</button><button @click="setMode('paint')" :class="{active:mode==='paint'}">2 · Dale color</button><button v-if="driveClass" @click="deliver" :disabled="busy">3 · Entregar al profe</button><button v-else @click="download" :disabled="busy">3 · Llévala a Minecraft</button></nav><button v-if="teacherViewAvailable" @click="exit" class="edu-teacher">Para el docente</button></header>
+            template: `<div id="edu-classroom"><header><strong>Blockbench Edu</strong><nav aria-label="Crear tu criatura"><button @click="setMode('shape')" :class="{active:mode==='shape'}">1 · Dale forma</button><button @click="setMode('paint')" :class="{active:mode==='paint'}">2 · Dale color</button><button @click="saveOptions" :disabled="busy">3 · Guardar y compartir</button></nav><button v-if="teacherViewAvailable" @click="exit" class="edu-teacher">Para el docente</button></header>
                 <aside><div class="edu-sidebar-scroll"><template v-if="mode==='shape'"><h2>Dale forma</h2><label>¿Qué parte quieres cambiar?<select :value="selectedId" @change="selectPiece($event.target.value)"><option v-for="piece in pieces" :key="piece.id" :value="piece.id">{{piece.label}}</option></select></label><div class="edu-paint-tools edu-shape-tools" role="group" aria-label="¿Qué quieres hacer?"><button @click="operation='size'" :class="{active:operation==='size'}" :aria-pressed="operation==='size'"><i class="material-icons" aria-hidden="true">open_in_full</i>Tamaño</button><button @click="operation='move'" :class="{active:operation==='move'}" :aria-pressed="operation==='move'"><i class="material-icons" aria-hidden="true">open_with</i>Mover</button><button @click="operation='rotate'" :class="{active:operation==='rotate'}" :aria-pressed="operation==='rotate'"><i class="material-icons" aria-hidden="true">rotate_right</i>Girar</button></div><template v-if="operation==='size'"><div class="edu-size"><span>Tamaño general</span><button @click="resize('all',-1)" :disabled="busy || dimensions.some((value,axis) => value-1 &lt; minimum[axis])" aria-label="Reducir tamaño general">−</button><b></b><button @click="resize('all',1)" :disabled="busy || dimensions.some((value,axis) => value+1 &gt; maximum[axis])" aria-label="Aumentar tamaño general">+</button></div><p>Cambia el ancho, el alto y la profundidad a la vez.</p><div class="edu-size" v-for="(label,axis) in labels" :key="label"><span>{{label}}</span><button @click="resize(axis,-1)" :disabled="busy || dimensions[axis]&lt;=minimum[axis]" :aria-label="'Reducir '+label">−</button><b>{{dimensions[axis]}}</b><button @click="resize(axis,1)" :disabled="busy || dimensions[axis]&gt;=maximum[axis]" :aria-label="'Aumentar '+label">+</button></div><p>Usa − para reducir y + para aumentar.<br>Puedes deshacer si no te gusta.</p></template><template v-else-if="operation==='move'"><div class="edu-move-arrows"><strong>Mover</strong><div class="edu-size" v-for="(label,axis) in axes" :key="'move-'+axis"><span>{{label}}</span><button @click="move(axis,-1)" :disabled="busy" :aria-label="'Mover '+label+' menos'">{{axis===1?'↓':axis===2?'↙':'←'}}</button><b></b><button @click="move(axis,1)" :disabled="busy" :aria-label="'Mover '+label+' más'">{{axis===1?'↑':axis===2?'↗':'→'}}</button></div><p>Las capas de esta parte se mueven y cambian de tamaño juntas.</p></div></template><template v-else><div class="edu-size" v-for="(label,index) in turns" :key="label"><span>{{label}}</span><button :aria-label="'Girar menos: '+label" @click="transform('rotate',index,-15)" :disabled="busy">−</button><b>{{rotation[index]}}</b><button :aria-label="'Girar más: '+label" @click="transform('rotate',index,15)" :disabled="busy">+</button></div><p>Usa − y + para girar esta parte poco a poco.</p></template></template>
                 <template v-else><h2>Dale color</h2><p>Elige un color y pinta sobre tu criatura.</p><div class="edu-palette"><button v-for="swatch in colors" :key="swatch" :style="{background:swatch}" :aria-label="'Color '+swatch" @click="paintColor(swatch)"></button></div><label>Otro color<input type="color" :value="color" @input="paintColor($event.target.value)"/></label><div class="edu-paint-tools">
                     <button @click="tool('brush_tool')" :class="{active:paintTool==='brush_tool'}"><i class="material-icons" aria-hidden="true">brush</i>Pincel</button>
@@ -1108,7 +1249,7 @@
                     <div v-if="selectedPixelCount" class="edu-color-selection" role="group" aria-label="Selección de color"><p role="status" aria-live="polite">{{selectedPixelCount}} píxeles seleccionados.<br>Incluye las partes ocultas.</p><p>Usa el pincel, el bote, el borrador o Suavizar sobre la selección. El bote pinta toda la selección.</p><button @click="clearColorSelection" :disabled="busy"><i class="material-icons" aria-hidden="true">deselect</i>Quitar selección</button></div>
                     <div v-if="paintTool==='brush_tool' || paintTool==='eraser' || paintTool==='blockbench_edu_smooth'" class="edu-size"><span>Tamaño</span><button @click="changeBrushSize(-1)" :disabled="brushSize===1" aria-label="Reducir pincel un píxel">−</button><b>{{brushSize}}</b><button @click="changeBrushSize(1)" :disabled="brushSize===64" aria-label="Aumentar pincel un píxel">+</button></div>
                     <p v-if="paintTool==='brush_tool' || paintTool==='eraser' || paintTool==='blockbench_edu_smooth'">Tamaño en píxeles.</p><p v-if="paintTool==='blockbench_edu_smooth'">Mezcla los colores cercanos.</p>
-                    </template></div><div class="edu-history" role="group" aria-label="Historial de cambios"><button @click="undo" :disabled="busy || !canUndo" title="Volver un paso atrás"><i class="material-icons" aria-hidden="true">undo</i>Deshacer</button><button @click="redo" :disabled="busy || !canRedo" title="Recuperar el paso que deshiciste"><i class="material-icons" aria-hidden="true">redo</i>Rehacer</button></div></aside>
+                    </template></div><div class="edu-project-files" role="group" aria-label="Guardar y continuar otro día"><button @click="saveCreature" :disabled="busy"><i class="material-icons" aria-hidden="true">save</i>Guardar mi criatura</button><button @click="openCreature" :disabled="busy"><i class="material-icons" aria-hidden="true">folder_open</i>Abrir una criatura</button></div><div class="edu-history" role="group" aria-label="Historial de cambios"><button @click="undo" :disabled="busy || !canUndo" title="Volver un paso atrás"><i class="material-icons" aria-hidden="true">undo</i>Deshacer</button><button @click="redo" :disabled="busy || !canRedo" title="Recuperar el paso que deshiciste"><i class="material-icons" aria-hidden="true">redo</i>Rehacer</button></div></aside>
                 <section v-if="partsOpen" id="edu-parts-panel" class="edu-parts-panel" role="region" aria-labelledby="edu-parts-title" @keydown.esc.stop.prevent="setPartsOpen(false)">
                     <div class="edu-parts-heading"><h2 id="edu-parts-title"><i class="material-icons" aria-hidden="true">visibility</i>Partes</h2><button ref="partsClose" @click="setPartsOpen(false)" aria-label="Plegar panel de partes" title="Plegar panel de partes"><i class="material-icons" aria-hidden="true">chevron_right</i></button></div>
                     <button class="edu-parts-show-all" @click="showAllBones" :disabled="busy || !hiddenBoneCount"><i class="material-icons" aria-hidden="true">visibility</i>Mostrar todas</button>
@@ -1143,6 +1284,7 @@
                     choices() { return Object.entries(this.catalog).filter(([id,mob]) => mob.entity && mob.behavior && !['basic', 'vehicle', 'armor_stand'].includes(id) && !mob.disable_on_edu && (id + ' ' + mob.name).toLowerCase().includes(this.search.toLowerCase())).sort((a,b) => a[1].name.localeCompare(b[1].name, 'es', {sensitivity:'base'}) || a[0].localeCompare(b[0])); }
                 },
                 methods: {
+                    openCreature: importCreature,
                     back() { if (!this.busy && this.step > 0) { this.step--; this.error = ''; } },
                     cancel() { if (!this.busy) { document.body.classList.remove('edu-setup'); wizard.hide(); window.BlockbenchEduWeb?.showHome(); } },
                     async next() {
@@ -1186,7 +1328,7 @@
                 template: `<div class="edu-wizard">
                     <nav aria-label="Pasos del asistente"><ol><li v-for="(label,index) in steps" :key="label" :class="{active:index===step,done:index&lt;step}"><span>{{index+1}}</span>{{label}}</li></ol></nav>
                     <section class="edu-wizard-content"><div class="edu-wizard-scroll">
-                        <template v-if="step===0"><img :src="icon" class="edu-wizard-icon" alt=""/><h2>Crea tu propia criatura</h2><p>Elige una criatura de Minecraft, cambia su forma, píntala y llévatela a Minecraft Education.</p><p>Te vamos a acompañar paso a paso. Necesitas teclado y ratón.</p></template>
+                        <template v-if="step===0"><img :src="icon" class="edu-wizard-icon" alt=""/><h2>Crea tu propia criatura</h2><p>Elige una criatura de Minecraft, cambia su forma, píntala y llévatela a Minecraft Education.</p><p>Te vamos a acompañar paso a paso. Necesitas teclado y ratón.</p><button @click="openCreature" :disabled="busy"><i class="material-icons" aria-hidden="true">folder_open</i> Abrir una criatura</button><p>¿Ya habías empezado? Abre tu archivo .bbedu para continuar.</p></template>
                         <template v-if="step===1"><h2>Elige tu criatura</h2><search-bar v-model="search" placeholder="Buscar criatura…" aria-label="Buscar criatura"/><ul class="entity_wizard_mob_list edu-catalog" aria-label="Criaturas"><li v-for="entry in choices" :key="entry[0]" :class="{selected:creature===entry[0]}" :style="{backgroundImage:'url('+entry[1].thumbnail+')'}" role="button" tabindex="0" :aria-pressed="creature===entry[0]" @click="creature=entry[0]" @keydown.enter.stop.prevent="creature=entry[0]" @keyup.enter.stop.prevent @keydown.space.stop.prevent="creature=entry[0]" @keyup.space.stop.prevent><label>{{entry[1].name}}</label></li></ul><p v-if="!choices.length">No encontramos esa criatura. Prueba con otro nombre.</p><p v-if="creature">Has elegido: <strong>{{catalog[creature].name}}</strong></p><p v-else>Selecciona una criatura para continuar.</p></template>
                         <template v-if="step===2"><h2>¡Tu criatura está lista!</h2><ol class="edu-instructions"><li>Elige una parte y usa <strong>− y +</strong> para darle forma.</li><li>Entra en <strong>Dale color</strong> y elige tus colores.</li><li>Guarda tu criatura para llevarla a <strong>Minecraft Education</strong>.</li></ol><p>Tu dibujo se acomoda solo. Para volver un paso atrás, usa <strong>Ctrl+Z</strong>.</p></template>
                         <p v-if="error" role="alert" class="edu-wizard-error">{{error}}</p>
@@ -1203,6 +1345,8 @@
         variant: 'both', min_version: '5.2.2',
         onload() {
             alive = true;
+            if (window.BlockbenchEduWeb) window.BlockbenchEduWeb.openCreature = importCreature;
+            projectStyle = Blockbench.addCSS('.edu-save-options{padding:10px 4px;display:grid;gap:12px}.edu-save-options>p{line-height:1.5;margin:0 0 4px}.edu-save-options .edu-save-choice{display:flex;align-items:center;gap:16px;width:100%;height:auto;min-height:100px;white-space:normal;text-align:left;padding:18px;border:2px solid #526f5d;border-radius:12px;background:#21302e;color:#eaf5ee}.edu-save-choice>i{font-size:30px;flex-shrink:0;color:#8beaab}.edu-save-choice span{display:grid;gap:8px;min-width:0}.edu-save-choice strong{font-size:17px;line-height:1.3;color:#8beaab}.edu-save-choice small{font-size:14px;line-height:1.5;color:#cee0d5}.edu-save-options .edu-save-choice:hover{background:#2d473b;border-color:#65d98a}.edu-save-options .edu-save-choice:focus-visible{outline:3px solid #8beaab;outline-offset:2px}.edu-project-files{flex-shrink:0;display:grid;gap:6px;padding-top:12px}.edu-project-files button{display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px}');
             colorSelectionTool = new Tool('blockbench_edu_select_color', {name:'Seleccionar un color',icon:'select_all',modes:['paint'],
                 paintTool:true,selectElements:false,cursor:'crosshair',condition:() => !!classroom,
                 onCanvasClick(data) {
@@ -1303,6 +1447,7 @@
                     methods: {returnToStudents: enterClassroom, link: importAddon, prepare: () => attempt(prepare), resize: (a, s) => attempt(() => resize(a, s)),
                         select: selectHead, selectPiece, camera, paint: () => Modes.options.paint.select(), edit: () => Modes.options.edit.select(),
                         undo: () => Undo.undo(), redo: () => Undo.redo(), exportAddon: () => attempt(exportAddon),
+                        saveCreature: () => attempt(saveCreature), openCreature: importCreature,
                         setDriveClass() {
                             try {
                                 window.BlockbenchEduDrive.setClassCode(this.driveCode.trim());
@@ -1311,6 +1456,7 @@
                             } catch (error) { this.driveMessage = error.message; this.driveLink = ''; }
                         }},
                     template: `<div class="edu-probe">
+                        <button @click="openCreature" :disabled="busy">Abrir una criatura</button><button @click="saveCreature" :disabled="!prepared || busy">Guardar mi criatura</button>
                         <button v-if="prepared" @click="returnToStudents" :disabled="busy"><i class="material-icons" aria-hidden="true">school</i> Volver a alumnos</button><p class="edu-status">{{status}}</p>
                         <details v-if="driveAvailable" class="edu-drive-config"><summary>Entregas de la clase</summary>
                         <label>Código de entrega<input v-model="driveCode" autocomplete="off" maxlength="32"/></label><button @click="setDriveClass">Seleccionar clase</button>
@@ -1377,6 +1523,8 @@
         },
         onunload() {
             alive = false;
+            projectStyle?.delete(); projectStyle = null;
+            if (window.BlockbenchEduWeb) delete window.BlockbenchEduWeb.openCreature;
             teacherReturn?.remove(); teacherReturn = null;
             document.body.classList.remove('edu-setup');
             leaveClassroom(); classroomStyle?.delete();

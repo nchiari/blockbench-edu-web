@@ -1,5 +1,25 @@
 # Validación del prototipo
 
+## Tercer paso «Guardar y compartir» — 10 de noviembre de 2026
+
+- El tercer paso abre una ventana con dos acciones: guardar un proyecto editable `.bbedu` o descargar el addon `.mcaddon` para Minecraft. Si hay una clase configurada, ofrece además «Entregar al profe».
+- La ventana se puede cerrar con «Seguir creando» sin modificar la criatura. Conserva los accesos de guardado y apertura del menú lateral.
+- `npm run check`, `npm test` (**48 pruebas aprobadas**) y `npm run build:web` completados. `tests/session-project-probe.js`: **23 comprobaciones aprobadas**, con las descargas reales de `.bbedu` y `.mcaddon` pasando por la nueva ventana, reapertura, edición y exportación posterior.
+- `tests/web-entry-probe.js` comprobó los accesos de alumno/docente y la opción de entrega en el nuevo menú cuando hay clase, sin enviar trabajos a Drive. Se ajustó también la prueba de exportación con partes ocultas al nuevo recorrido.
+- Ventana revisada visualmente a 1024 × 768. Evidencia: `output/playwright/save-options-1024.png`, `save-options-result.txt` y `save-options-entry-result.txt`. No se importó en Minecraft ni se publicó esta revisión durante esta tarea.
+
+## Proyectos portátiles — 10 de noviembre de 2026
+
+- «Guardar mi criatura» descarga un único `.bbedu` con modelo y pintura integrados, addon base y metadatos de edición. «Abrir una criatura» está disponible en el asistente, inicio, editor alumno y panel docente.
+- `npm test`: **43 pruebas aprobadas**, incluidas conservación del contenido original del addon, identidad y versión, y rechazo de proyectos incompletos, incompatibles o con datos inconsistentes. `npm run check` y `npm run build:web` completados.
+- `tests/session-project-probe.js`: **20 comprobaciones aprobadas** en Chromium, con la compilación local de Blockbench 5.2.2. Se modificó tamaño, posición, giro y pintura de un zombi; se descargó el proyecto, recargó la página y abrió usando solamente el archivo.
+- Geometría, PNG, UUID de piezas/textura, nombre y límites de tamaño recuperados sin diferencias. Se pudo volver a cambiar tamaño y pintar; deshacer recuperó exactamente el estado guardado. Las pruebas esperan a que termine la restauración asíncrona de los bitmaps nativos.
+- Exportación antes y después: BP/RP de `1.0.1` a `1.0.2`, con dependencias cruzadas. Las pruebas de archivo comprueban que los UUID de los packs se mantienen y que se conserva cada archivo del addon base.
+- Partes ocultas temporalmente guardadas completas y visibles al reabrir. Abrir otro proyecto conserva el anterior en su pestaña. Un archivo inválido conserva la criatura actual; su aviso también es accesible desde el inicio.
+- Apertura y guardado comprobados en la entrada docente. Botones revisados visualmente a 1024 × 768. Evidencia: `output/playwright/session-project-result.txt`, `session-restored-1024.png`, `session-roundtrip.bbedu`, `session-before.mcaddon` y `session-after.mcaddon`.
+- El proyecto reinicia historial de deshacer, cámara, herramientas y selecciones temporales. No incluye código de clase ni rutas locales de las texturas. No se agregó guardado automático ni recepción de `.bbedu` en Drive.
+- No se importó el addon resultante en Minecraft Education ni se publicó esta revisión en la web pública durante esta tarea.
+
 Fecha: 13 de octubre de 2026.
 
 ## Entrada guiada 0.2.0

@@ -6,7 +6,7 @@ Plugin local en español para Blockbench web 5.2.2, con teclado y ratón. Incluy
 
 Abre **[Blockbench Edu](https://blockbench-edu.pages.dev/)**. Edu se carga automáticamente y abre su asistente, sin instalar plugins ni iniciar sesión. Si cancelas, pulsa «Comenzar» para volver. La versión web usa Blockbench 5.2.2 fijado a una revisión exacta. Cloudflare Pages publica la web desde la rama `main` del repositorio `nchiari/blockbench-edu-web`; la compilación y publicación se describen en [web/README.md](web/README.md).
 
-El guardado de una sesión educativa completa sigue pendiente: cerrar la pestaña no conserva el estado completo de Edu. La web genera el addon en el navegador y no requiere cuentas de alumnos ni base de datos. Las clases con buzón configurado permiten entregar la criatura directamente al Drive del docente desde el editor; ver [infraestructura de Drive](infrastructure/drive/README.md) y [validación](infrastructure/drive/VALIDACION.md).
+«Guardar mi criatura» descarga un proyecto editable `.bbedu` para continuar otro día, incluso en otro ordenador. La web genera proyectos y addons en el navegador y no requiere cuentas de alumnos ni base de datos. Las clases con buzón configurado permiten entregar el addon de la criatura directamente al Drive del docente desde el editor; ver [infraestructura de Drive](infrastructure/drive/README.md) y [validación](infrastructure/drive/VALIDACION.md).
 
 ## Empezar
 
@@ -18,7 +18,7 @@ El guardado de una sesión educativa completa sigue pendiente: cerrar la pestañ
 6. En «Dale forma», elegir la parte y cambiar su tamaño, moverla o girarla con los botones. Se pueden editar todas las partes existentes de la criatura.
 7. En «Dale color», elegir un color y pintar directamente sobre la criatura. Hay pincel, relleno y herramienta para copiar un color.
 8. Usar los botones inferiores para verla desde distintos lados o encuadrar toda la criatura con «Ver todo».
-9. «Llévala a Minecraft» descarga un `.mcaddon`. Importarlo en Education y activar sus packs en un mundo de prueba. El nombre de la criatura es el de la plantilla seguido de «Edu».
+9. **3 · Guardar y compartir** abre dos opciones: **Guardar para seguir editando** descarga el proyecto `.bbedu` para continuar otra clase; **Llevar a Minecraft** descarga un `.mcaddon` para importarlo en Education y activar sus packs en un mundo de prueba. Si hay una clase configurada, también aparece **Entregar al profe**. El nombre de la criatura es el de la plantilla seguido de «Edu».
 
 Puedes arrastrar el separador entre el menú izquierdo y la vista 3D para ampliar el menú: mínimo 260 px y máximo 480 px, limitado al 40 % de la ventana cuando hay menos espacio. El ancho se conserva durante la sesión, también al cambiar entre forma, color y la vista del docente.
 
@@ -32,7 +32,15 @@ En «Dale color», «Seleccionar color» permite hacer clic directamente sobre l
 
 La web tiene dos accesos: la dirección principal abre la versión alumno, sin «Para el docente» ni la barra general de Blockbench; `/docente/` abre la versión docente y, al terminar el asistente, muestra el editor completo con el panel «Prueba Edu». Desde allí se puede configurar la clase y copiar su enlace, que siempre apunta a la versión alumno. El docente conserva «Volver a alumnos» para probar la pantalla educativa y «Para el docente» para regresar a sus controles. El plugin instalado manualmente conserva también ese cambio de vista.
 
-La sesión educativa y el addon base se conservan en memoria: no cerrar la pestaña esperando recuperar después todo ese estado. El guardado y reapertura de una sesión educativa completa sigue pendiente. Cada acceso trabaja en su propia pestaña; abrir el acceso docente no transfiere la criatura de una pestaña de alumno.
+## Guardar y continuar otra clase
+
+1. Antes de cerrar, pulsar **Guardar mi criatura**, disponible al pie del menú en forma y color. Conservar el `.bbedu` descargado en la carpeta del alumno; también se puede enviar al docente por el medio habitual.
+2. La próxima clase, entrar en la web y pulsar **Abrir una criatura** en la bienvenida. Elegir el archivo `.bbedu`. También se puede abrir desde la pantalla de inicio, el editor educativo o el panel docente.
+3. Continuar cambiando las partes y pintando. Si hay más cambios, volver a guardar: cada descarga es una copia del proyecto en ese momento.
+
+El proyecto incluye modelo, pintura, addon base, medidas originales e identidad y última versión del addon. Permite volver a exportar a Minecraft sin crear otro pack distinto. Las partes ocultas temporalmente se guardan completas y se muestran al reabrir. El historial de deshacer empieza de cero; la cámara, las herramientas y las selecciones temporales se reinician. Abrir un archivo crea otro proyecto y conserva el que ya estaba abierto. Un archivo inválido muestra un aviso.
+
+`.bbedu` es para **seguir editando en Edu**; `.mcaddon` es para **importar en Minecraft Education**. La entrega a Drive envía el `.mcaddon` y una copia `.bbmodel` para el docente; el proyecto portátil `.bbedu` se comparte como archivo por otro medio. No incluye el código de clase ni rutas locales de las texturas. No hay guardado automático: cerrar la pestaña no sustituye la descarga del proyecto. Cada acceso trabaja en su propia pestaña; abrir el acceso docente no transfiere la criatura de una pestaña de alumno.
 
 Los píxeles seleccionados se destacan sobre el modelo con un tinte celeste transparente y un borde de contraste. La marca se mantiene al cambiar de herramienta, desaparece con «Quitar selección» y solo se muestra en Pintura. Es una ayuda visual del editor: no modifica la textura ni se incluye en el addon exportado.
 

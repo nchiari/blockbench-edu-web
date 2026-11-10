@@ -97,7 +97,8 @@ async (page) => {
     });
     try {
         const pendingDownload = page.waitForEvent('download');
-        await page.getByRole('button', {name:'3 · Llévala a Minecraft', exact:true}).click();
+        await page.getByRole('button', {name:'3 · Guardar y compartir', exact:true}).click();
+        await page.getByRole('button', {name:/^Llevar a Minecraft/}).click();
         const download = await pendingDownload;
         await download.saveAs('output/parts-panel-hidden.mcaddon');
         const exported = await page.evaluate(async () => {

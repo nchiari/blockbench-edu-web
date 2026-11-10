@@ -19,6 +19,8 @@ These are separate interfaces, not authenticated accounts. Sessions stay in thei
 
 ## Rebuild
 
+The student's third step is **3 · Guardar y compartir**. It opens a chooser with **Guardar para seguir editando** (`.bbedu`) and **Llevar a Minecraft** (`.mcaddon`). A configured classroom adds **Entregar al profe** to the same chooser. Opening or closing the chooser does not generate a download or change the creature; the student selects an action explicitly. The sidebar save/open shortcuts remain available.
+
 Use Node 22.15.0 and npm. From the repository root:
 
 ```sh
@@ -55,6 +57,6 @@ For an immediate rollback, open **Deployments**, find a previously successful pr
 
 The existing **Publish Blockbench Edu** GitHub Actions workflow remains a manual publishing route for the previous GitHub Pages address, https://nchiari.github.io/blockbench-edu-web/. It does not publish to Cloudflare. Historical validation records retain the URLs where those checks were performed.
 
-Local creation needs no student account or database. Models and addons are processed in the browser. Optional classroom delivery uses the owner's Apps Script receiver and private Drive folder; see `../infrastructure/drive/README.md`. `drive-inbox.js` is included in the content-hashed host bundle. Classroom codes are supplied by the teacher through a fragment link and are not embedded in the published source. The Apps Script editor transport must be deployed before enabling a class for students. Education sessions remain in memory; closing the tab does not preserve the complete Edu session.
+Local creation needs no student account or database. Models and addons are processed in the browser. Optional classroom delivery uses the owner's Apps Script receiver and private Drive folder; see `../infrastructure/drive/README.md`. `drive-inbox.js` is included in the content-hashed host bundle. Classroom codes are supplied by the teacher through a fragment link and are not embedded in the published source. The Apps Script editor transport must be deployed before enabling a class for students. Students can download portable `.bbedu` projects with “Guardar mi criatura” and reopen them with “Abrir una criatura” from the wizard, home screen or editor. The teacher panel provides the same actions. These files contain the embedded model/PNG, untouched source addon and versioned Edu editing metadata, without classroom codes. Opening preserves existing projects in separate tabs; undo history and temporary view/tool state restart. There is no automatic persistence after closing the tab. Classroom delivery sends the `.mcaddon` and a companion `.bbmodel` for the teacher; portable `.bbedu` projects are shared separately.
 
 Edu assets use content-derived filenames: the generated HTML references hashed host JavaScript and CSS, and that host references the hashed plugin. The canonical `blockbench_edu.js` remains available for manual installation. Each changed plugin produces a new host filename too, preventing reuse of an older plugin from the browser cache. Existing open editing sessions do not reload automatically.

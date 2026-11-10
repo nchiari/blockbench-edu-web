@@ -19,7 +19,7 @@ async (page) => {
     await waitWizard();
     await page.getByRole('button', {name: 'Cancelar', exact: true}).click();
     check(await page.locator('#edu-web-start').isVisible(), 'Student cancellation returns home');
-    await page.locator('#edu-web-start button').click();
+    await page.locator('#edu-web-start').getByRole('button',{name:'Comenzar',exact:true}).click();
     await openCreature();
     check(await page.locator('#edu-classroom').isVisible(), 'Student opens classroom');
     check(await page.locator('.edu-teacher').count() === 0, 'Student has no teacher switch');
@@ -56,7 +56,9 @@ async (page) => {
     report.teacher = {fullEditor: true, studentPreview: true, classLink};
 
     await discardProbeProject(); await page.goto(classLink); await waitWizard(); await openCreature();
-    check(await page.getByRole('button', {name: '3 · Entregar al profe', exact: true}).isVisible(), 'Class link enables student delivery');
+    await page.getByRole('button', {name: '3 · Guardar y compartir', exact: true}).click();
+    check(await page.locator('#blockbench_edu_save_options').getByRole('button', {name: /^Entregar al profe/}).isVisible(), 'Class link enables student delivery in save options');
+    await page.getByRole('button', {name:'Seguir creando',exact:true}).click();
     check(await page.locator('.edu-teacher').count() === 0, 'Class link stays in student role');
     report.classLink = {student: true, delivery: true};
     return report;

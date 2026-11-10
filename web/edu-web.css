@@ -8,6 +8,9 @@ body.edu-web-loading,body.edu-web-home{background:#14281f!important}
 #edu-web-start p{color:#cee0d5;margin:12px 0 28px}
 #edu-web-start button{font:inherit;font-weight:600;height:auto;padding:12px 32px;border:0;border-radius:12px;background:#65d98a;color:#102c1c;cursor:pointer}
 #edu-web-start button:focus-visible{outline:3px solid white;outline-offset:4px}
+#edu-web-start #edu-home-open{display:block;margin:12px auto 0;background:#304a3d;color:#eaf5ee}
+body.edu-web-home #blackout{z-index:600!important}
+body.edu-web-home #dialog_wrapper .dialog{z-index:601!important}
 #edu-web-start>a{position:absolute;bottom:20px;left:16px;right:16px;color:#a8c7b4;font-size:13px}
 .edu-web-mark{color:#65d98a;font-size:64px}
 .edu-delivery{padding:12px;font-size:16px;line-height:1.5}
