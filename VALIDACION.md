@@ -1,5 +1,12 @@
 # Validación del prototipo
 
+## Rescate ante cambios de estructura — 10 de noviembre de 2026
+
+- El bloqueo por piezas sin registrar ofrece una copia `.bbmodel` y ya no aconseja reabrir la referencia. El rescate conserva modelo y pintura sin exigir los metadatos necesarios para exportar a Edu/Minecraft.
+- `tests/rescue-model-probe.js`: **12 comprobaciones aprobadas** en Chromium con un zombi y una pieza duplicada fuera de los controles de Edu. Descarga real, piezas y posiciones exactas, PNG idéntico, partes ocultas incluidas, rutas locales omitidas y reapertura con el codec de Blockbench recuperando la pintura. Cancelar conserva el proyecto. Se comprobó también Ctrl + Alt + S como salida para pestañas anteriores a esta actualización; los dos archivos descargados contienen la pintura integrada.
+- `npm test`: **48 pruebas aprobadas**; `npm run check` y `npm run build:web` completados. Archivos de prueba en `output/playwright/structure-rescue.bbmodel` y `native-structure-rescue.bbmodel`.
+- No se identificó la acción concreta que desajustó la sesión del alumno ni se recuperó su trabajo real. La salida de rescate no reconstruye los metadatos de Edu ni acredita una importación en Minecraft.
+
 ## Tercer paso «Guardar y compartir» — 10 de noviembre de 2026
 
 - El tercer paso abre una ventana con dos acciones: guardar un proyecto editable `.bbedu` o descargar el addon `.mcaddon` para Minecraft. Si hay una clase configurada, ofrece además «Entregar al profe».

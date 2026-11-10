@@ -34,6 +34,8 @@ La web tiene dos accesos: la dirección principal abre la versión alumno, sin �
 
 ## Guardar y continuar otra clase
 
+Si Edu detecta piezas que no tiene registradas, ofrece **Guardar copia de rescate** en lugar de pedir que se reabra la referencia. Descarga un `.bbmodel` con el modelo y la pintura actuales, incluidas las partes ocultas temporalmente. El docente puede abrirlo en Blockbench; no es un `.bbedu` para «Abrir una criatura» ni un addon de Minecraft. En una pestaña que todavía tenga la versión anterior, cerrar el aviso y pulsar **Ctrl + Alt + S** permite descargar el proyecto con el guardado propio de Blockbench; conservar también el PNG si se descarga. Comprobar la descarga antes de cerrar o recargar la pestaña.
+
 1. Antes de cerrar, pulsar **Guardar mi criatura**, disponible al pie del menú en forma y color. Conservar el `.bbedu` descargado en la carpeta del alumno; también se puede enviar al docente por el medio habitual.
 2. La próxima clase, entrar en la web y pulsar **Abrir una criatura** en la bienvenida. Elegir el archivo `.bbedu`. También se puede abrir desde la pantalla de inicio, el editor educativo o el panel docente.
 3. Continuar cambiando las partes y pintando. Si hay más cambios, volver a guardar: cada descarga es una copia del proyecto en ese momento.

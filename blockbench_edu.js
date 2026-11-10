@@ -385,7 +385,15 @@
         session.selectedId = id;
         cube.select(); refresh();
     }
-    function notify(message) {
+    function notify(message, error) {
+        if (error?.code === 'EDU_STRUCTURE_CHANGED') {
+            const projectId = Project.uuid;
+            return Blockbench.showMessageBox({title: 'Guarda una copia de tu trabajo',
+                message: 'Hay piezas que Edu no tiene registradas y todavía no puede preparar el proyecto para Edu o Minecraft.\n\nPuedes guardar una **copia de rescate .bbmodel** con el modelo y la pintura actuales para que tu docente los recupere en Blockbench. Esta copia no se abre con «Abrir una criatura» de Edu.\n\nNo cierres ni recargues esta pestaña hasta comprobar que se descargó la copia.',
+                buttons: ['Guardar copia de rescate', 'Volver'], cancel: 1}, result => {
+                if (result === 0 && Project?.uuid === projectId) attempt(saveRescueModel);
+            });
+        }
         if (!classroom && !document.body.classList.contains('edu-setup')) return Blockbench.showMessageBox({title: 'Blockbench Edu', message});
         Blockbench.showMessageBox({title: 'No pudimos hacer ese cambio',
             message: 'Prueba de nuevo. Si vuelve a pasar, pide ayuda a tu docente.',
@@ -399,7 +407,7 @@
         const label = labels.find(([word]) => name.includes(word))?.[1] || 'Parte';
         return `${index + 1}. ${label}${name.includes('_copy') ? ' (copia)' : ''}`;
     }
-    function attempt(work) { return Promise.resolve().then(work).catch(error => { console.error('[Blockbench Edu]', error); notify(error.message); }); }
+    function attempt(work) { return Promise.resolve().then(work).catch(error => { console.error('[Blockbench Edu]', error); notify(error.message, error); }); }
     function getGeometry() {
         requireThat(Project && Format.id === 'bedrock', 'Abre primero el proyecto Bedrock del cerdo.');
         const session = current(), visibility = Cube.all.map(cube => cube.visibility);
@@ -641,8 +649,11 @@
         requireThat(!session.busy, 'Espera a que termine la operación actual.');
         requireThat(Texture.all.length === 1 && Texture.all[0].uuid === session.textureId, 'La prueba necesita la textura original, sin texturas adicionales.');
         requireThat(!Texture.all[0].layers_enabled, 'Esta prueba usa una textura sin capas. Combina las capas antes de continuar.');
-        requireThat(Cube.all.length === session.cubeIds.length && Cube.all.every(c => session.cubeIds.includes(c.uuid)),
-            'Cambió la estructura del modelo. Vuelve a abrir la referencia para esta prueba.');
+        if (Cube.all.length !== session.cubeIds.length || !Cube.all.every(c => session.cubeIds.includes(c.uuid))) {
+            const error = new Error('Hay piezas que Edu no tiene registradas. Guarda una copia de rescate antes de cerrar.');
+            error.code = 'EDU_STRUCTURE_CHANGED';
+            throw error;
+        }
         requireThat(Cube.all.every(c => c.size().every(v => Number.isFinite(v) && v >= 0)), 'Las piezas deben tener dimensiones válidas y no negativas.');
         return session;
     }
@@ -975,6 +986,13 @@
             replacements[path] = canvas.toDataURL('image/png').split(',')[1];
         }
         return replacements;
+    }
+    async function saveRescueModel() {
+        const session = current();
+        requireThat(Project && session && !session.busy, 'Espera a que termine la operación actual.');
+        const name = (Project.name.replace(/[^\p{L}\p{N}_-]+/gu, '_') || 'Mi_criatura') + '_rescate';
+        const content = await captureDeliveryModel(session).text();
+        Blockbench.export({type: 'Copia de rescate de Blockbench', extensions: ['bbmodel'], savetype: 'text', name, content});
     }
     function captureDeliveryModel(session) {
         const visibility = Cube.all.map(cube => cube.visibility);
