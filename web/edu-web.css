@@ -9,3 +9,11 @@ body.edu-web-loading,body.edu-web-home{background:#14281f!important}
 #edu-web-start button:focus-visible{outline:3px solid white;outline-offset:4px}
 #edu-web-start>a{position:absolute;bottom:20px;left:16px;right:16px;color:#a8c7b4;font-size:13px}
 .edu-web-mark{color:#65d98a;font-size:64px}
+.edu-delivery{padding:12px;font-size:16px;line-height:1.5}
+.edu-delivery label,.edu-drive-config label{display:block;margin:12px 0}
+.edu-delivery input,.edu-drive-config input{display:block;width:100%;margin-top:8px;padding:10px;box-sizing:border-box}
+.edu-delivery small{display:block;margin:10px 0;color:var(--color-subtle_text)}
+.edu-delivery-error{color:#ff9b92}
+.edu-delivery-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;margin-top:24px}
+.edu-delivery-actions button{min-height:40px;padding:8px 14px}
+.edu-drive-config{padding:12px 0;border-bottom:1px solid var(--color-border);margin-bottom:12px}

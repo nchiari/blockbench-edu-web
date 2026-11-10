@@ -5,8 +5,8 @@
   "description": "Internal Blockbench Edu prototype",
   "scripts": {
     "embed-starter": "node scripts/embed-starter.js",
-    "test": "node --test tests/core.test.js",
-    "check": "node --check blockbench_edu.js",
+    "test": "node --test tests/core.test.js tests/drive-inbox.test.js tests/drive-transport.test.js",
+    "check": "node --check blockbench_edu.js && node --check web/drive-inbox.js && node --check web/edu-web.js",
     "sync": "powershell -NoProfile -File scripts/sync-plugin.ps1",
     "build:web": "node web/build.mjs",
     "preview:web": "node web/preview.mjs"

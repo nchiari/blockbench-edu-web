@@ -6,7 +6,7 @@ Plugin local en español para Blockbench web 5.2.2, con teclado y ratón. Incluy
 
 Abre **https://nchiari.github.io/blockbench-edu-web/**. Edu se carga automáticamente y abre su asistente, sin instalar plugins ni iniciar sesión. Si cancelas, pulsa «Comenzar» para volver. La versión web usa Blockbench 5.2.2 fijado a una revisión exacta; la compilación y publicación manual se describen en [web/README.md](web/README.md).
 
-El guardado de una sesión educativa completa sigue pendiente: cerrar la pestaña no conserva el estado completo de Edu. La web genera el addon en el navegador y no requiere cuentas de alumnos ni base de datos.
+El guardado de una sesión educativa completa sigue pendiente: cerrar la pestaña no conserva el estado completo de Edu. La web genera el addon en el navegador y no requiere cuentas de alumnos ni base de datos. Las clases con buzón configurado permiten entregar la criatura directamente al Drive del docente desde el editor; ver [infraestructura de Drive](infrastructure/drive/README.md) y [validación](infrastructure/drive/VALIDACION.md).
 
 ## Empezar
 

@@ -67,7 +67,7 @@ let html = await fs.readFile(path.join(source, 'index.html'), 'utf8');
 const pluginBytes = await fs.readFile(path.join(root, 'blockbench_edu.js'));
 const digest = bytes => createHash('sha256').update(bytes).digest('hex').slice(0, 16);
 const pluginName = `blockbench_edu.${digest(pluginBytes)}.js`;
-const hostCode = (await fs.readFile(path.join(web, 'edu-web.js'), 'utf8'))
+const hostCode = (await fs.readFile(path.join(web, 'drive-inbox.js'), 'utf8')) + '\n' + (await fs.readFile(path.join(web, 'edu-web.js'), 'utf8'))
   .replace("new URL('blockbench_edu.js', location.href)", `new URL('${pluginName}', location.href)`);
 const hostName = `edu-web.${digest(hostCode)}.js`;
 const styleBytes = await fs.readFile(path.join(web, 'edu-web.css'));

@@ -698,23 +698,26 @@
         }
         return replacements;
     }
-    async function exportAddon() {
-        const session = validateSession();
-        const projectId = Project.uuid;
+    async function prepareExport(session, projectId) {
         const compiled = getGeometry();
         requireThat(session.prepared && Cube.all.every(c => !c.box_uv), 'Prepara la textura antes de exportar.');
         const faces = captureFaces(Texture.all[0]);
         const width = Project.texture_width, height = Project.texture_height;
         const png = Texture.all[0].canvas.toDataURL('image/png').split(',')[1];
+        const auxiliary = await remapAuxiliaryTextures(session, faces, width, height);
+        const result = await buildAddon(session.reference, compiled, png, JSZip, auxiliary);
+        const content = await result.zip.generateAsync({type: 'blob'});
+        requireThat(alive && Project?.uuid === projectId, 'Cambió el proyecto durante la exportación. Vuelve a exportar.');
+        return {result, content, creatureName: Project.name,
+            fileName: `${Project.name.replace(/[^a-z0-9_-]+/gi, '_')}_${result.version.join('_')}`};
+    }
+    async function exportAddon() {
+        const session = validateSession(), projectId = Project.uuid;
         session.busy = true; refresh();
         try {
-            const auxiliary = await remapAuxiliaryTextures(session, faces, width, height);
-            const result = await buildAddon(session.reference, compiled, png, JSZip, auxiliary);
-            const content = await result.zip.generateAsync({type: 'blob'});
-            requireThat(alive && Project?.uuid === projectId, 'Cambió el proyecto durante la exportación. Vuelve a exportar.');
-            const creatureName = Project.name;
+            const {result, content, creatureName, fileName} = await prepareExport(session, projectId);
             Blockbench.export({type: 'Minecraft Addon', extensions: ['mcaddon'], savetype: 'zip',
-                name: `${Project.name.replace(/[^a-z0-9_-]+/gi, '_')}_${result.version.join('_')}`, content}, () => {
+                name: fileName, content}, () => {
                 session.reference.lastVersion = result.version; refresh();
                 if (alive && classroom && Project?.uuid === projectId) Blockbench.showMessageBox({
                     title: '¡Tu criatura está lista para llevar!',
@@ -723,6 +726,52 @@
                 });
             });
         } finally { session.busy = false; refresh(); }
+    }
+    function deliverAddon() {
+        const drive = window.BlockbenchEduDrive;
+        requireThat(drive?.classCode, 'El docente todavía no seleccionó la clase. Pídele ayuda antes de entregar.');
+        const session = validateSession(), projectId = Project.uuid;
+        let prepared, payload, dialog;
+        dialog = new Dialog({id: 'blockbench_edu_delivery', title: 'Entregar al profe', width: 500, buttons: [],
+            onCancel() { if (dialog.content_vue.sending) return false; },
+            component: {
+                data: () => ({alias: session.deliveryAlias || '', sending: false, started: false, delivered: false,
+                    error: '', message: 'Tu criatura se guardará en el buzón de tu docente.'}),
+                methods: {
+                    close() { if (!this.sending) dialog.hide(); },
+                    async send() {
+                        if (this.sending || this.delivered) return;
+                        if (!this.alias.trim()) { this.error = 'Escribe tu alias o número de alumno.'; return; }
+                        this.sending = true; this.started = true; this.error = ''; this.message = 'Preparando tu criatura…';
+                        session.busy = true; session.deliveryAlias = this.alias.trim(); refresh();
+                        try {
+                            requireThat(Project?.uuid === projectId, 'Vuelve a tu criatura antes de entregarla.');
+                            if (!prepared) prepared = await prepareExport(session, projectId);
+                            if (!payload) payload = await drive.prepare(prepared.content, session.deliveryAlias,
+                                prepared.creatureName, prepared.fileName + '.mcaddon');
+                            this.message = 'Enviando… Espera la confirmación.';
+                            await drive.send(payload);
+                            session.reference.lastVersion = prepared.result.version;
+                            this.delivered = true; this.message = '¡Tu criatura fue entregada! Puedes seguir creando.';
+                        } catch (error) {
+                            this.error = error.message; this.message = 'Tu criatura sigue abierta. Puedes reintentar la entrega o descargar una copia.';
+                        } finally { this.sending = false; session.busy = false; refresh(); }
+                    },
+                    copy() {
+                        if (this.sending) return;
+                        if (prepared) Blockbench.export({type: 'Minecraft Addon', extensions: ['mcaddon'], savetype: 'zip',
+                            name: prepared.fileName, content: prepared.content}, () => { session.reference.lastVersion = prepared.result.version; refresh(); });
+                        else attempt(exportAddon);
+                    }
+                },
+                template: `<div class="edu-delivery"><p role="status" aria-live="polite">{{message}}</p>
+                    <label v-if="!delivered">Tu alias o número de alumno<input v-model="alias" maxlength="80" autocomplete="off" :disabled="started" @keyup.enter="send" placeholder="Por ejemplo: Alumno 07"/></label>
+                    <small v-if="!delivered">No hace falta tu correo ni tu nombre completo.</small><p v-if="error" role="alert" class="edu-delivery-error">{{error}}</p>
+                    <div class="edu-delivery-actions"><button @click="close" :disabled="sending">{{delivered?'Seguir creando':'Cerrar'}}</button>
+                    <button v-if="!delivered" @click="copy" :disabled="sending">Descargar copia</button>
+                    <button v-if="!delivered" @click="send" :disabled="sending || !alias.trim()">{{sending?'Enviando…':error?'Reintentar entrega':'Entregar'}}</button></div></div>`
+            }});
+        dialog.show();
     }
     function selectHead() { const session = current(); if (session) selectPiece(session.headId); }
     function camera(which) {
@@ -776,9 +825,12 @@
         classroom = new Vue({el: mount,
             data: {sidebarWidth: current()?.sidebarWidth || 260, sidebarMax: 480, sidebarDragging: false, sidebarStartX: 0, sidebarStartWidth: 260, mode: 'shape', operation: 'size', position: [0,0,0], rotation: [0,0,0], axes: ['De lado', 'Arriba / abajo', 'Adelante / atrás'], turns: ['Inclinar', 'Girar', 'Ladear'], pieces: [], selectedId: '', dimensions: [0,0,0], maximum: [0,0,0], minimum: [1,1,1], busy: false, canUndo: false, canRedo: false,
                 bones: [], paintTool: 'brush_tool', brushSize: 1, cameraControlsOpen: false, cameraIsOrtho: false,
+                driveAvailable: !!window.BlockbenchEduDrive, driveClass: !!window.BlockbenchEduDrive?.classCode,
                 cameraRotate: Keybinds.extra.preview_rotate.keybind.toString(), cameraPan: Keybinds.extra.preview_drag.keybind.toString(), cameraZoom: Keybinds.extra.preview_scroll_zoom.keybind.toString(),
                 labels: ['Ancho', 'Alto', 'Profundidad'], color: ColorPanel.get(), colors: ['#ffffff','#20252d','#e85b61','#f7b45c','#f9e778','#60d98b','#63bee8','#8479df','#ed90c4','#986a48']},
             mounted() {
+                this.driveClassChanged = () => { this.driveClass = !!window.BlockbenchEduDrive?.classCode; };
+                window.addEventListener('edu-drive-class-changed', this.driveClassChanged);
                 this.fitSidebar();
                 document.body.style.setProperty('--edu-sidebar-width', this.sidebarWidth + 'px');
                 this.sidebarWindowResize = () => this.fitSidebar();
@@ -787,6 +839,7 @@
                 this.cameraFooterObserver.observe(this.$el.querySelector('footer'));
             },
             beforeDestroy() {
+                window.removeEventListener('edu-drive-class-changed', this.driveClassChanged);
                 window.removeEventListener('resize', this.sidebarWindowResize);
                 this.cameraFooterObserver?.disconnect();
                 document.body.classList.remove('edu-sidebar-dragging');
@@ -834,13 +887,14 @@
                 transform: (kind, axis, step) => attempt(() => transformPiece(kind, axis, step)),
                 move: (axis, step) => attempt(() => transformPiece('move', axis, axis === 0 ? -step : step)),
                 undo: () => Undo.undo(), redo: () => Undo.redo(), download: () => attempt(exportAddon),
+                deliver: () => attempt(deliverAddon),
                 setMode(mode) { this.mode = mode; Modes.options[mode === 'paint' ? 'paint' : 'edit'].select(); if (mode === 'paint') { this.tool(this.paintTool); ColorPanel.set(this.color); } else { showPaintBones(); selectClassroomTool(); } window.dispatchEvent(new Event('resize')); },
                 paintColor(color) { this.color = color; ColorPanel.set(color); },
                 tool(id) { this.paintTool = id; BarItems[id].select(); if (['brush_tool','eraser','blockbench_edu_smooth'].includes(id)) BarItems.slider_brush_size.setValue(this.brushSize); },
                 changeBrushSize(step) { this.brushSize = Math.max(1,Math.min(64,this.brushSize+step)); if (['brush_tool','eraser','blockbench_edu_smooth'].includes(this.paintTool)) BarItems.slider_brush_size.setValue(this.brushSize); },
                 toggleBone: togglePaintBone, showAllBones: showPaintBones
             },
-            template: `<div id="edu-classroom"><header><strong>Blockbench Edu</strong><nav aria-label="Crear tu criatura"><button @click="setMode('shape')" :class="{active:mode==='shape'}">1 · Dale forma</button><button @click="setMode('paint')" :class="{active:mode==='paint'}">2 · Dale color</button><button @click="download" :disabled="busy">3 · Llévala a Minecraft</button></nav><button @click="exit" class="edu-teacher">Para el docente</button></header>
+            template: `<div id="edu-classroom"><header><strong>Blockbench Edu</strong><nav aria-label="Crear tu criatura"><button @click="setMode('shape')" :class="{active:mode==='shape'}">1 · Dale forma</button><button @click="setMode('paint')" :class="{active:mode==='paint'}">2 · Dale color</button><button v-if="driveClass" @click="deliver" :disabled="busy">3 · Entregar al profe</button><button v-else @click="download" :disabled="busy">3 · Llévala a Minecraft</button></nav><button @click="exit" class="edu-teacher">Para el docente</button></header>
                 <aside><div class="edu-sidebar-scroll"><template v-if="mode==='shape'"><h2>Dale forma</h2><label>¿Qué parte quieres cambiar?<select :value="selectedId" @change="selectPiece($event.target.value)"><option v-for="piece in pieces" :key="piece.id" :value="piece.id">{{piece.label}}</option></select></label><div class="edu-paint-tools edu-shape-tools" role="group" aria-label="¿Qué quieres hacer?"><button @click="operation='size'" :class="{active:operation==='size'}" :aria-pressed="operation==='size'"><i class="material-icons" aria-hidden="true">open_in_full</i>Tamaño</button><button @click="operation='move'" :class="{active:operation==='move'}" :aria-pressed="operation==='move'"><i class="material-icons" aria-hidden="true">open_with</i>Mover</button><button @click="operation='rotate'" :class="{active:operation==='rotate'}" :aria-pressed="operation==='rotate'"><i class="material-icons" aria-hidden="true">rotate_right</i>Girar</button></div><template v-if="operation==='size'"><div class="edu-size"><span>Tamaño general</span><button @click="resize('all',-1)" :disabled="busy || dimensions.some((value,axis) => value-1 &lt; minimum[axis])" aria-label="Reducir tamaño general">−</button><b></b><button @click="resize('all',1)" :disabled="busy || dimensions.some((value,axis) => value+1 &gt; maximum[axis])" aria-label="Aumentar tamaño general">+</button></div><p>Cambia el ancho, el alto y la profundidad a la vez.</p><div class="edu-size" v-for="(label,axis) in labels" :key="label"><span>{{label}}</span><button @click="resize(axis,-1)" :disabled="busy || dimensions[axis]&lt;=minimum[axis]" :aria-label="'Reducir '+label">−</button><b>{{dimensions[axis]}}</b><button @click="resize(axis,1)" :disabled="busy || dimensions[axis]&gt;=maximum[axis]" :aria-label="'Aumentar '+label">+</button></div><p>Usa − para reducir y + para aumentar.<br>Puedes deshacer si no te gusta.</p></template><template v-else-if="operation==='move'"><div class="edu-move-arrows"><strong>Mover</strong><div class="edu-size" v-for="(label,axis) in axes" :key="'move-'+axis"><span>{{label}}</span><button @click="move(axis,-1)" :disabled="busy" :aria-label="'Mover '+label+' menos'">{{axis===1?'↓':axis===2?'↙':'←'}}</button><b></b><button @click="move(axis,1)" :disabled="busy" :aria-label="'Mover '+label+' más'">{{axis===1?'↑':axis===2?'↗':'→'}}</button></div><p>Las capas de esta parte se mueven y cambian de tamaño juntas.</p></div></template><template v-else><div class="edu-size" v-for="(label,index) in turns" :key="label"><span>{{label}}</span><button :aria-label="'Girar menos: '+label" @click="transform('rotate',index,-15)" :disabled="busy">−</button><b>{{rotation[index]}}</b><button :aria-label="'Girar más: '+label" @click="transform('rotate',index,15)" :disabled="busy">+</button></div><p>Usa − y + para girar esta parte poco a poco.</p></template></template>
                 <template v-else><h2>Dale color</h2><p>Elige un color y pinta sobre tu criatura.</p><div class="edu-palette"><button v-for="swatch in colors" :key="swatch" :style="{background:swatch}" :aria-label="'Color '+swatch" @click="paintColor(swatch)"></button></div><label>Otro color<input type="color" :value="color" @input="paintColor($event.target.value)"/></label><div class="edu-paint-tools">
                     <button @click="tool('brush_tool')" :class="{active:paintTool==='brush_tool'}"><i class="material-icons" aria-hidden="true">brush</i>Pincel</button>
@@ -978,12 +1032,24 @@
                 default_position: {slot: 'left_bar', height: 520, fixed_height: true},
                 component: {
                     data: () => ({ready: false, prepared: false, busy: false, dimensions: [0, 0, 0], maximum: [0, 0, 0], minimum: [1,1,1],
-                        pieces: [], selectedId: '', labels: ['Ancho', 'Alto', 'Profundidad'], atlas: '—', status: '', version: ''}),
+                        pieces: [], selectedId: '', labels: ['Ancho', 'Alto', 'Profundidad'], atlas: '—', status: '', version: '',
+                        driveAvailable: !!window.BlockbenchEduDrive, driveCode: window.BlockbenchEduDrive?.classCode || '',
+                        driveLink: window.BlockbenchEduDrive?.classLink || '', driveMessage: ''}),
                     methods: {returnToStudents: enterClassroom, link: importAddon, prepare: () => attempt(prepare), resize: (a, s) => attempt(() => resize(a, s)),
                         select: selectHead, selectPiece, camera, paint: () => Modes.options.paint.select(), edit: () => Modes.options.edit.select(),
-                        undo: () => Undo.undo(), redo: () => Undo.redo(), exportAddon: () => attempt(exportAddon)},
+                        undo: () => Undo.undo(), redo: () => Undo.redo(), exportAddon: () => attempt(exportAddon),
+                        setDriveClass() {
+                            try {
+                                window.BlockbenchEduDrive.setClassCode(this.driveCode.trim());
+                                this.driveLink = window.BlockbenchEduDrive.classLink;
+                                this.driveMessage = 'Clase seleccionada. Comparte este enlace del editor con los alumnos.';
+                            } catch (error) { this.driveMessage = error.message; this.driveLink = ''; }
+                        }},
                     template: `<div class="edu-probe">
                         <button v-if="prepared" @click="returnToStudents" :disabled="busy"><i class="material-icons" aria-hidden="true">school</i> Volver a alumnos</button><p class="edu-status">{{status}}</p>
+                        <details v-if="driveAvailable" class="edu-drive-config"><summary>Entregas de la clase</summary>
+                        <label>Código de entrega<input v-model="driveCode" autocomplete="off" maxlength="32"/></label><button @click="setDriveClass">Seleccionar clase</button>
+                        <p role="status">{{driveMessage}}</p><label v-if="driveLink">Enlace del editor para los alumnos<input :value="driveLink" readonly @focus="$event.target.select()"/></label></details>
                         <button v-if="!ready" @click="link" :disabled="busy">Vincular addon de referencia</button>
                         <button v-if="!prepared" @click="prepare" :disabled="!ready || busy || prepared">Preparar textura</button>
                         <label>¿Qué parte quieres cambiar?<select :value="selectedId" @change="selectPiece($event.target.value)" :disabled="!ready || busy"><option v-for="piece in pieces" :key="piece.id" :value="piece.id">{{piece.label}}</option></select></label>
