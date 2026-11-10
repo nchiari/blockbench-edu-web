@@ -29,8 +29,16 @@
 - La prueba empezó con una pestaña y terminó con una pestaña. La conexión pasó por el iframe real de Apps Script y sus marcos de Google; no hubo navegación fuera del editor.
 - Captura: `output/playwright/drive-real-delivery-success.png`.
 
+## Sitio público
+
+- Se publicó el commit `5c3c3f1` mediante [Publish Blockbench Edu](https://github.com/nchiari/blockbench-edu-web/actions/runs/42803167632); compilación y despliegue terminaron correctamente.
+- Se abrió `https://nchiari.github.io/blockbench-edu-web/` con el enlace de la clase en un navegador nuevo sin sesión de Google, sin interceptar ni simular las llamadas de guardado.
+- Desde el asistente se creó un cerdo, se abrió **3 · Entregar al profe** y se entregó como **PRUEBA_WEB_PUBLICA**.
+- Se mostró la confirmación y Drive verificó el archivo en **Primera clase**, de 36.618 bytes, con `shared: false`.
+- Hubo una única pestaña durante toda la prueba y no se registraron errores de JavaScript. Captura: `output/playwright/drive-public-delivery-success.png`.
+- El sitio sirvió el host `edu-web.a8210585d4ce850d.js`, que incluye la conexión de Drive y referencia el plugin actualizado por su nombre con huella de contenido.
+
 ## Pendiente
 
-- Publicar la versión web y verificar desde la dirección pública.
 - Prueba física en Brave, equipos escolares y redes de aula, incluidos los bloqueos de contenido de terceros que pudieran impedir el iframe.
 - Importación en Minecraft Education de una entrega generada por este botón. El empaquetado conserva la ruta de exportación existente; esta etapa no acredita una nueva prueba en el juego.
