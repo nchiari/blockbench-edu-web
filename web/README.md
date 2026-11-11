@@ -87,6 +87,14 @@ choosing a starting preset resets behavior settings with undo available.
 Pig category projects use portable format 3; formats 1 and 2 remain readable.
 Other templates keep the initial behavior interface.
 
+In behavior mode, category tiles show icons and the right-hand Parts panel is
+replaced by a live “Tu criatura en Minecraft” overview with configuration bullets.
+The Parts panel's open/collapsed preference is retained for Shape and Paint.
+Behavior mode hides the sidebar save/open shortcuts; step 4 retains the file
+actions. Disabled checkboxes and their labels are greyed out with a reason on
+the label's native tooltip. Selects and collapsible sections have right-side
+chevrons. The explanatory 3D-preview disclaimer is no longer shown.
+
 ### Production
 
 The primary website uses Cloudflare Pages with Git integration connected to `nchiari/blockbench-edu-web`. The Cloudflare project name is `blockbench-edu`; the repository keeps its existing name. Pushes to `main` trigger a production build and deployment, unless automatic deployments are disabled in Cloudflare. Local edits are published only after they are committed and pushed.

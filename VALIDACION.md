@@ -1,5 +1,13 @@
 # Validación del prototipo
 
+## Presentación de Dale vida — 11 de noviembre de 2026
+
+- Categorías con iconos, checkboxes centrados junto al texto y flechas a la derecha de selectores y secciones desplegables del editor educativo.
+- En Dale vida se ocultan los atajos laterales de guardar/abrir y el panel de Partes. Su lugar lo ocupa «Tu criatura en Minecraft», con resumen y lista de ajustes que se actualizan al editar, sin el aviso explicativo sobre la vista 3D.
+- El panel de Partes mantiene su estado abierto/plegado al pasar por Dale vida. El resumen se muestra aunque Partes estuviera plegado. Se verificó que el lanzador de Partes vuelva en Pintura y que el resumen desaparezca fuera de comportamiento.
+- Las opciones incompatibles muestran checkbox y texto grisados; el tooltip del contenedor explica el motivo específico del bloqueo. Verificados en navegador: huida ante daño con Enemigo, domesticación incompatible, seguimiento sin domesticación y atracción incompatible. Alineación centrada y márgenes del checkbox comprobados.
+- Presentación únicamente: no cambia la generación del comportamiento ni el formato de los proyectos. La validación dentro de Minecraft de las acciones sigue pendiente.
+
 ## Categorías de comportamiento del cerdo — 11 de noviembre de 2026
 
 - Prueba limitada al cerdo, en `codex/pruebas`: seis botones de categorías con submenús, regreso al menú, resumen por categoría y foco en el título al navegar. Las otras plantillas conservan la interfaz anterior.
