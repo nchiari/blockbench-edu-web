@@ -220,6 +220,18 @@
         {id:'wheat',label:'Trigo'},{id:'wheat_seeds',label:'Semillas de trigo'},{id:'bone',label:'Hueso'}];
     const BEHAVIOR_SPEEDS = [{value:0.15,label:'Lenta'},{value:0.25,label:'Normal'},{value:0.35,label:'Rápida'},{value:0.45,label:'Muy rápida'}];
     function defaultBehavior() { return {version:1,profile:'original',health:20,speed:0.25,damage:4,range:16,item:'apple',tempt:true}; }
+    function isPigBehavior(source) { return source?.['minecraft:entity']?.components?.['minecraft:type_family']?.family?.includes('pig') === true; }
+    function pigBehavior(settings) {
+        const b=clone(settings);
+        if(b.pig) return b;
+        const tame=['companion','guardian'].includes(b.profile);
+        if(b.profile==='original') { b.health=10; b.item='carrot'; }
+        if(['enemy','shy'].includes(b.profile)) b.tempt=false;
+        b.pig={reaction:b.profile==='enemy'?'enemy':b.profile==='shy'?'flee':'neutral',wander:true,
+            panic:['original','calm','shy'].includes(b.profile),tame,follow:tame,defend:b.profile==='guardian',
+            followStart:6,followStop:2,temptRange:10,heal:false,healAmount:4};
+        return b;
+    }
     function validateBehavior(settings) {
         requireThat(settings && settings.version === 1 && BEHAVIOR_PROFILES.some(p=>p.id===settings.profile) &&
             Number.isInteger(settings.health) && settings.health>=1 && settings.health<=200 &&
@@ -227,7 +239,31 @@
             Number.isInteger(settings.range) && settings.range>=4 && settings.range<=32 &&
             BEHAVIOR_ITEMS.some(i=>i.id===settings.item) && typeof settings.tempt==='boolean',
             'Los ajustes de comportamiento no son válidos.');
+        if(settings.pig!==undefined) {
+            const p=settings.pig, integer=(v,min,max)=>Number.isInteger(v)&&v>=min&&v<=max;
+            requireThat(p && ['neutral','flee','enemy','retaliate'].includes(p.reaction) &&
+                ['wander','panic','tame','follow','defend','heal'].every(k=>typeof p[k]==='boolean') &&
+                integer(p.followStart,3,24)&&integer(p.followStop,1,12)&&p.followStop<p.followStart &&
+                integer(p.temptRange,4,24)&&integer(p.healAmount,1,20) &&
+                (!p.follow&&!p.defend || p.tame) && (!p.tame || p.reaction==='neutral') && (!settings.tempt || !['enemy','flee'].includes(p.reaction)) &&
+                (!p.panic || !p.defend && !['enemy','retaliate'].includes(p.reaction)), 'La combinación de ajustes del cerdo no es válida.');
+        }
         return settings;
+    }
+    function adjustPigBehavior(before,key,value) {
+        const next=pigBehavior(before);
+                    next.profile='calm';
+                    if(key in next.pig) next.pig[key]=value; else next[key]=value;
+                    const p=next.pig;
+                    if(key==='reaction') { if(['enemy','flee','retaliate'].includes(value)) {p.tame=false;p.follow=false;p.defend=false;next.tempt=false;} if(['enemy','retaliate'].includes(value)) p.panic=false; }
+                    if(key==='tame'&&!value) {p.follow=false;p.defend=false;}
+                    if((key==='tame'||key==='follow'||key==='defend')&&value) {p.tame=true;if(p.reaction!=='neutral')p.reaction='neutral';}
+                    if(key==='defend'&&value) p.panic=false;
+                    if(key==='panic'&&value) {p.defend=false;if(['enemy','retaliate'].includes(p.reaction))p.reaction='neutral';}
+                    if(key==='followStart'&&p.followStop>=value) p.followStop=value-1;
+                    if(key==='followStop'&&p.followStart<=value) p.followStart=value+1;
+                    validateBehavior(next);
+        return next;
     }
     function supportsBehavior(source) {
         const c = source?.['minecraft:entity']?.components;
@@ -240,6 +276,8 @@
         validateBehavior(settings);
         if (settings.profile==='original') return clone(source);
         requireThat(supportsBehavior(source), 'Esta criatura conserva su movimiento original en esta primera versión.');
+        requireThat(!settings.pig || isPigBehavior(source), 'Los ajustes por categorías están disponibles para el cerdo.');
+        const p=settings.pig;
         const original = source['minecraft:entity'], c = {};
         // Reuse physical dimensions from the actual template, but never its event hooks or AI.
         for (const key of ['collision_box','breathable','physics','pushable','nameable','hurt_on_condition']) {
@@ -253,36 +291,42 @@
         c['minecraft:jump.static'] = {};
         c['minecraft:persistent'] = {};
         c['minecraft:behavior.float'] = {priority:0};
-        c['minecraft:behavior.random_stroll'] = {priority:6,speed_multiplier:1};
+        if(!p || p.wander) c['minecraft:behavior.random_stroll'] = {priority:6,speed_multiplier:1};
         c['minecraft:behavior.look_at_player'] = {priority:7,look_distance:6,probability:0.02};
         c['minecraft:behavior.random_look_around'] = {priority:8};
         const playerFilter = {test:'is_family',subject:'other',value:'player'};
-        const tamed = ['companion','guardian'].includes(settings.profile);
-        const fighter = ['guardian','enemy'].includes(settings.profile);
+        const tamed = p ? p.tame : ['companion','guardian'].includes(settings.profile);
+        const enemy = p ? p.reaction==='enemy' : settings.profile==='enemy';
+        const shy = p ? p.reaction==='flee' : settings.profile==='shy';
+        const defend = p ? p.defend : settings.profile==='guardian';
+        const fighter = p ? defend || ['enemy','retaliate'].includes(p.reaction) : ['guardian','enemy'].includes(settings.profile);
         const groups = {}, events = {};
-        if (settings.profile==='calm' || settings.profile==='shy') c['minecraft:behavior.panic'] = {priority:1,speed_multiplier:1.5};
-        if (settings.profile==='shy') c['minecraft:behavior.avoid_mob_type'] = {priority:2,
+        if (p ? p.panic : settings.profile==='calm' || settings.profile==='shy') c['minecraft:behavior.panic'] = {priority:1,speed_multiplier:1.5};
+        if (shy) c['minecraft:behavior.avoid_mob_type'] = {priority:2,
             entity_types:[{filters:playerFilter,max_dist:settings.range,walk_speed_multiplier:1.2,sprint_speed_multiplier:1.5}]};
-        if (settings.tempt && ['calm','companion','guardian'].includes(settings.profile))
+        if (settings.tempt && (p ? !enemy && !shy : ['calm','companion','guardian'].includes(settings.profile)))
             c['minecraft:behavior.tempt'] = {priority:4,speed_multiplier:1.2,items:[settings.item]};
+        if(p && c['minecraft:behavior.tempt']) c['minecraft:behavior.tempt'].within_radius=p.temptRange;
+        if(p?.heal) c['minecraft:healable']={items:[{item:settings.item,heal_amount:p.healAmount}]};
         if (fighter) {
             c['minecraft:attack'] = {damage:settings.damage};
             c['minecraft:follow_range'] = {value:settings.range};
             c['minecraft:behavior.melee_attack'] = {priority:3,speed_multiplier:1.2,track_target:true};
         }
-        if (settings.profile==='enemy') {
+        if (enemy) {
             c['minecraft:behavior.nearest_attackable_target'] = {priority:1,must_see:true,
                 entity_types:[{filters:playerFilter,max_dist:settings.range}]};
             c['minecraft:behavior.hurt_by_target'] = {priority:2};
         }
+        if(p?.reaction==='retaliate') c['minecraft:behavior.hurt_by_target']={priority:2};
         if (tamed) {
             groups['blockbench_edu:wild'] = {'minecraft:tameable':{probability:1,tame_items:[settings.item],
                 tame_event:{event:'blockbench_edu:on_tame',target:'self'}}};
             groups['blockbench_edu:tamed'] = {
-                'minecraft:is_tamed':{},
-                'minecraft:behavior.follow_owner':{priority:5,speed_multiplier:1.2,start_distance:6,stop_distance:2}
+                'minecraft:is_tamed':{}
             };
-            if (settings.profile==='guardian') groups['blockbench_edu:tamed']['minecraft:behavior.owner_hurt_by_target'] = {priority:1};
+            if(!p || p.follow) groups['blockbench_edu:tamed']['minecraft:behavior.follow_owner']={priority:5,speed_multiplier:1.2,start_distance:p?.followStart || 6,stop_distance:p?.followStop || 2};
+            if (defend) groups['blockbench_edu:tamed']['minecraft:behavior.owner_hurt_by_target'] = {priority:1};
             events['minecraft:entity_spawned'] = {add:{component_groups:['blockbench_edu:wild']}};
             events['blockbench_edu:on_tame'] = {remove:{component_groups:['blockbench_edu:wild']},add:{component_groups:['blockbench_edu:tamed']}};
         }
@@ -445,7 +489,7 @@
     async function writeCreatureProject(model, state, reference, Zip) {
         validateCreatureProject(model, state);
         const zip = new Zip();
-        zip.file('project.json', JSON.stringify({format: 'blockbench-edu', version: 2, model, state}));
+        zip.file('project.json', JSON.stringify({format: 'blockbench-edu', version: state.behavior?.pig ? 3 : 2, model, state}));
         zip.file('reference.mcaddon', await reference.root.generateAsync({type:'uint8array'}));
         return zip.generateAsync({type:'uint8array', compression:'DEFLATE'});
     }
@@ -455,18 +499,19 @@
             zip = await Zip.loadAsync(content);
             data = JSON.parse(await zip.file('project.json').async('string'));
         } catch { throw new Error('Este archivo no es un proyecto de Blockbench Edu o está dañado. Elige el archivo .bbedu que guardaste.'); }
-        requireThat(data.format === 'blockbench-edu' && [1,2].includes(data.version), 'Este proyecto necesita otra versión de Blockbench Edu.');
+        requireThat(data.format === 'blockbench-edu' && [1,2,3].includes(data.version), 'Este proyecto necesita otra versión de Blockbench Edu.');
         validateCreatureProject(data.model, data.state);
         requireThat(zip.file('reference.mcaddon'), 'El proyecto no contiene su addon base.');
         const reference = await readAddon(await zip.file('reference.mcaddon').async('uint8array'), Zip);
         if (data.state.behavior?.profile && data.state.behavior.profile!=='original') {
             requireThat(reference.behavior && supportsBehavior(reference.behavior.json), 'La base de comportamiento no es compatible con esta criatura.');
+            requireThat(!data.state.behavior.pig || isPigBehavior(reference.behavior.json), 'Los ajustes por categorías están disponibles para el cerdo.');
         }
         requireThat('geometry.' + data.model.model_identifier === reference.geometryId, 'El modelo y el addon base no corresponden a la misma criatura.');
         reference.lastVersion = data.state.lastVersion;
         return {...data, reference};
     }
-    const core = {resizePixels, smoothPixels, extractPixels, extractSurface, sampleRegion, packFaces, centeredBounds, geometryEntries, signature, syncManifests, readAddon, buildAddon, createStarter, createMobAddon, compatibleSounds, writeCreatureProject, readCreatureProject, defaultBehavior, validateBehavior, supportsBehavior, compileBehavior};
+    const core = {resizePixels, smoothPixels, extractPixels, extractSurface, sampleRegion, packFaces, centeredBounds, geometryEntries, signature, syncManifests, readAddon, buildAddon, createStarter, createMobAddon, compatibleSounds, writeCreatureProject, readCreatureProject, defaultBehavior, validateBehavior, supportsBehavior, compileBehavior, pigBehavior, adjustPigBehavior};
     if (typeof module !== 'undefined' && module.exports) { module.exports = core; return; }
 
     let panel, style, projectStyle, wizardStyle, action, loader, wizard, classroom, classroomStyle, selectionTool, smoothTool, colorSelectionTool, selectionFillTool, previousTool, teacherReturn, alive = false;
@@ -722,7 +767,8 @@
         panel.vue.version = session?.reference.lastVersion?.join('.') || 'Referencia original';
         panel.vue.status = session ? 'Tu cerdo está listo para crear.' : 'Empieza desde Blockbench Edu en Cargadores.';
         if (classroom) {
-            classroom.behavior = clone(session?.behavior || defaultBehavior());
+            classroom.pigEditor = isPigBehavior(session?.reference.behavior?.json);
+            classroom.behavior = classroom.pigEditor ? pigBehavior(session?.behavior || defaultBehavior()) : clone(session?.behavior || defaultBehavior());
             classroom.behaviorSupported = supportsBehavior(session?.reference.behavior?.json);
             classroom.behaviorCanUndo = !!session?.behaviorPast?.length;
             classroom.behaviorCanRedo = !!session?.behaviorFuture?.length;
@@ -1294,7 +1340,7 @@
         const mount = document.createElement('div'); document.body.append(mount);
         classroom = new Vue({el: mount,
             data: {sidebarWidth: current()?.sidebarWidth || 260, sidebarMax: 480, sidebarDragging: false, sidebarStartX: 0, sidebarStartWidth: 260, mode: 'shape', operation: 'size', position: [0,0,0], rotation: [0,0,0], axes: ['De lado', 'Arriba / abajo', 'Adelante / atrás'], turns: ['Inclinar', 'Girar', 'Ladear'], pieces: [], selectedId: '', dimensions: [0,0,0], maximum: [0,0,0], minimum: [1,1,1], busy: false, canUndo: false, canRedo: false,
-                behavior:clone(current()?.behavior || defaultBehavior()), behaviorSupported:false, behaviorProfiles:BEHAVIOR_PROFILES,
+                behavior:clone(current()?.behavior || defaultBehavior()), behaviorSupported:false, pigEditor:false, behaviorNotice:'', behaviorPage:'', behaviorCategories:[{id:'base',label:'Base',icon:'auto_awesome'},{id:'movement',label:'Movimiento',icon:'directions_walk'},{id:'reaction',label:'Reacción al jugador',icon:'visibility'},{id:'friendship',label:'Amistad',icon:'favorite'},{id:'health',label:'Vida y cuidados',icon:'healing'},{id:'combat',label:'Combate',icon:'sports_martial_arts'}], behaviorProfiles:BEHAVIOR_PROFILES,
                 behaviorItems:BEHAVIOR_ITEMS, behaviorSpeeds:BEHAVIOR_SPEEDS, behaviorCanUndo:false, behaviorCanRedo:false,
                 bones: [], partsOpen: current()?.partsOpen ?? true, soloBoneId: '', selectedPixelCount: 0, paintTool: 'brush_tool', brushSize: 1, cameraControlsOpen: false, cameraIsOrtho: false,
                 teacherViewAvailable: allowsTeacherView(), driveAvailable: !!window.BlockbenchEduDrive, driveClass: !!window.BlockbenchEduDrive?.classCode,
@@ -1341,6 +1387,7 @@
                 behaviorFighter() { return ['enemy','guardian'].includes(this.behavior.profile); },
                 behaviorSummary() {
                     if (this.behavior.profile==='original') return this.behaviorDetail;
+                    if(this.behavior.pig) { const b=this.behavior,p=b.pig; return `Tu cerdo tiene ${b.health} puntos de vida. `+({neutral:'No ataca al jugador.',flee:'Huye del jugador.',enemy:'Ataca al jugador.',retaliate:'Se defiende si lo atacan.'}[p.reaction])+ (p.wander?' Pasea por su cuenta.':' No pasea por su cuenta.')+(p.tame?' Se puede domesticar.':'')+(p.follow?' Sigue a su dueño.':'')+(p.defend?' Defiende a su dueño.':'')+(p.heal?' Se cura con el objeto elegido.':''); }
                     const b=this.behavior, speed=this.behaviorSpeeds.find(s=>s.value===b.speed).label.toLowerCase();
                     const item=this.behaviorItems.find(i=>i.id===b.item).label.toLowerCase();
                     return `${this.behaviorDetail} Tiene ${b.health} puntos de vida y velocidad ${speed}.`+
@@ -1420,6 +1467,39 @@
                 redo() { if(this.mode==='behavior') this.behaviorHistory(true); else Undo.redo(); }, download: () => attempt(exportAddon),
                 deliver: () => attempt(deliverAddon), saveCreature: () => attempt(saveCreature), openCreature: importCreature,
                 saveOptions: () => attempt(showSaveOptions),
+                openBehaviorPage(id) { this.behaviorPage=id; this.$nextTick(()=>{(this.$refs.behaviorHeading || this.$refs.behaviorTitle)?.focus({preventScroll:true}); this.$el.querySelector('.edu-sidebar-scroll').scrollTop=0;}); },
+                categorySummary(id) {
+                    if(this.behavior.profile==='original') return id==='base'?'Original':'Sin cambios';
+                    const b=this.behavior,p=b.pig;
+                    return {base:'Personalizada',movement:(p.wander?'Pasea':'Sin paseo')+' · '+this.behaviorSpeeds.find(s=>s.value===b.speed).label,
+                        reaction:{neutral:'No ataca',flee:'Huye',enemy:'Enemigo',retaliate:'Se defiende'}[p.reaction],
+                        friendship:p.tame?(p.follow?'Domesticable · Te sigue':'Domesticable'):'Sin domesticar',
+                        health:b.health+' puntos'+(p.heal?' · Se cura':''),combat:p.defend?'Defiende a su dueño':(['enemy','retaliate'].includes(p.reaction)?b.damage+' de daño':'Sin ataques')}[id];
+                },
+                choosePigBase(profile) {
+                    const session=current(), before=clone(session.behavior || defaultBehavior());
+                    this.behaviorNotice='';
+                    const next=pigBehavior({...defaultBehavior(),profile});
+                    (session.behaviorPast ||= []).push(before); session.behaviorFuture=[]; session.behavior=next; Project.saved=false; refresh();
+                },
+                changePig(key,value) {
+                    const session=validateSession(), before=clone(session.behavior || defaultBehavior());
+                    const baseline=pigBehavior(before),next=adjustPigBehavior(before,key,value);
+                    const names={tame:'la domesticación',follow:'el seguimiento',defend:'la defensa del dueño',panic:'huir al recibir daño',tempt:'la atracción con el objeto'};
+                    const changes=[];
+                    for(const [field,label] of Object.entries(names)) {
+                        if(field===key) continue;
+                        const a=field==='tempt'?baseline.tempt:baseline.pig[field],b=field==='tempt'?next.tempt:next.pig[field];
+                        if(a!==b) changes.push((b?'Se activó ':'Se desactivó ')+label+'.');
+                    }
+                    if(key!=='reaction'&&baseline.pig.reaction!==next.pig.reaction) changes.push('La reacción cambió a No ataca.');
+                    if(key==='followStart'&&baseline.pig.followStop!==next.pig.followStop) changes.push('Se redujo la distancia para detenerse.');
+                    if(key==='followStop'&&baseline.pig.followStart!==next.pig.followStart) changes.push('Se aumentó la distancia para empezar a seguir.');
+                    this.behaviorNotice=changes.join(' ');
+                    if(JSON.stringify(before)===JSON.stringify(next)) return;
+                    (session.behaviorPast ||= []).push(before);session.behaviorFuture=[];session.behavior=next;Project.saved=false;refresh();
+                },
+                pigNumber(key,raw) { if(raw==='') return; try { this.changePig(key,Number(raw)); } catch {} },
                 numberBehavior(key, raw) {
                     if(raw==='') return;
                     const next={...this.behavior,[key]:Number(raw)};
@@ -1427,6 +1507,7 @@
                     this.changeBehavior(key,next[key]);
                 },
                 changeBehavior(key, value) {
+                    if(this.pigEditor) { attempt(()=>this.changePig(key,value)); return; }
                     attempt(()=>{
                         const session=validateSession(), before=clone(session.behavior || defaultBehavior()), next={...before,[key]:value};
                         validateBehavior(next);
@@ -1467,8 +1548,26 @@
                     <p v-if="paintTool==='brush_tool' || paintTool==='eraser' || paintTool==='blockbench_edu_smooth'">Tamaño en píxeles.</p><p v-if="paintTool==='blockbench_edu_smooth'">Mezcla los colores cercanos.</p>
                     </template>
                     <template v-else-if="mode==='behavior'">
-                        <h2>Dale vida</h2><p>Elegí cómo se comportará tu criatura en Minecraft.</p>
-                        <label>Comportamiento<select v-model="behavior.profile" @change="changeBehavior('profile',$event.target.value)" :disabled="busy"><option v-for="profile in behaviorProfiles" :key="profile.id" :value="profile.id" :disabled="profile.id!=='original' &amp;&amp; !behaviorSupported">{{profile.label}}</option></select></label>
+                        <h2 ref="behaviorTitle" tabindex="-1">Dale vida</h2><p v-if="!pigEditor">Elegí cómo se comportará tu criatura en Minecraft.</p>
+                        <template v-if="pigEditor">
+                            <template v-if="!behaviorPage"><p>Elegí qué querés configurar de tu cerdo.</p>
+                                <div class="edu-behavior-categories"><button v-for="category in behaviorCategories" :key="category.id" @click="openBehaviorPage(category.id)" :disabled="busy"><i class="material-icons" aria-hidden="true">{{category.icon}}</i><span><strong>{{category.label}}</strong><small>{{categorySummary(category.id)}}</small></span><i class="material-icons" aria-hidden="true">chevron_right</i></button></div>
+                            </template>
+                            <template v-else>
+                                <button class="edu-behavior-back" @click="openBehaviorPage('')"><i class="material-icons" aria-hidden="true">arrow_back</i>Todas las categorías</button>
+                                <h3 tabindex="-1" ref="behaviorHeading">{{behaviorCategories.find(c=>c.id===behaviorPage).label}}</h3>
+                                <p class="edu-behavior-note">{{behavior.profile==='original' ? 'Al cambiar un ajuste, el cerdo usará tu configuración personalizada.' : 'Tu cerdo usa una configuración personalizada.'}} Reemplaza crías, montura y transformaciones de la plantilla. El modelo y la pintura se conservan.</p>
+                                <p v-if="behaviorNotice" class="edu-behavior-notice" role="status">{{behaviorNotice}}</p><div class="edu-behavior-fields">
+                                <template v-if="behaviorPage==='base'"><p>Elegí un punto de partida. Después podés ajustar cada categoría. Cambiar la base reinicia los ajustes de comportamiento; podés deshacer.</p><button v-for="profile in behaviorProfiles" :key="profile.id" class="edu-behavior-preset" @click="choosePigBase(profile.id)" :disabled="busy"><strong>{{profile.label}}</strong><small>{{profile.detail}}</small></button></template>
+                                <template v-if="behaviorPage==='movement'"><label class="edu-behavior-check"><input type="checkbox" :checked="behavior.pig.wander" @change="changePig('wander',$event.target.checked)" :disabled="busy"/>Pasea por su cuenta</label><p>Si lo desactivás, todavía podrá seguirte, huir o perseguir cuando corresponda.</p><label>Velocidad<select v-model.number="behavior.speed" @change="changePig('speed',Number($event.target.value))" :disabled="busy"><option v-for="speed in behaviorSpeeds" :value="speed.value" :key="speed.value">{{speed.label}}</option></select></label></template>
+                                <template v-if="behaviorPage==='reaction'"><p>¿Qué hace cuando ve a un jugador?</p><div class="edu-behavior-options"><button v-for="choice in [{id:'neutral',label:'No ataca'},{id:'flee',label:'Huye'},{id:'retaliate',label:'Se defiende si lo atacan'},{id:'enemy',label:'Enemigo'}]" :key="choice.id" :aria-pressed="behavior.pig.reaction===choice.id" :class="{active:behavior.pig.reaction===choice.id}" @click="changePig('reaction',choice.id)">{{choice.label}}</button></div><label>Distancia para detectar jugadores<input type="number" min="4" max="32" step="1" :value="behavior.range" @input="pigNumber('range',$event.target.value)" @blur="$event.target.value=behavior.range" :disabled="busy"/></label><small>De 4 a 32.</small><label class="edu-behavior-check"><input type="checkbox" :checked="behavior.pig.panic" @change="changePig('panic',$event.target.checked)" :disabled="busy || behavior.pig.defend || ['enemy','retaliate'].includes(behavior.pig.reaction)"/>Huye si recibe daño</label><p>Huir y atacar son respuestas distintas: elegir una desactiva la otra. Para domesticarlo, elegí No ataca. Huir al recibir daño no está disponible si ataca o defiende a su dueño.</p></template>
+                                <template v-if="behaviorPage==='friendship'"><label class="edu-behavior-check"><input type="checkbox" :checked="behavior.pig.tame" @change="changePig('tame',$event.target.checked)" :disabled="busy || behavior.pig.reaction!=='neutral'"/>Se puede domesticar</label><label class="edu-behavior-check"><input type="checkbox" :checked="behavior.pig.follow" @change="changePig('follow',$event.target.checked)" :disabled="busy || !behavior.pig.tame"/>Sigue a su dueño</label><label class="edu-behavior-check"><input type="checkbox" :checked="behavior.tempt" @change="changePig('tempt',$event.target.checked)" :disabled="busy || ['enemy','flee'].includes(behavior.pig.reaction)"/>Se acerca si llevás el objeto en la mano</label><label>Objeto para atraer, domesticar y curar<select v-model="behavior.item" @change="changePig('item',$event.target.value)" :disabled="busy"><option v-for="item in behaviorItems" :key="item.id" :value="item.id">{{item.label}}</option></select></label><p>Para domesticarlo, elegí No ataca en Reacción al jugador y activá Se puede domesticar. Después usá el objeto sobre el cerdo una vez. El seguimiento y la defensa del dueño se habilitan al activar la domesticación. Desactivarla apaga ambos.</p><template v-if="behavior.pig.follow"><label>Empieza a seguirte a esta distancia<input type="number" :min="Math.max(3,behavior.pig.followStop+1)" max="24" step="1" :value="behavior.pig.followStart" @input="pigNumber('followStart',$event.target.value)" @blur="$event.target.value=behavior.pig.followStart" :disabled="busy"/></label><small>De {{Math.max(3,behavior.pig.followStop+1)}} a 24 bloques.</small><label>Se detiene a esta distancia<input type="number" min="1" :max="Math.min(12,behavior.pig.followStart-1)" step="1" :value="behavior.pig.followStop" @input="pigNumber('followStop',$event.target.value)" @blur="$event.target.value=behavior.pig.followStop" :disabled="busy"/></label><small>De 1 a {{Math.min(12,behavior.pig.followStart-1)}} bloques.</small><p>Distancias en bloques. La distancia para detenerse siempre será menor que la de empezar a seguir.</p></template><template v-if="behavior.tempt"><label>Distancia para ver el objeto<input type="number" min="4" max="24" step="1" :value="behavior.pig.temptRange" @input="pigNumber('temptRange',$event.target.value)" @blur="$event.target.value=behavior.pig.temptRange" :disabled="busy"/></label><small>De 4 a 24.</small></template><p v-if="['enemy','flee'].includes(behavior.pig.reaction)">La atracción con un objeto no se aplica mientras sea Enemigo o huya del jugador.</p></template>
+                                <template v-if="behaviorPage==='health'"><label>Puntos de vida<input type="number" min="1" max="200" step="1" :value="behavior.health" @input="pigNumber('health',$event.target.value)" @blur="$event.target.value=behavior.health" :disabled="busy"/></label><small>De 1 a 200.</small><p>2 puntos de vida equivalen a un corazón.</p><label class="edu-behavior-check"><input type="checkbox" :checked="behavior.pig.heal" @change="changePig('heal',$event.target.checked)" :disabled="busy"/>Se cura al darle el objeto elegido</label><template v-if="behavior.pig.heal"><label>Puntos que recupera por objeto<input type="number" min="1" max="20" step="1" :value="behavior.pig.healAmount" @input="pigNumber('healAmount',$event.target.value)" @blur="$event.target.value=behavior.pig.healAmount" :disabled="busy"/></label><small>De 1 a 20.</small><p>Usá el objeto configurado en Amistad. No supera su vida máxima.</p></template></template>
+                                <template v-if="behaviorPage==='combat'"><label class="edu-behavior-check"><input type="checkbox" :checked="behavior.pig.defend" @change="changePig('defend',$event.target.checked)" :disabled="busy || !behavior.pig.tame"/>Defiende a su dueño</label><p>Primero activá la domesticación en Amistad. Al defender al dueño, se desactiva huir al recibir daño para que ambas acciones no compitan.</p><label>Daño por golpe<input type="number" min="1" max="20" step="1" :value="behavior.damage" @input="pigNumber('damage',$event.target.value)" @blur="$event.target.value=behavior.damage" :disabled="busy"/></label><small>De 1 a 20.</small><p>Solo ataca si es Enemigo, se defiende al recibir daño o defiende a su dueño. Probalo en Supervivencia o Aventura. La armadura puede reducir el daño.</p></template>
+                                </div>
+                            </template>
+                        </template>
+                        <template v-else>                        <label>Comportamiento<select v-model="behavior.profile" @change="changeBehavior('profile',$event.target.value)" :disabled="busy"><option v-for="profile in behaviorProfiles" :key="profile.id" :value="profile.id" :disabled="profile.id!=='original' &amp;&amp; !behaviorSupported">{{profile.label}}</option></select></label>
                         <p v-if="!behaviorSupported" class="edu-behavior-note">Esta primera versión permite cambiar la base de criaturas terrestres que caminan. Esta criatura conserva su comportamiento original.</p>
                         <p v-if="behavior.profile==='original'">Conserva sus habilidades y movimiento. Elegí otra base para personalizarla.</p>
                         <template v-else>
@@ -1488,6 +1587,7 @@
                             <label v-if="behavior.profile==='enemy' || behavior.profile==='shy'">Distancia para detectar jugadores<input type="number" min="4" max="32" step="1" :value="behavior.range" @input="numberBehavior('range',$event.target.value)" @change="changeBehavior('range',Number($event.target.value)); $event.target.value=behavior.range" :disabled="busy"/></label><p v-if="behavior.profile==='enemy' || behavior.profile==='shy'">De 4 a 32 bloques.</p>
                             <button @click="resetBehavior" :disabled="busy">Restaurar comportamiento original</button>
                         </template>
+</template>
                         <div class="edu-behavior-summary" role="status" aria-live="polite"><strong>Tu criatura en Minecraft</strong><p>{{behaviorSummary}}</p></div>
                         <p class="edu-behavior-note">La vista 3D muestra el aspecto. Para probar el comportamiento, descargá la criatura y abrila en un mundo de prueba de Minecraft Education. Las bases nuevas no agregan animaciones. Usá los botones de vista y Controles de cámara para mirar el modelo.</p>
                     </template></div><div class="edu-project-files" role="group" aria-label="Guardar y continuar otro día"><button @click="saveCreature" :disabled="busy"><i class="material-icons" aria-hidden="true">save</i>Guardar mi criatura</button><button @click="openCreature" :disabled="busy"><i class="material-icons" aria-hidden="true">folder_open</i>Abrir una criatura</button></div><div class="edu-history" role="group" aria-label="Historial de cambios"><button @click="undo" :disabled="busy || !(mode==='behavior' ? behaviorCanUndo : canUndo)" :title="mode==='behavior' ? 'Deshacer comportamiento' : 'Volver un paso atrás'"><i class="material-icons" aria-hidden="true">undo</i>Deshacer</button><button @click="redo" :disabled="busy || !(mode==='behavior' ? behaviorCanRedo : canRedo)" :title="mode==='behavior' ? 'Rehacer comportamiento' : 'Recuperar el paso que deshiciste'"><i class="material-icons" aria-hidden="true">redo</i>Rehacer</button></div></aside>
@@ -1663,6 +1763,9 @@
                 #edu-classroom .edu-parts-panel button:focus-visible,#edu-parts-toggle:focus-visible{outline:3px solid #65d98a;outline-offset:-3px}
 
                 #edu-classroom header{gap:12px}#edu-classroom nav{gap:6px}#edu-classroom nav button{font-size:14px;padding:8px 10px;white-space:nowrap}
+                #edu-classroom .edu-behavior-categories{display:grid;gap:10px}#edu-classroom .edu-behavior-categories button{display:flex;align-items:center;gap:10px;text-align:left;min-height:68px;height:auto;padding:12px}#edu-classroom .edu-behavior-categories button span{flex:1;min-width:0}#edu-classroom .edu-behavior-categories strong,#edu-classroom .edu-behavior-categories small{display:block}#edu-classroom .edu-behavior-categories small{font-size:12px;line-height:1.4;margin-top:4px;opacity:.85}
+                #edu-classroom .edu-behavior-notice{background:#294637;border-left:3px solid #65d98a;padding:10px;border-radius:8px;font-size:13px}#edu-classroom .edu-behavior-fields{display:flex;flex-direction:column;gap:14px}#edu-classroom .edu-behavior-fields small{color:#bed0c7}#edu-classroom .edu-behavior-fields p{margin:0;font-size:14px}#edu-classroom .edu-behavior-back{display:flex;align-items:center;gap:6px}#edu-classroom .edu-behavior-options{display:grid;gap:8px}#edu-classroom .edu-behavior-preset{display:flex;flex-direction:column;text-align:left;gap:6px;height:auto}#edu-classroom h3{color:#b8ffd1;font-size:21px}#edu-classroom .edu-behavior-preset small{color:inherit;white-space:normal;line-height:1.4}
+                #edu-classroom .edu-behavior-categories{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}#edu-classroom .edu-behavior-categories button{padding:8px;min-height:70px}#edu-classroom .edu-behavior-categories button>i{display:none}#edu-classroom .edu-behavior-categories strong{font-size:13px;line-height:16px}#edu-classroom .edu-behavior-categories small{font-size:10px;line-height:12px}
                 #edu-classroom .edu-behavior-section{border-top:1px solid #456052;padding-top:12px}#edu-classroom .edu-behavior-section summary{cursor:pointer;color:#b8ffd1;font-weight:600;margin-bottom:14px}#edu-classroom .edu-behavior-section label{margin-top:12px}
                 #edu-classroom input[type=number]{width:100%;min-height:42px;height:auto;box-sizing:border-box;background:#14281f;color:#eaf5ee;border:1px solid #71877c;border-radius:8px;padding:8px;font:inherit}
                 #edu-classroom .edu-behavior-check{display:flex;align-items:flex-start;font-size:14px;line-height:1.5}#edu-classroom .edu-behavior-check input{flex-shrink:0;margin-top:4px}

@@ -73,6 +73,20 @@ untouched source addon; version 1 files still open with Original. Earlier Edu
 versions reject version 2 rather than silently discarding the behavior setup.
 These bases still require Minecraft Education validation before production.
 
+The pig now pilots category buttons with individual submenus: Base, Movimiento,
+Reacción al jugador, Amistad, Vida y cuidados, and Combate. Its optional `pig`
+settings combine wandering, panic, neutral/flee/enemy/retaliation reactions,
+taming, optional following and owner defense, following start/stop distances,
+temptation radius, and item healing. Dependencies are resolved when a control
+changes and validated again on import/export. Following and defense controls require taming; taming requires a neutral
+reaction. Enemy/flee/retaliation choices disable taming, following and defense.
+The UI disables incompatible controls and explains automatic adjustments. Panic and
+combat responses are mutually exclusive. The selected item is shared by
+temptation, taming and healing. Editing activates a custom adult walking base;
+choosing a starting preset resets behavior settings with undo available.
+Pig category projects use portable format 3; formats 1 and 2 remain readable.
+Other templates keep the initial behavior interface.
+
 ### Production
 
 The primary website uses Cloudflare Pages with Git integration connected to `nchiari/blockbench-edu-web`. The Cloudflare project name is `blockbench-edu`; the repository keeps its existing name. Pushes to `main` trigger a production build and deployment, unless automatic deployments are disabled in Cloudflare. Local edits are published only after they are committed and pushed.

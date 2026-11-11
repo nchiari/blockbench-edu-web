@@ -1,5 +1,13 @@
 # Validación del prototipo
 
+## Categorías de comportamiento del cerdo — 11 de noviembre de 2026
+
+- Prueba limitada al cerdo, en `codex/pruebas`: seis botones de categorías con submenús, regreso al menú, resumen por categoría y foco en el título al navegar. Las otras plantillas conservan la interfaz anterior.
+- Personalización nueva: paseo independiente, defensa propia al recibir daño, domesticación sin seguimiento obligatorio, distancias de seguimiento, radio de atracción y curación con el objeto elegido. Dependencias verificadas y combinaciones contradictorias rechazadas por el exportador.
+- 57 pruebas automáticas aprobadas, incluidas transiciones entre reacciones y dependencias de controles. Navegador local: combinar seguimiento desde 12 bloques, vida 30 y curación de 7 puntos; descargar `.bbedu` y `.mcaddon`; reabrir el proyecto y recuperar los ajustes. Lectura de los archivos descargados confirmó los tres valores y el formato portátil 3. Se admiten proyectos de formatos 1 y 2.
+- Controles bloqueados: domesticación fuera de No ataca; seguimiento y defensa sin domesticación; huida ante daño mientras ataca o defiende; atracción mientras ataca al jugador o huye de él. Los cambios automáticos muestran un aviso. Los límites de las distancias de seguimiento dependen entre sí.
+- No se verificaron estas acciones dentro de Minecraft Education. Probar en un mundo descartable antes de considerar su lanzamiento.
+
 ## Dale vida — primera versión en pruebas — 11 de noviembre de 2026
 
 - Rama `codex/pruebas`, sin incorporar cambios a `main`. Paso 3 «Dale vida» y paso 4 «Guardar y exportar».

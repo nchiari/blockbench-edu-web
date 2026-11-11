@@ -43,7 +43,7 @@ test('rejects malformed, future and incomplete projects before importing',async(
         change(data,zip); zip.file('project.json',JSON.stringify(data));
         return readCreatureProject(await zip.generateAsync({type:'uint8array'}),Zip);
     };
-    await assert.rejects(mutate(d=>{d.version=3;}),/otra versión/);
+    await assert.rejects(mutate(d=>{d.version=4;}),/otra versión/);
     await assert.rejects(mutate((d,z)=>z.remove('reference.mcaddon')),/addon base/);
     await assert.rejects(mutate(d=>{d.model.textures[0].source='';}),/pintura incluida/);
     await assert.rejects(mutate(d=>{d.state.originalFaces.pop();}),/pintura original/);
@@ -66,4 +66,19 @@ test('behavior settings survive saving and loading while v1 projects keep their 
     assert.equal(old.state.behavior,undefined);
     data.state.behavior={...state.behavior,health:Infinity}; archive.file('project.json',JSON.stringify(data));
     await assert.rejects(readCreatureProject(await archive.generateAsync({type:'uint8array'}),Zip),/comportamiento/);
+});
+
+test('pig category projects require format 3 and retain all detailed choices',async()=>{
+    const {model,state,reference}=await fixture();
+    state.behavior=require('../blockbench_edu.js').pigBehavior({...require('../blockbench_edu.js').defaultBehavior(),profile:'companion'});
+    state.behavior.pig.followStart=12;
+    state.behavior.pig.followStop=4;
+    state.behavior.pig.heal=true;
+    const bytes=await writeCreatureProject(model,state,reference,Zip);
+    const loaded=await readCreatureProject(bytes,Zip);
+    assert.equal(loaded.version,3);
+    assert.deepEqual(loaded.state.behavior,state.behavior);
+    const result=await buildAddon(loaded.reference,{'minecraft:geometry':[loaded.reference.geometry]},model.textures[0].source.split(',')[1],Zip,{},loaded.state.behavior);
+    const exported=await readAddon(await result.zip.generateAsync({type:'uint8array'}),Zip);
+    assert.equal(exported.behavior.json['minecraft:entity'].component_groups['blockbench_edu:tamed']['minecraft:behavior.follow_owner'].start_distance,12);
 });

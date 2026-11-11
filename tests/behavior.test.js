@@ -6,6 +6,66 @@ const Zip=require('jszip');
 const core=require('../blockbench_edu.js');
 const catalog=require('../reference/wizard-catalog.json');
 
+test('pig controls resolve conflicts, preserve separate settings, and keep following distances ordered',()=>{
+    let b=core.pigBehavior({...core.defaultBehavior(),profile:'companion'});
+    b=core.adjustPigBehavior(b,'defend',true);
+    b=core.adjustPigBehavior(b,'reaction','enemy');
+    assert.equal(b.pig.tame,false); assert.equal(b.pig.follow,false); assert.equal(b.pig.defend,false);
+    assert.equal(b.pig.panic,false); assert.equal(b.tempt,false);
+    b=core.adjustPigBehavior(b,'reaction','neutral');
+    b=core.adjustPigBehavior(b,'tame',true);
+    b=core.adjustPigBehavior(b,'follow',true);
+    b=core.adjustPigBehavior(b,'followStop',10);
+    assert.equal(b.pig.followStart,11);
+    b=core.adjustPigBehavior(b,'followStart',4);
+    assert.equal(b.pig.followStop,3);
+    b=core.adjustPigBehavior(b,'defend',true);
+    b=core.adjustPigBehavior(b,'tame',false);
+    assert.equal(b.pig.follow,false); assert.equal(b.pig.defend,false);
+    assert.equal(b.pig.followStart,4);
+    b=core.adjustPigBehavior(b,'reaction','retaliate');
+    assert.equal(b.pig.panic,false); assert.equal(b.pig.tame,false);
+    for(const reaction of ['neutral','flee','enemy','retaliate']) {
+        let r=core.adjustPigBehavior(b,'reaction',reaction);
+        for(const [key,value] of [['tame',true],['follow',true],['defend',true],['panic',true],['tame',false]]) {
+            r=core.adjustPigBehavior(r,key,value);
+            assert.doesNotThrow(()=>core.validateBehavior(r));
+            assert.doesNotThrow(()=>core.compileBehavior(JSON.parse(catalog.pig.behavior),r));
+        }
+    }
+});
+
+test('pig categories combine independent movement, healing, friendship and defense settings',()=>{
+    const b=core.pigBehavior({...core.defaultBehavior(),profile:'calm'});
+    Object.assign(b.pig,{wander:false,tame:true,follow:false,defend:true,panic:false,heal:true,healAmount:7,temptRange:18});
+    const e=core.compileBehavior(JSON.parse(catalog.pig.behavior),b)['minecraft:entity'];
+    assert.equal(e.components['minecraft:behavior.random_stroll'],undefined);
+    assert.equal(e.components['minecraft:behavior.panic'],undefined);
+    assert.equal(e.components['minecraft:healable'].items[0].heal_amount,7);
+    assert.equal(e.components['minecraft:behavior.tempt'].within_radius,18);
+    assert.equal(e.component_groups['blockbench_edu:tamed']['minecraft:behavior.follow_owner'],undefined);
+    assert.ok(e.component_groups['blockbench_edu:tamed']['minecraft:behavior.owner_hurt_by_target']);
+    assert.throws(()=>core.compileBehavior(JSON.parse(catalog.cow.behavior),b),/cerdo/);
+    const retaliation=core.pigBehavior({...core.defaultBehavior(),profile:'calm'});
+    Object.assign(retaliation.pig,{reaction:'retaliate',panic:false});
+    const r=core.compileBehavior(JSON.parse(catalog.pig.behavior),retaliation)['minecraft:entity'].components;
+    assert.ok(r['minecraft:behavior.hurt_by_target']);
+    assert.equal(r['minecraft:behavior.nearest_attackable_target'],undefined);
+});
+
+test('pig category dependencies and distance bounds reject contradictory combinations',()=>{
+    const b=core.pigBehavior({...core.defaultBehavior(),profile:'calm'});
+    for(const patch of [{follow:true},{defend:true},{tame:true,reaction:'enemy'},{reaction:'retaliate'},{followStart:2},{followStop:6},{healAmount:21},{temptRange:25},{wander:'yes'}])
+        assert.throws(()=>core.validateBehavior({...b,pig:{...b.pig,...patch}}),/cerdo/);
+    const legacy={...core.defaultBehavior(),profile:'guardian',health:60};
+    const upgraded=core.pigBehavior(legacy);
+    assert.equal(upgraded.health,60);
+    assert.equal(upgraded.pig.defend,true);
+    assert.equal(upgraded.pig.follow,true);
+    assert.equal(upgraded.pig.panic,false);
+    assert.equal(legacy.pig,undefined);
+});
+
 test('Original is unchanged for every catalog behavior; supported walking bases compile without source mutation',()=>{
     let supported=0;
     for(const mob of Object.values(catalog)) {
