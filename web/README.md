@@ -38,6 +38,27 @@ The local teacher entry is http://localhost:4173/blockbench-edu-web/docente/. If
 
 ## Publish
 
+### Test environment
+
+Use branch `codex/pruebas` for development and classroom review before release.
+Cloudflare Pages preview branch control includes only `codex/pruebas`; production
+remains on `main`. The preview branch alias is
+https://codex-pruebas.blockbench-edu.pages.dev/ and its teacher entry is
+https://codex-pruebas.blockbench-edu.pages.dev/docente/.
+
+Run `npm run check` and `npm test` before pushing to the test branch, and verify
+the resulting Preview deployment in Cloudflare and in the browser. Preview URLs
+are public. This is a separate website deployment, not a separate Drive inbox:
+use disposable projects and a dedicated test classroom when testing delivery.
+Do not merge into or push development changes to `main` until the user explicitly
+requests the production release.
+
+The initial preview contains the current editor. The planned behavior-editing
+step (3, before saving and exporting in step 4) is not implemented by setting up
+this environment.
+
+### Production
+
 The primary website uses Cloudflare Pages with Git integration connected to `nchiari/blockbench-edu-web`. The Cloudflare project name is `blockbench-edu`; the repository keeps its existing name. Pushes to `main` trigger a production build and deployment, unless automatic deployments are disabled in Cloudflare. Local edits are published only after they are committed and pushed.
 
 The Cloudflare Pages build settings are:
