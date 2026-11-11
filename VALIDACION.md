@@ -1,5 +1,16 @@
 # Validación del prototipo
 
+
+## Comida y crías del cerdo — 11 de noviembre de 2026
+
+- Comida y cuidados: listas independientes para atraer, domesticar y curar; curación de 1–20 puntos por alimento y domesticación de 1–100 % por intento. Papa y remolacha se agregan a las opciones del cerdo.
+- Crías: alimentos propios, espera de 10–3600 segundos y crecimiento de 10–7200 segundos. Solo adultos de esta misma creación. Si son domesticables, ambos padres deben estar domesticados; cada cría se domestica por separado, sin heredar dueño. Crecer conserva una domesticación realizada sobre la cría.
+- Se conserva el esquema de entidad 1.16.0 de la plantilla: grupos adulto/cría, escala 0,5, is_baby, seguimiento de padres y evento de crecimiento. La animación baby_transform ya existe en el RP. Original conserva el BP intacto.
+- Reproducción bloqueada con combate, huida del jugador o defensa del dueño; cambiar a esas opciones la desactiva con aviso. Curación y reproducción activas no comparten alimentos. En domesticables, la curación solo se activa después de domesticar.
+- 60 pruebas automáticas aprobadas: listas, probabilidad, curación por alimento, conflictos, tiempos, grupos adulto/cría, identidad de descendencia, migración y persistencia. Comprobaciones de sintaxis y compilación web completadas.
+- Navegador local: alimentos distintos, probabilidad 50 %, curación con zanahoria y remolacha (7 puntos), crías con papa, espera 60 s y crecimiento 120 s. Descargas reales de .bbedu y .mcaddon; lectura de ambos confirmó configuración y componentes. Los proyectos nuevos usan formato 4; se siguen leyendo 1–3.
+- Pendiente: validación en Minecraft Education de alimentación, reproducción, presentación de crías, crecimiento y convivencia con domesticación.
+
 ## Presentación de Dale vida — 11 de noviembre de 2026
 
 - Categorías con iconos, checkboxes centrados junto al texto y flechas a la derecha de selectores y secciones desplegables del editor educativo.

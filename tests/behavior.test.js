@@ -6,6 +6,62 @@ const Zip=require('jszip');
 const core=require('../blockbench_edu.js');
 const catalog=require('../reference/wizard-catalog.json');
 
+test('separate pig foods export to independent actions and healing follows taming',()=>{
+    let b=core.pigBehavior({...core.defaultBehavior(),profile:'companion'});
+    b.pig.food={attract:['carrot','potato'],tame:['apple'],heal:[{item:'beetroot',amount:3},{item:'wheat',amount:8}],chance:25};
+    b.pig.heal=true;
+    const e=core.compileBehavior(JSON.parse(catalog.pig.behavior),b)['minecraft:entity'];
+    assert.deepEqual(e.components['minecraft:behavior.tempt'].items,['carrot','potato']);
+    assert.deepEqual(e.component_groups['blockbench_edu:wild']['minecraft:tameable'].tame_items,['apple']);
+    assert.equal(e.component_groups['blockbench_edu:wild']['minecraft:tameable'].probability,0.25);
+    assert.equal(e.components['minecraft:healable'],undefined);
+    assert.deepEqual(e.component_groups['blockbench_edu:tamed']['minecraft:healable'].items,[{item:'beetroot',heal_amount:3},{item:'wheat',heal_amount:8}]);
+    b=core.adjustPigBehavior(b,'tame',false);
+    assert.ok(core.compileBehavior(JSON.parse(catalog.pig.behavior),b)['minecraft:entity'].components['minecraft:healable']);
+});
+
+test('pig reproduction has adult-only breeding, baby growth and stable ownership transitions',async()=>{
+    const starter=await core.createMobAddon(catalog.pig,{},Zip,randomUUID),ref=await core.readAddon(starter.addon,Zip);
+    let b=core.pigBehavior({...core.defaultBehavior(),profile:'companion'});
+    b.pig.breeding={enabled:true,items:['potato'],cooldown:90,growth:120};
+    const e=core.compileBehavior(ref.behavior.json,b)['minecraft:entity'];
+    const adult=e.component_groups['blockbench_edu:adult'],baby=e.component_groups['blockbench_edu:baby'];
+    assert.equal(e.components['minecraft:breedable'],undefined);
+    assert.equal(adult['minecraft:breedable'].breeds_with.mate_type,starter.identifier);
+    assert.equal(adult['minecraft:breedable'].breeds_with.baby_type,starter.identifier);
+    assert.equal(adult['minecraft:breedable'].require_tame,true);
+    assert.equal(adult['minecraft:breedable'].inherit_tamed,false);
+    assert.equal(adult['minecraft:breedable'].breed_cooldown,90);
+    assert.equal(baby['minecraft:ageable'].duration,120);
+    assert.equal(baby['minecraft:scale'].value,0.5);
+    assert.equal(baby['minecraft:breedable'],undefined);
+    assert.deepEqual(e.events['minecraft:entity_spawned'].add.component_groups,['blockbench_edu:adult','blockbench_edu:wild']);
+    assert.ok(e.events['minecraft:entity_born'].remove.component_groups.includes('blockbench_edu:adult'));
+    assert.ok(e.events['minecraft:entity_born'].add.component_groups.includes('blockbench_edu:baby'));
+    assert.deepEqual(e.events['blockbench_edu:grow_up'],{remove:{component_groups:['blockbench_edu:baby']},add:{component_groups:['blockbench_edu:adult']}});
+    assert.equal(core.adjustPigBehavior(b,'defend',true).pig.breeding.enabled,false);
+    assert.equal(core.adjustPigBehavior(b,'reaction','enemy').pig.breeding.enabled,false);
+    const out=await core.buildAddon(ref,{'minecraft:geometry':[ref.geometry]},catalog.pig.textures.default.split(',')[1],Zip,{},b);
+    const loaded=await core.readAddon(await out.zip.generateAsync({type:'uint8array'}),Zip);
+    assert.deepEqual(loaded.behavior.json['minecraft:entity'].component_groups,e.component_groups);
+});
+
+test('pig food validation rejects malformed choices, timing and healing/breeding conflicts',()=>{
+    const b=core.pigBehavior({...core.defaultBehavior(),profile:'calm'});
+    for(const patch of [{attract:[]},{tame:['apple','apple']},{tame:['bad_item']},{chance:0},{chance:101},{heal:[{item:'carrot',amount:21}]}])
+        assert.throws(()=>core.validateBehavior({...b,pig:{...b.pig,food:{...b.pig.food,...patch}}}),/alimentos/);
+    for(const patch of [{growth:9},{growth:7201},{cooldown:3601},{items:[]}])
+        assert.throws(()=>core.validateBehavior({...b,pig:{...b.pig,breeding:{...b.pig.breeding,...patch}}}),/alimentos/);
+    const conflict=structuredClone(b);conflict.pig.heal=true;conflict.pig.breeding={...conflict.pig.breeding,enabled:true,items:['apple']};
+    assert.throws(()=>core.validateBehavior(conflict),/curar/);
+    const old=structuredClone(b);delete old.pig.food;delete old.pig.breeding;
+    assert.doesNotThrow(()=>core.validateBehavior(old));
+    const upgraded=core.pigBehavior(old);
+    assert.deepEqual(upgraded.pig.food.attract,[old.item]);
+    assert.equal(upgraded.pig.breeding.enabled,false);
+    assert.equal(old.pig.food,undefined);
+});
+
 test('pig controls resolve conflicts, preserve separate settings, and keep following distances ordered',()=>{
     let b=core.pigBehavior({...core.defaultBehavior(),profile:'companion'});
     b=core.adjustPigBehavior(b,'defend',true);
@@ -41,7 +97,7 @@ test('pig categories combine independent movement, healing, friendship and defen
     const e=core.compileBehavior(JSON.parse(catalog.pig.behavior),b)['minecraft:entity'];
     assert.equal(e.components['minecraft:behavior.random_stroll'],undefined);
     assert.equal(e.components['minecraft:behavior.panic'],undefined);
-    assert.equal(e.components['minecraft:healable'].items[0].heal_amount,7);
+    assert.equal(e.component_groups['blockbench_edu:tamed']['minecraft:healable'].items[0].heal_amount,4);
     assert.equal(e.components['minecraft:behavior.tempt'].within_radius,18);
     assert.equal(e.component_groups['blockbench_edu:tamed']['minecraft:behavior.follow_owner'],undefined);
     assert.ok(e.component_groups['blockbench_edu:tamed']['minecraft:behavior.owner_hurt_by_target']);

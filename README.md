@@ -83,3 +83,15 @@ La prueba de interfaz `tests/classroom-ui-probe.js` se ejecuta con `playwright-c
 `tests/parts-panel-probe.js`, sobre el zombi temporal de esa prueba, comprueba los ojos, el aislamiento de una parte, el cambio entre forma y color, el teclado, el encuadre disponible al plegar, el historial y la descarga con partes ocultas. También revisa el panel en las mismas tres resoluciones y dos escalas, con el menú izquierdo en su ancho mínimo y máximo y los controles de cámara abiertos.
 
 `tests/color-selection-probe.js`, en una pestaña de prueba nueva, comprueba la selección por color desde el modelo 3D, el uso del bote, pincel, borrador y Suavizar, la conservación de todos los píxeles no seleccionados y la recuperación de la pintura con el historial nativo.
+
+## Comida y crías del cerdo en test
+
+En Dale vida, **Comida y cuidados** permite elegir varios alimentos por separado
+para atraer, domesticar y curar, ajustar la probabilidad de domesticación y los
+puntos de curación de cada alimento. **Crías** permite elegir alimentos para
+reproducirse, la espera entre reproducciones y el tiempo para crecer. Necesitás
+dos adultos de esa misma creación; si son domesticables, primero domesticá a
+ambos. Las crías se domestican por separado. Los alimentos para reproducirse y
+curar deben ser distintos cuando ambas acciones están activas. Los proyectos
+con estas opciones usan formato .bbedu versión 4, disponible en la web de test;
+se siguen abriendo proyectos de versiones anteriores.

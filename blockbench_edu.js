@@ -218,19 +218,24 @@
     ];
     const BEHAVIOR_ITEMS = [{id:'apple',label:'Manzana'},{id:'carrot',label:'Zanahoria'},
         {id:'wheat',label:'Trigo'},{id:'wheat_seeds',label:'Semillas de trigo'},{id:'bone',label:'Hueso'}];
+    const PIG_FOOD_ITEMS = [...BEHAVIOR_ITEMS,{id:'potato',label:'Papa'},{id:'beetroot',label:'Remolacha'}];
     const BEHAVIOR_SPEEDS = [{value:0.15,label:'Lenta'},{value:0.25,label:'Normal'},{value:0.35,label:'Rápida'},{value:0.45,label:'Muy rápida'}];
     function defaultBehavior() { return {version:1,profile:'original',health:20,speed:0.25,damage:4,range:16,item:'apple',tempt:true}; }
     function isPigBehavior(source) { return source?.['minecraft:entity']?.components?.['minecraft:type_family']?.family?.includes('pig') === true; }
     function pigBehavior(settings) {
         const b=clone(settings);
-        if(b.pig) return b;
+        if(b.pig) {
+            if(!b.pig.food) b.pig.food={attract:[b.item],tame:[b.item],heal:[{item:b.item,amount:b.pig.healAmount}],chance:100};
+            if(!b.pig.breeding) b.pig.breeding={enabled:false,items:['potato'],cooldown:300,growth:1200};
+            return b;
+        }
         const tame=['companion','guardian'].includes(b.profile);
         if(b.profile==='original') { b.health=10; b.item='carrot'; }
         if(['enemy','shy'].includes(b.profile)) b.tempt=false;
         b.pig={reaction:b.profile==='enemy'?'enemy':b.profile==='shy'?'flee':'neutral',wander:true,
             panic:['original','calm','shy'].includes(b.profile),tame,follow:tame,defend:b.profile==='guardian',
             followStart:6,followStop:2,temptRange:10,heal:false,healAmount:4};
-        return b;
+        return pigBehavior(b);
     }
     function validateBehavior(settings) {
         requireThat(settings && settings.version === 1 && BEHAVIOR_PROFILES.some(p=>p.id===settings.profile) &&
@@ -248,17 +253,28 @@
                 (!p.follow&&!p.defend || p.tame) && (!p.tame || p.reaction==='neutral') && (!settings.tempt || !['enemy','flee'].includes(p.reaction)) &&
                 (!p.panic || !p.defend && !['enemy','retaliate'].includes(p.reaction)), 'La combinación de ajustes del cerdo no es válida.');
         }
+        if(settings.pig?.food!==undefined || settings.pig?.breeding!==undefined) {
+            const p=settings.pig,f=p.food,r=p.breeding;
+            const items=a=>Array.isArray(a)&&a.length>0&&a.length<=PIG_FOOD_ITEMS.length&&new Set(a).size===a.length&&a.every(id=>PIG_FOOD_ITEMS.some(i=>i.id===id));
+            const integer=(v,min,max)=>Number.isInteger(v)&&v>=min&&v<=max;
+            requireThat(f&&r&&items(f.attract)&&items(f.tame)&&Array.isArray(f.heal)&&items(f.heal.map(i=>i?.item))&&
+                f.heal.every(i=>integer(i.amount,1,20))&&integer(f.chance,1,100)&&typeof r.enabled==='boolean'&&items(r.items)&&
+                integer(r.cooldown,10,3600)&&integer(r.growth,10,7200), 'Los alimentos o tiempos de cría no son válidos.');
+            requireThat(!r.enabled || p.reaction==='neutral'&&!p.defend,'La reproducción requiere No ataca y desactivar la defensa del dueño.');
+            requireThat(!r.enabled || !p.heal || !f.heal.some(i=>r.items.includes(i.item)), 'Un alimento no puede curar e iniciar la reproducción a la vez.');
+        }
         return settings;
     }
     function adjustPigBehavior(before,key,value) {
         const next=pigBehavior(before);
                     next.profile='calm';
-                    if(key in next.pig) next.pig[key]=value; else next[key]=value;
+                    if(key.startsWith('food.')) next.pig.food[key.slice(5)]=value; else if(key.startsWith('breeding.')) next.pig.breeding[key.slice(9)]=value; else if(key in next.pig) next.pig[key]=value; else next[key]=value;
                     const p=next.pig;
                     if(key==='reaction') { if(['enemy','flee','retaliate'].includes(value)) {p.tame=false;p.follow=false;p.defend=false;next.tempt=false;} if(['enemy','retaliate'].includes(value)) p.panic=false; }
                     if(key==='tame'&&!value) {p.follow=false;p.defend=false;}
                     if((key==='tame'||key==='follow'||key==='defend')&&value) {p.tame=true;if(p.reaction!=='neutral')p.reaction='neutral';}
-                    if(key==='defend'&&value) p.panic=false;
+                    if(key==='defend'&&value) {p.panic=false;p.breeding.enabled=false;}
+                    if(key==='reaction'&&value!=='neutral') p.breeding.enabled=false;
                     if(key==='panic'&&value) {p.defend=false;if(['enemy','retaliate'].includes(p.reaction))p.reaction='neutral';}
                     if(key==='followStart'&&p.followStop>=value) p.followStop=value-1;
                     if(key==='followStop'&&p.followStart<=value) p.followStart=value+1;
@@ -277,7 +293,7 @@
         if (settings.profile==='original') return clone(source);
         requireThat(supportsBehavior(source), 'Esta criatura conserva su movimiento original en esta primera versión.');
         requireThat(!settings.pig || isPigBehavior(source), 'Los ajustes por categorías están disponibles para el cerdo.');
-        const p=settings.pig;
+        const p=settings.pig ? pigBehavior(settings).pig : null;
         const original = source['minecraft:entity'], c = {};
         // Reuse physical dimensions from the actual template, but never its event hooks or AI.
         for (const key of ['collision_box','breathable','physics','pushable','nameable','hurt_on_condition']) {
@@ -305,9 +321,10 @@
         if (shy) c['minecraft:behavior.avoid_mob_type'] = {priority:2,
             entity_types:[{filters:playerFilter,max_dist:settings.range,walk_speed_multiplier:1.2,sprint_speed_multiplier:1.5}]};
         if (settings.tempt && (p ? !enemy && !shy : ['calm','companion','guardian'].includes(settings.profile)))
-            c['minecraft:behavior.tempt'] = {priority:4,speed_multiplier:1.2,items:[settings.item]};
+            c['minecraft:behavior.tempt'] = {priority:4,speed_multiplier:1.2,items:p?.food.attract || [settings.item]};
         if(p && c['minecraft:behavior.tempt']) c['minecraft:behavior.tempt'].within_radius=p.temptRange;
-        if(p?.heal) c['minecraft:healable']={items:[{item:settings.item,heal_amount:p.healAmount}]};
+        const healing=p?.heal ? {'minecraft:healable':{items:clone(p.food.heal).map(i=>({item:i.item,heal_amount:i.amount}))}} : {};
+        if(p?.heal&&!tamed) Object.assign(c,healing);
         if (fighter) {
             c['minecraft:attack'] = {damage:settings.damage};
             c['minecraft:follow_range'] = {value:settings.range};
@@ -320,15 +337,36 @@
         }
         if(p?.reaction==='retaliate') c['minecraft:behavior.hurt_by_target']={priority:2};
         if (tamed) {
-            groups['blockbench_edu:wild'] = {'minecraft:tameable':{probability:1,tame_items:[settings.item],
+            groups['blockbench_edu:wild'] = {'minecraft:tameable':{probability:p ? p.food.chance/100 : 1,tame_items:p?.food.tame || [settings.item],
                 tame_event:{event:'blockbench_edu:on_tame',target:'self'}}};
             groups['blockbench_edu:tamed'] = {
-                'minecraft:is_tamed':{}
+                'minecraft:is_tamed':{}, ...healing
             };
             if(!p || p.follow) groups['blockbench_edu:tamed']['minecraft:behavior.follow_owner']={priority:5,speed_multiplier:1.2,start_distance:p?.followStart || 6,stop_distance:p?.followStop || 2};
             if (defend) groups['blockbench_edu:tamed']['minecraft:behavior.owner_hurt_by_target'] = {priority:1};
             events['minecraft:entity_spawned'] = {add:{component_groups:['blockbench_edu:wild']}};
             events['blockbench_edu:on_tame'] = {remove:{component_groups:['blockbench_edu:wild']},add:{component_groups:['blockbench_edu:tamed']}};
+        }
+        if(p?.breeding.enabled) {
+            const r=p.breeding, identifier=original.description.identifier;
+            // Keep the template's 1.16 entity schema, including its legacy breeds_with structure.
+            groups['blockbench_edu:adult']={
+                'minecraft:behavior.breed':{priority:2,speed_multiplier:1},
+                'minecraft:breedable':{require_tame:tamed,inherit_tamed:false,breed_cooldown:r.cooldown,
+                    breeds_with:{mate_type:identifier,baby_type:identifier,breed_event:{event:'minecraft:entity_born',target:'baby'}},breed_items:r.items}
+            };
+            groups['blockbench_edu:baby']={
+                'minecraft:is_baby':{},'minecraft:scale':{value:0.5},
+                'minecraft:ageable':{duration:r.growth,grow_up:{event:'blockbench_edu:grow_up',target:'self'}},
+                'minecraft:behavior.follow_parent':{priority:6,speed_multiplier:1.1}
+            };
+            if(c['minecraft:behavior.random_stroll']) c['minecraft:behavior.random_stroll'].priority=7;
+            // Retain a private creation family alongside the shared Edu family.
+            c['minecraft:type_family'].family.push(identifier);
+            const wild=tamed?['blockbench_edu:wild']:[];
+            events['minecraft:entity_spawned']={add:{component_groups:['blockbench_edu:adult',...wild]}};
+            events['minecraft:entity_born']={remove:{component_groups:['blockbench_edu:adult','blockbench_edu:tamed']},add:{component_groups:['blockbench_edu:baby',...wild]}};
+            events['blockbench_edu:grow_up']={remove:{component_groups:['blockbench_edu:baby']},add:{component_groups:['blockbench_edu:adult']}};
         }
         const description = clone(original.description);
         delete description.runtime_identifier;
@@ -489,7 +527,7 @@
     async function writeCreatureProject(model, state, reference, Zip) {
         validateCreatureProject(model, state);
         const zip = new Zip();
-        zip.file('project.json', JSON.stringify({format: 'blockbench-edu', version: state.behavior?.pig ? 3 : 2, model, state}));
+        zip.file('project.json', JSON.stringify({format: 'blockbench-edu', version: state.behavior?.pig?.food ? 4 : state.behavior?.pig ? 3 : 2, model, state}));
         zip.file('reference.mcaddon', await reference.root.generateAsync({type:'uint8array'}));
         return zip.generateAsync({type:'uint8array', compression:'DEFLATE'});
     }
@@ -499,7 +537,7 @@
             zip = await Zip.loadAsync(content);
             data = JSON.parse(await zip.file('project.json').async('string'));
         } catch { throw new Error('Este archivo no es un proyecto de Blockbench Edu o está dañado. Elige el archivo .bbedu que guardaste.'); }
-        requireThat(data.format === 'blockbench-edu' && [1,2,3].includes(data.version), 'Este proyecto necesita otra versión de Blockbench Edu.');
+        requireThat(data.format === 'blockbench-edu' && [1,2,3,4].includes(data.version), 'Este proyecto necesita otra versión de Blockbench Edu.');
         validateCreatureProject(data.model, data.state);
         requireThat(zip.file('reference.mcaddon'), 'El proyecto no contiene su addon base.');
         const reference = await readAddon(await zip.file('reference.mcaddon').async('uint8array'), Zip);
@@ -1340,8 +1378,8 @@
         const mount = document.createElement('div'); document.body.append(mount);
         classroom = new Vue({el: mount,
             data: {sidebarWidth: current()?.sidebarWidth || 260, sidebarMax: 480, sidebarDragging: false, sidebarStartX: 0, sidebarStartWidth: 260, mode: 'shape', operation: 'size', position: [0,0,0], rotation: [0,0,0], axes: ['De lado', 'Arriba / abajo', 'Adelante / atrás'], turns: ['Inclinar', 'Girar', 'Ladear'], pieces: [], selectedId: '', dimensions: [0,0,0], maximum: [0,0,0], minimum: [1,1,1], busy: false, canUndo: false, canRedo: false,
-                behavior:clone(current()?.behavior || defaultBehavior()), behaviorSupported:false, pigEditor:false, behaviorNotice:'', behaviorPage:'', behaviorCategories:[{id:'base',label:'Base',icon:'auto_awesome'},{id:'movement',label:'Movimiento',icon:'directions_walk'},{id:'reaction',label:'Reacción al jugador',icon:'visibility'},{id:'friendship',label:'Amistad',icon:'favorite'},{id:'health',label:'Vida y cuidados',icon:'healing'},{id:'combat',label:'Combate',icon:'sports_martial_arts'}], behaviorProfiles:BEHAVIOR_PROFILES,
-                behaviorItems:BEHAVIOR_ITEMS, behaviorSpeeds:BEHAVIOR_SPEEDS, behaviorCanUndo:false, behaviorCanRedo:false,
+                behavior:clone(current()?.behavior || defaultBehavior()), behaviorSupported:false, pigEditor:false, behaviorNotice:'', behaviorPage:'', behaviorCategories:[{id:'base',label:'Base',icon:'auto_awesome'},{id:'movement',label:'Movimiento',icon:'directions_walk'},{id:'reaction',label:'Reacción al jugador',icon:'visibility'},{id:'friendship',label:'Amistad',icon:'favorite'},{id:'health',label:'Vida y cuidados',icon:'healing'},{id:'combat',label:'Combate',icon:'sports_martial_arts'},{id:'food',label:'Comida y cuidados',icon:'restaurant'},{id:'breeding',label:'Crías',icon:'pets'}], behaviorProfiles:BEHAVIOR_PROFILES,
+                behaviorItems:BEHAVIOR_ITEMS, pigFoodItems:PIG_FOOD_ITEMS, behaviorSpeeds:BEHAVIOR_SPEEDS, behaviorCanUndo:false, behaviorCanRedo:false,
                 bones: [], partsOpen: current()?.partsOpen ?? true, soloBoneId: '', selectedPixelCount: 0, paintTool: 'brush_tool', brushSize: 1, cameraControlsOpen: false, cameraIsOrtho: false,
                 teacherViewAvailable: allowsTeacherView(), driveAvailable: !!window.BlockbenchEduDrive, driveClass: !!window.BlockbenchEduDrive?.classCode,
                 cameraRotate: Keybinds.extra.preview_rotate.keybind.toString(), cameraPan: Keybinds.extra.preview_drag.keybind.toString(), cameraZoom: Keybinds.extra.preview_scroll_zoom.keybind.toString(),
@@ -1404,14 +1442,15 @@
                     }
                     lines.push(p.wander?'Pasea por su cuenta.':'No pasea por su cuenta.');
                     if(p.panic) lines.push('Huye si recibe daño.');
-                    lines.push(p.tame?`Se domestica con: ${item}.`:'No se puede domesticar.');
+                    lines.push(p.tame?`Domesticación: ${p.food.tame.map(id=>this.pigFoodItems.find(i=>i.id===id).label).join(', ')} (${p.food.chance}% por intento).`:'No se puede domesticar.');
                     if(p.follow) lines.push(`Te sigue desde ${p.followStart} bloques y se detiene a ${p.followStop}.`);
                     else if(p.tame) lines.push('No sigue a su dueño.');
                     if(p.defend) lines.push('Defiende a su dueño.');
                     if(p.defend||['enemy','retaliate'].includes(p.reaction)) lines.push(`Daño por golpe: ${b.damage}.`);
                     if(['enemy','flee'].includes(p.reaction)) lines.push(`Detección: ${b.range} bloques.`);
-                    if(b.tempt&&!['enemy','flee'].includes(p.reaction)) lines.push(`Atracción: ${item}, hasta ${p.temptRange} bloques.`);
-                    if(p.heal) lines.push(`Recupera ${p.healAmount} puntos al darle: ${item}.`);
+                    if(b.tempt&&!['enemy','flee'].includes(p.reaction)) lines.push(`Atracción: ${p.food.attract.map(id=>this.pigFoodItems.find(i=>i.id===id).label).join(', ')}, hasta ${p.temptRange} bloques.`);
+                    if(p.heal) lines.push(...p.food.heal.map(i=>`Curación: ${this.pigFoodItems.find(x=>x.id===i.item).label}, ${i.amount} puntos.`));
+                    lines.push(p.breeding.enabled?`Crías: ${p.breeding.items.map(id=>this.pigFoodItems.find(i=>i.id===id).label).join(', ')}. Espera entre reproducciones: ${p.breeding.cooldown} s. Crecimiento: ${p.breeding.growth} s.`:'Reproducción desactivada.');
                     return lines;
                 },
                 behaviorSummary() {
@@ -1496,10 +1535,33 @@
                 redo() { if(this.mode==='behavior') this.behaviorHistory(true); else Undo.redo(); }, download: () => attempt(exportAddon),
                 deliver: () => attempt(deliverAddon), saveCreature: () => attempt(saveCreature), openCreature: importCreature,
                 saveOptions: () => attempt(showSaveOptions),
+                foodItemReason(kind,id) {
+                    if(this.busy) return 'Esperá a que termine el guardado.';
+                    const p=this.behavior.pig, selected=kind==='heal'?p.food.heal.map(i=>i.item):kind==='breed'?p.breeding.items:p.food[kind];
+                    if(selected.includes(id)&&selected.length===1) return 'Elegí otro alimento antes de quitar el último.';
+                    if(kind==='heal'&&p.breeding.enabled&&p.breeding.items.includes(id)&&!selected.includes(id)) return 'No se puede elegir porque este alimento ya inicia la reproducción.';
+                    if(kind==='breed'&&p.heal&&p.food.heal.some(i=>i.item===id)&&!selected.includes(id)) return 'No se puede elegir porque este alimento ya cura al cerdo.';
+                    return '';
+                },
+                foodSelected(kind,id) { const p=this.behavior.pig; return kind==='heal'?p.food.heal.some(i=>i.item===id):(kind==='breed'?p.breeding.items:p.food[kind]).includes(id); },
+                toggleFood(kind,id,on) {
+                    if(this.foodItemReason(kind,id)) return;
+                    const p=this.behavior.pig;
+                    const old=kind==='heal'?p.food.heal:kind==='breed'?p.breeding.items:p.food[kind];
+                    const next=on ? [...old,kind==='heal'?{item:id,amount:4}:id] : old.filter(i=>(kind==='heal'?i.item:i)!==id);
+                    attempt(()=>this.changePig(kind==='breed'?'breeding.items':'food.'+kind,next));
+                },
+                healFoodAmount(id,raw) {
+                    const amount=Number(raw);
+                    if(!Number.isInteger(amount)||amount<1||amount>20) return;
+                    this.changePig('food.heal',this.behavior.pig.food.heal.map(i=>i.item===id?{...i,amount}:i));
+                },
                 behaviorBlockReason(key) {
                     if(this.busy) return 'No se puede elegir mientras se prepara el archivo.';
                     const p=this.behavior.pig;
                     if(!this.pigEditor || !p) return '';
+                    if(key==='breeding'&&(p.reaction!=='neutral'||p.defend)) return 'No se puede elegir porque la reproducción requiere No ataca y desactivar la defensa del dueño.';
+                    if((key==='breeding'&&p.heal || key==='heal'&&p.breeding.enabled)&&p.food.heal.some(i=>p.breeding.items.includes(i.item))) return 'No se puede elegir porque un alimento está asignado a curar y a reproducirse. Separá los alimentos en Comida y cuidados o Crías.';
                     if(key==='tame'&&p.reaction!=='neutral') return 'No se puede elegir porque la domesticación requiere No ataca en Reacción al jugador.';
                     if(['follow','defend'].includes(key)&&!p.tame) return 'No se puede elegir porque primero hay que activar Se puede domesticar en Amistad.';
                     if(key==='panic'&&p.defend) return 'No se puede elegir porque está activa la defensa del dueño. Huir impediría defenderlo.';
@@ -1511,7 +1573,7 @@
                 categorySummary(id) {
                     if(this.behavior.profile==='original') return id==='base'?'Original':'Sin cambios';
                     const b=this.behavior,p=b.pig;
-                    return {base:'Personalizada',movement:(p.wander?'Pasea':'Sin paseo')+' · '+this.behaviorSpeeds.find(s=>s.value===b.speed).label,
+                    return {food:'Alimentos separados',breeding:p.breeding.enabled?'Reproducción activada':'Sin reproducción',base:'Personalizada',movement:(p.wander?'Pasea':'Sin paseo')+' · '+this.behaviorSpeeds.find(s=>s.value===b.speed).label,
                         reaction:{neutral:'No ataca',flee:'Huye',enemy:'Enemigo',retaliate:'Se defiende'}[p.reaction],
                         friendship:p.tame?(p.follow?'Domesticable · Te sigue':'Domesticable'):'Sin domesticar',
                         health:b.health+' puntos'+(p.heal?' · Se cura':''),combat:p.defend?'Defiende a su dueño':(['enemy','retaliate'].includes(p.reaction)?b.damage+' de daño':'Sin ataques')}[id];
@@ -1535,6 +1597,7 @@
                     if(key!=='reaction'&&baseline.pig.reaction!==next.pig.reaction) changes.push('La reacción cambió a No ataca.');
                     if(key==='followStart'&&baseline.pig.followStop!==next.pig.followStop) changes.push('Se redujo la distancia para detenerse.');
                     if(key==='followStop'&&baseline.pig.followStart!==next.pig.followStart) changes.push('Se aumentó la distancia para empezar a seguir.');
+                    if(baseline.pig.breeding.enabled&&!next.pig.breeding.enabled) changes.push('Se desactivó la reproducción para evitar que compita con el combate.');
                     this.behaviorNotice=changes.join(' ');
                     if(JSON.stringify(before)===JSON.stringify(next)) return;
                     (session.behaviorPast ||= []).push(before);session.behaviorFuture=[];session.behavior=next;Project.saved=false;refresh();
@@ -1596,13 +1659,15 @@
                             <template v-else>
                                 <button class="edu-behavior-back" @click="openBehaviorPage('')"><i class="material-icons" aria-hidden="true">arrow_back</i>Todas las categorías</button>
                                 <h3 tabindex="-1" ref="behaviorHeading">{{behaviorCategories.find(c=>c.id===behaviorPage).label}}</h3>
-                                <p class="edu-behavior-note">{{behavior.profile==='original' ? 'Al cambiar un ajuste, el cerdo usará tu configuración personalizada.' : 'Tu cerdo usa una configuración personalizada.'}} Reemplaza crías, montura y transformaciones de la plantilla. El modelo y la pintura se conservan.</p>
+                                <p class="edu-behavior-note">{{behavior.profile==='original' ? 'Al cambiar un ajuste, el cerdo usará tu configuración personalizada.' : 'Tu cerdo usa una configuración personalizada.'}} Reemplaza montura y transformaciones de la plantilla. Podés configurar la reproducción en Crías. El modelo y la pintura se conservan.</p>
                                 <p v-if="behaviorNotice" class="edu-behavior-notice" role="status">{{behaviorNotice}}</p><div class="edu-behavior-fields">
                                 <template v-if="behaviorPage==='base'"><p>Elegí un punto de partida. Después podés ajustar cada categoría. Cambiar la base reinicia los ajustes de comportamiento; podés deshacer.</p><button v-for="profile in behaviorProfiles" :key="profile.id" class="edu-behavior-preset" @click="choosePigBase(profile.id)" :disabled="busy"><strong>{{profile.label}}</strong><small>{{profile.detail}}</small></button></template>
+                                <template v-if="behaviorPage==='food'"><p>Elegí uno o varios alimentos para cada acción. La atracción puede compartir alimentos con las otras acciones.</p><details class="edu-food-section"><summary>Para atraer</summary><fieldset class="edu-food-list"><legend>Para atraer</legend><label v-for="item in pigFoodItems" :key="item.id" class="edu-behavior-check" :class="{'is-disabled':!!foodItemReason('attract',item.id)}" :title="foodItemReason('attract',item.id)"><input type="checkbox" :checked="foodSelected('attract',item.id)" @change="toggleFood('attract',item.id,$event.target.checked)" :disabled="!!foodItemReason('attract',item.id)"/><span>{{item.label}}</span></label></fieldset></details><details class="edu-food-section"><summary>Para domesticar</summary><fieldset class="edu-food-list"><legend>Para domesticar</legend><label v-for="item in pigFoodItems" :key="item.id" class="edu-behavior-check" :class="{'is-disabled':!!foodItemReason('tame',item.id)}" :title="foodItemReason('tame',item.id)"><input type="checkbox" :checked="foodSelected('tame',item.id)" @change="toggleFood('tame',item.id,$event.target.checked)" :disabled="!!foodItemReason('tame',item.id)"/><span>{{item.label}}</span></label></fieldset></details><label>Probabilidad de domesticar por intento (%)<input type="number" min="1" max="100" :value="behavior.pig.food.chance" @input="pigNumber('food.chance',$event.target.value)" @blur="$event.target.value=behavior.pig.food.chance"/></label><small>De 1 a 100. Con 100, alcanza un intento.</small><details class="edu-food-section"><summary>Para curar</summary><fieldset class="edu-food-list"><legend>Para curar</legend><label v-for="item in pigFoodItems" :key="item.id" class="edu-behavior-check" :class="{'is-disabled':!!foodItemReason('heal',item.id)}" :title="foodItemReason('heal',item.id)"><input type="checkbox" :checked="foodSelected('heal',item.id)" @change="toggleFood('heal',item.id,$event.target.checked)" :disabled="!!foodItemReason('heal',item.id)"/><span>{{item.label}}</span></label></fieldset></details><label v-for="entry in behavior.pig.food.heal" :key="entry.item">{{pigFoodItems.find(i=>i.id===entry.item).label}}: puntos de curación<input type="number" min="1" max="20" :value="entry.amount" @input="healFoodAmount(entry.item,$event.target.value)" @blur="$event.target.value=entry.amount"/></label><small>De 1 a 20 puntos por alimento, hasta la vida máxima.</small><p v-if="behavior.pig.tame">Los alimentos para curar se usan después de domesticarlo.</p><p>La curación se activa en Vida y cuidados. Los alimentos para reproducirse se eligen en Crías y deben ser distintos de los que curan si ambas acciones están activas.</p></template>
+                                <template v-if="behaviorPage==='breeding'"><label class="edu-behavior-check" :class="{'is-disabled':!!behaviorBlockReason('breeding')}" :title="behaviorBlockReason('breeding')"><input type="checkbox" :checked="behavior.pig.breeding.enabled" @change="changePig('breeding.enabled',$event.target.checked)" :disabled="!!behaviorBlockReason('breeding')"/><span>Puede tener crías</span></label><p>Necesitás dos adultos de esta misma creación y darles un alimento para reproducirse. Si son domesticables, primero hay que domesticar a ambos.</p><details class="edu-food-section"><summary>Alimentos para reproducirse</summary><fieldset class="edu-food-list"><legend>Alimentos para reproducirse</legend><label v-for="item in pigFoodItems" :key="item.id" class="edu-behavior-check" :class="{'is-disabled':!!foodItemReason('breed',item.id)}" :title="foodItemReason('breed',item.id)"><input type="checkbox" :checked="foodSelected('breed',item.id)" @change="toggleFood('breed',item.id,$event.target.checked)" :disabled="!!foodItemReason('breed',item.id)"/><span>{{item.label}}</span></label></fieldset></details><label>Espera entre reproducciones (segundos)<input type="number" min="10" max="3600" :value="behavior.pig.breeding.cooldown" @input="pigNumber('breeding.cooldown',$event.target.value)" @blur="$event.target.value=behavior.pig.breeding.cooldown"/></label><small>De 10 a 3600. 300 segundos son 5 minutos.</small><label>Tiempo para crecer (segundos)<input type="number" min="10" max="7200" :value="behavior.pig.breeding.growth" @input="pigNumber('breeding.growth',$event.target.value)" @blur="$event.target.value=behavior.pig.breeding.growth"/></label><small>De 10 a 7200. 1200 segundos son 20 minutos.</small><p>Las crías aparecen más pequeñas, siguen a los adultos y crecen con el tiempo. Si son domesticables, cada cría se domestica por separado. No heredan automáticamente al dueño.</p><p>La reproducción solo está disponible con No ataca y sin defender al dueño. Si activás un comportamiento de combate, se desactiva la reproducción.</p></template>
                                 <template v-if="behaviorPage==='movement'"><label class="edu-behavior-check" :class="{'is-disabled':!!behaviorBlockReason('wander')}" :title="behaviorBlockReason('wander')"><input type="checkbox" :checked="behavior.pig.wander" @change="changePig('wander',$event.target.checked)" :disabled="busy"/><span>Pasea por su cuenta</span></label><p>Si lo desactivás, todavía podrá seguirte, huir o perseguir cuando corresponda.</p><label>Velocidad<select v-model.number="behavior.speed" @change="changePig('speed',Number($event.target.value))" :disabled="busy"><option v-for="speed in behaviorSpeeds" :value="speed.value" :key="speed.value">{{speed.label}}</option></select></label></template>
                                 <template v-if="behaviorPage==='reaction'"><p>¿Qué hace cuando ve a un jugador?</p><div class="edu-behavior-options"><button v-for="choice in [{id:'neutral',label:'No ataca'},{id:'flee',label:'Huye'},{id:'retaliate',label:'Se defiende si lo atacan'},{id:'enemy',label:'Enemigo'}]" :key="choice.id" :aria-pressed="behavior.pig.reaction===choice.id" :class="{active:behavior.pig.reaction===choice.id}" @click="changePig('reaction',choice.id)">{{choice.label}}</button></div><label>Distancia para detectar jugadores<input type="number" min="4" max="32" step="1" :value="behavior.range" @input="pigNumber('range',$event.target.value)" @blur="$event.target.value=behavior.range" :disabled="busy"/></label><small>De 4 a 32.</small><label class="edu-behavior-check" :class="{'is-disabled':!!behaviorBlockReason('panic')}" :title="behaviorBlockReason('panic')"><input type="checkbox" :checked="behavior.pig.panic" @change="changePig('panic',$event.target.checked)" :disabled="busy || behavior.pig.defend || ['enemy','retaliate'].includes(behavior.pig.reaction)"/><span>Huye si recibe daño</span></label><p>Huir y atacar son respuestas distintas: elegir una desactiva la otra. Para domesticarlo, elegí No ataca. Huir al recibir daño no está disponible si ataca o defiende a su dueño.</p></template>
-                                <template v-if="behaviorPage==='friendship'"><label class="edu-behavior-check" :class="{'is-disabled':!!behaviorBlockReason('tame')}" :title="behaviorBlockReason('tame')"><input type="checkbox" :checked="behavior.pig.tame" @change="changePig('tame',$event.target.checked)" :disabled="busy || behavior.pig.reaction!=='neutral'"/><span>Se puede domesticar</span></label><label class="edu-behavior-check" :class="{'is-disabled':!!behaviorBlockReason('follow')}" :title="behaviorBlockReason('follow')"><input type="checkbox" :checked="behavior.pig.follow" @change="changePig('follow',$event.target.checked)" :disabled="busy || !behavior.pig.tame"/><span>Sigue a su dueño</span></label><label class="edu-behavior-check" :class="{'is-disabled':!!behaviorBlockReason('tempt')}" :title="behaviorBlockReason('tempt')"><input type="checkbox" :checked="behavior.tempt" @change="changePig('tempt',$event.target.checked)" :disabled="busy || ['enemy','flee'].includes(behavior.pig.reaction)"/><span>Se acerca si llevás el objeto en la mano</span></label><label>Objeto para atraer, domesticar y curar<select v-model="behavior.item" @change="changePig('item',$event.target.value)" :disabled="busy"><option v-for="item in behaviorItems" :key="item.id" :value="item.id">{{item.label}}</option></select></label><p>Para domesticarlo, elegí No ataca en Reacción al jugador y activá Se puede domesticar. Después usá el objeto sobre el cerdo una vez. El seguimiento y la defensa del dueño se habilitan al activar la domesticación. Desactivarla apaga ambos.</p><template v-if="behavior.pig.follow"><label>Empieza a seguirte a esta distancia<input type="number" :min="Math.max(3,behavior.pig.followStop+1)" max="24" step="1" :value="behavior.pig.followStart" @input="pigNumber('followStart',$event.target.value)" @blur="$event.target.value=behavior.pig.followStart" :disabled="busy"/></label><small>De {{Math.max(3,behavior.pig.followStop+1)}} a 24 bloques.</small><label>Se detiene a esta distancia<input type="number" min="1" :max="Math.min(12,behavior.pig.followStart-1)" step="1" :value="behavior.pig.followStop" @input="pigNumber('followStop',$event.target.value)" @blur="$event.target.value=behavior.pig.followStop" :disabled="busy"/></label><small>De 1 a {{Math.min(12,behavior.pig.followStart-1)}} bloques.</small><p>Distancias en bloques. La distancia para detenerse siempre será menor que la de empezar a seguir.</p></template><template v-if="behavior.tempt"><label>Distancia para ver el objeto<input type="number" min="4" max="24" step="1" :value="behavior.pig.temptRange" @input="pigNumber('temptRange',$event.target.value)" @blur="$event.target.value=behavior.pig.temptRange" :disabled="busy"/></label><small>De 4 a 24.</small></template><p v-if="['enemy','flee'].includes(behavior.pig.reaction)">La atracción con un objeto no se aplica mientras sea Enemigo o huya del jugador.</p></template>
-                                <template v-if="behaviorPage==='health'"><label>Puntos de vida<input type="number" min="1" max="200" step="1" :value="behavior.health" @input="pigNumber('health',$event.target.value)" @blur="$event.target.value=behavior.health" :disabled="busy"/></label><small>De 1 a 200.</small><p>2 puntos de vida equivalen a un corazón.</p><label class="edu-behavior-check" :class="{'is-disabled':!!behaviorBlockReason('heal')}" :title="behaviorBlockReason('heal')"><input type="checkbox" :checked="behavior.pig.heal" @change="changePig('heal',$event.target.checked)" :disabled="busy"/><span>Se cura al darle el objeto elegido</span></label><template v-if="behavior.pig.heal"><label>Puntos que recupera por objeto<input type="number" min="1" max="20" step="1" :value="behavior.pig.healAmount" @input="pigNumber('healAmount',$event.target.value)" @blur="$event.target.value=behavior.pig.healAmount" :disabled="busy"/></label><small>De 1 a 20.</small><p>Usá el objeto configurado en Amistad. No supera su vida máxima.</p></template></template>
+                                <template v-if="behaviorPage==='friendship'"><label class="edu-behavior-check" :class="{'is-disabled':!!behaviorBlockReason('tame')}" :title="behaviorBlockReason('tame')"><input type="checkbox" :checked="behavior.pig.tame" @change="changePig('tame',$event.target.checked)" :disabled="busy || behavior.pig.reaction!=='neutral'"/><span>Se puede domesticar</span></label><label class="edu-behavior-check" :class="{'is-disabled':!!behaviorBlockReason('follow')}" :title="behaviorBlockReason('follow')"><input type="checkbox" :checked="behavior.pig.follow" @change="changePig('follow',$event.target.checked)" :disabled="busy || !behavior.pig.tame"/><span>Sigue a su dueño</span></label><label class="edu-behavior-check" :class="{'is-disabled':!!behaviorBlockReason('tempt')}" :title="behaviorBlockReason('tempt')"><input type="checkbox" :checked="behavior.tempt" @change="changePig('tempt',$event.target.checked)" :disabled="busy || ['enemy','flee'].includes(behavior.pig.reaction)"/><span>Se acerca si llevás el objeto en la mano</span></label><button @click="openBehaviorPage('food')"><i class="material-icons" aria-hidden="true">restaurant</i>Elegir alimentos</button><p>Para domesticarlo, elegí No ataca en Reacción al jugador y activá Se puede domesticar. Después usá uno de sus alimentos para domesticarlo. Cada intento tiene la probabilidad que configuraste en Comida y cuidados. El seguimiento y la defensa del dueño se habilitan al activar la domesticación. Desactivarla apaga ambos.</p><template v-if="behavior.pig.follow"><label>Empieza a seguirte a esta distancia<input type="number" :min="Math.max(3,behavior.pig.followStop+1)" max="24" step="1" :value="behavior.pig.followStart" @input="pigNumber('followStart',$event.target.value)" @blur="$event.target.value=behavior.pig.followStart" :disabled="busy"/></label><small>De {{Math.max(3,behavior.pig.followStop+1)}} a 24 bloques.</small><label>Se detiene a esta distancia<input type="number" min="1" :max="Math.min(12,behavior.pig.followStart-1)" step="1" :value="behavior.pig.followStop" @input="pigNumber('followStop',$event.target.value)" @blur="$event.target.value=behavior.pig.followStop" :disabled="busy"/></label><small>De 1 a {{Math.min(12,behavior.pig.followStart-1)}} bloques.</small><p>Distancias en bloques. La distancia para detenerse siempre será menor que la de empezar a seguir.</p></template><template v-if="behavior.tempt"><label>Distancia para ver el objeto<input type="number" min="4" max="24" step="1" :value="behavior.pig.temptRange" @input="pigNumber('temptRange',$event.target.value)" @blur="$event.target.value=behavior.pig.temptRange" :disabled="busy"/></label><small>De 4 a 24.</small></template><p v-if="['enemy','flee'].includes(behavior.pig.reaction)">La atracción con un objeto no se aplica mientras sea Enemigo o huya del jugador.</p></template>
+                                <template v-if="behaviorPage==='health'"><label>Puntos de vida<input type="number" min="1" max="200" step="1" :value="behavior.health" @input="pigNumber('health',$event.target.value)" @blur="$event.target.value=behavior.health" :disabled="busy"/></label><small>De 1 a 200.</small><p>2 puntos de vida equivalen a un corazón.</p><label class="edu-behavior-check" :class="{'is-disabled':!!behaviorBlockReason('heal')}" :title="behaviorBlockReason('heal')"><input type="checkbox" :checked="behavior.pig.heal" @change="changePig('heal',$event.target.checked)" :disabled="!!behaviorBlockReason('heal')"/><span>Se cura al darle un alimento</span></label><template v-if="behavior.pig.heal"><button @click="openBehaviorPage('food')">Elegir alimentos y curación</button><p>Cada alimento puede recuperar una cantidad distinta. Si el cerdo es domesticable, primero hay que domesticarlo para curarlo.</p></template></template>
                                 <template v-if="behaviorPage==='combat'"><label class="edu-behavior-check" :class="{'is-disabled':!!behaviorBlockReason('defend')}" :title="behaviorBlockReason('defend')"><input type="checkbox" :checked="behavior.pig.defend" @change="changePig('defend',$event.target.checked)" :disabled="busy || !behavior.pig.tame"/><span>Defiende a su dueño</span></label><p>Primero activá la domesticación en Amistad. Al defender al dueño, se desactiva huir al recibir daño para que ambas acciones no compitan.</p><label>Daño por golpe<input type="number" min="1" max="20" step="1" :value="behavior.damage" @input="pigNumber('damage',$event.target.value)" @blur="$event.target.value=behavior.damage" :disabled="busy"/></label><small>De 1 a 20.</small><p>Solo ataca si es Enemigo, se defiende al recibir daño o defiende a su dueño. Probalo en Supervivencia o Aventura. La armadura puede reducir el daño.</p></template>
                                 </div>
                             </template>
@@ -1808,6 +1873,7 @@
                 #edu-classroom .edu-behavior-categories{display:grid;gap:10px}#edu-classroom .edu-behavior-categories button{display:flex;align-items:center;gap:10px;text-align:left;min-height:68px;height:auto;padding:12px}#edu-classroom .edu-behavior-categories button span{flex:1;min-width:0}#edu-classroom .edu-behavior-categories strong,#edu-classroom .edu-behavior-categories small{display:block}#edu-classroom .edu-behavior-categories small{font-size:12px;line-height:1.4;margin-top:4px;opacity:.85}
                 #edu-classroom .edu-behavior-notice{background:#294637;border-left:3px solid #65d98a;padding:10px;border-radius:8px;font-size:13px}#edu-classroom .edu-behavior-fields{display:flex;flex-direction:column;gap:14px}#edu-classroom .edu-behavior-fields small{color:#bed0c7}#edu-classroom .edu-behavior-fields p{margin:0;font-size:14px}#edu-classroom .edu-behavior-back{display:flex;align-items:center;gap:6px}#edu-classroom .edu-behavior-options{display:grid;gap:8px}#edu-classroom .edu-behavior-preset{display:flex;flex-direction:column;text-align:left;gap:6px;height:auto}#edu-classroom h3{color:#b8ffd1;font-size:21px}#edu-classroom .edu-behavior-preset small{color:inherit;white-space:normal;line-height:1.4}
                 #edu-classroom .edu-behavior-categories{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}#edu-classroom .edu-behavior-categories button{padding:8px;min-height:70px}#edu-classroom .edu-behavior-categories button{flex-direction:column;justify-content:center;text-align:center;gap:6px;min-height:98px}#edu-classroom .edu-behavior-categories .edu-category-icon{display:block;font-size:26px;flex-shrink:0}#edu-classroom .edu-behavior-categories button span{flex:0 1 auto;width:100%}#edu-classroom .edu-behavior-categories strong{font-size:13px;line-height:16px}#edu-classroom .edu-behavior-categories small{font-size:10px;line-height:12px}
+                #edu-classroom .edu-food-list{border:1px solid #456052;border-radius:10px;padding:12px;display:grid;gap:8px;min-width:0}#edu-classroom .edu-food-list legend{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}#edu-classroom .edu-food-section summary{font-weight:600;color:#b8ffd1;min-height:42px}#edu-classroom .edu-food-section{border-top:1px solid #456052;padding-top:6px}
                 #edu-classroom .edu-behavior-section{border-top:1px solid #456052;padding-top:12px}#edu-classroom .edu-behavior-section summary{cursor:pointer;color:#b8ffd1;font-weight:600;margin-bottom:14px}#edu-classroom .edu-behavior-section label{margin-top:12px}
                 #edu-classroom input[type=number]{width:100%;min-height:42px;height:auto;box-sizing:border-box;background:#14281f;color:#eaf5ee;border:1px solid #71877c;border-radius:8px;padding:8px;font:inherit}
                 #edu-classroom .edu-behavior-check{display:flex;align-items:center;font-size:14px;line-height:1.5;gap:10px;min-height:32px}#edu-classroom .edu-behavior-check input{flex:0 0 auto;margin:0;width:18px;height:18px;align-self:center}#edu-classroom .edu-behavior-check span{flex:1;min-width:0}#edu-classroom .edu-behavior-check.is-disabled{color:#7f8e87;cursor:not-allowed}#edu-classroom .edu-behavior-check.is-disabled input{opacity:.4;pointer-events:none}

@@ -119,3 +119,21 @@ The existing **Publish Blockbench Edu** GitHub Actions workflow remains a manual
 Local creation needs no student account or database. Models and addons are processed in the browser. Optional classroom delivery uses the owner's Apps Script receiver and private Drive folder; see `../infrastructure/drive/README.md`. `drive-inbox.js` is included in the content-hashed host bundle. Classroom codes are supplied by the teacher through a fragment link and are not embedded in the published source. The Apps Script editor transport must be deployed before enabling a class for students. Students can download portable `.bbedu` projects with “Guardar mi criatura” and reopen them with “Abrir una criatura” from the wizard, home screen or editor. The teacher panel provides the same actions. These files contain the embedded model/PNG, untouched source addon and versioned Edu editing metadata, without classroom codes. Opening preserves existing projects in separate tabs; undo history and temporary view/tool state restart. There is no automatic persistence after closing the tab. Classroom delivery sends the `.mcaddon` and a companion `.bbmodel` for the teacher; portable `.bbedu` projects are shared separately.
 
 Edu assets use content-derived filenames: the generated HTML references hashed host JavaScript and CSS, and that host references the hashed plugin. The canonical `blockbench_edu.js` remains available for manual installation. Each changed plugin produces a new host filename too, preventing reuse of an older plugin from the browser cache. Existing open editing sessions do not reload automatically.
+
+## Pig food and breeding preview
+
+The pig adds Comida y cuidados and Crías. Separate multi-item lists control
+attraction, taming, healing (1–20 points per item) and breeding. Taming chance is
+1–100 percent per attempt. Potato and beetroot extend the pig's item choices.
+Healing for tameable pigs is installed only in the tamed group. Active healing
+and breeding may not share an item; attraction may reuse any item. Each list
+retains at least one item, with disabled choices and explanatory tooltips.
+
+Breeding uses the template's legacy entity schema with an adult-only group,
+the current creation identifier for mate/offspring, and an explicit born event.
+The baby group sets is_baby, scale 0.5, follow_parent and ageable; growth removes
+only that group and adds adulthood, retaining any owner. Tameable parents must
+be tamed first; children do not inherit ownership. Cooldown is 10–3600 seconds,
+growth 10–7200 seconds. Combat/flee reactions and owner defense disable breeding.
+Format 4 preserves these choices; formats 1–3 remain readable, and legacy shared
+items are expanded on editing. In-game validation remains pending.

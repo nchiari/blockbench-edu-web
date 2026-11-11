@@ -43,7 +43,7 @@ test('rejects malformed, future and incomplete projects before importing',async(
         change(data,zip); zip.file('project.json',JSON.stringify(data));
         return readCreatureProject(await zip.generateAsync({type:'uint8array'}),Zip);
     };
-    await assert.rejects(mutate(d=>{d.version=4;}),/otra versión/);
+    await assert.rejects(mutate(d=>{d.version=5;}),/otra versión/);
     await assert.rejects(mutate((d,z)=>z.remove('reference.mcaddon')),/addon base/);
     await assert.rejects(mutate(d=>{d.model.textures[0].source='';}),/pintura incluida/);
     await assert.rejects(mutate(d=>{d.state.originalFaces.pop();}),/pintura original/);
@@ -68,17 +68,28 @@ test('behavior settings survive saving and loading while v1 projects keep their 
     await assert.rejects(readCreatureProject(await archive.generateAsync({type:'uint8array'}),Zip),/comportamiento/);
 });
 
-test('pig category projects require format 3 and retain all detailed choices',async()=>{
+test('pig category projects require format 4 and retain all detailed choices',async()=>{
     const {model,state,reference}=await fixture();
     state.behavior=require('../blockbench_edu.js').pigBehavior({...require('../blockbench_edu.js').defaultBehavior(),profile:'companion'});
     state.behavior.pig.followStart=12;
     state.behavior.pig.followStop=4;
     state.behavior.pig.heal=true;
+    state.behavior.pig.food={attract:['carrot','potato'],tame:['apple'],heal:[{item:'beetroot',amount:6}],chance:50};
+    state.behavior.pig.breeding={enabled:true,items:['wheat'],cooldown:60,growth:120};
     const bytes=await writeCreatureProject(model,state,reference,Zip);
     const loaded=await readCreatureProject(bytes,Zip);
-    assert.equal(loaded.version,3);
+    assert.equal(loaded.version,4);
     assert.deepEqual(loaded.state.behavior,state.behavior);
     const result=await buildAddon(loaded.reference,{'minecraft:geometry':[loaded.reference.geometry]},model.textures[0].source.split(',')[1],Zip,{},loaded.state.behavior);
     const exported=await readAddon(await result.zip.generateAsync({type:'uint8array'}),Zip);
     assert.equal(exported.behavior.json['minecraft:entity'].component_groups['blockbench_edu:tamed']['minecraft:behavior.follow_owner'].start_distance,12);
+    assert.equal(exported.behavior.json['minecraft:entity'].component_groups['blockbench_edu:adult']['minecraft:breedable'].breed_cooldown,60);
+    const zip=await Zip.loadAsync(bytes),data=JSON.parse(await zip.file('project.json').async('string'));
+    data.version=3; delete data.state.behavior.pig.food;delete data.state.behavior.pig.breeding;
+    zip.file('project.json',JSON.stringify(data));
+    const previous=await readCreatureProject(await zip.generateAsync({type:'uint8array'}),Zip);
+    assert.equal(previous.state.behavior.pig.food,undefined);
+    const migrated=require('../blockbench_edu.js').pigBehavior(previous.state.behavior);
+    assert.deepEqual(migrated.pig.food.tame,[previous.state.behavior.item]);
+    assert.equal(migrated.pig.breeding.enabled,false);
 });
