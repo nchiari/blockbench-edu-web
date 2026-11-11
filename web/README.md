@@ -48,8 +48,10 @@ https://codex-pruebas.blockbench-edu.pages.dev/docente/.
 
 Run `npm run check` and `npm test` before pushing to the test branch, and verify
 the resulting Preview deployment in Cloudflare and in the browser. Preview URLs
-are public. This is a separate website deployment, not a separate Drive inbox:
-use disposable projects and a dedicated test classroom when testing delivery.
+are public. The Drive receiver currently rejects preview origins, so classroom
+delivery is not enabled for this environment. Model editing and local downloads
+can be tested without Drive. Delivery testing would require separately setting
+up a test classroom/inbox and allowing this exact preview origin in its receiver.
 Do not merge into or push development changes to `main` until the user explicitly
 requests the production release.
 
