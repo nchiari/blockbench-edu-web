@@ -137,3 +137,19 @@ be tamed first; children do not inherit ownership. Cooldown is 10–3600 seconds
 growth 10–7200 seconds. Combat/flee reactions and owner defense disable breeding.
 Format 4 preserves these choices; formats 1–3 remain readable, and legacy shared
 items are expanded on editing. In-game validation remains pending.
+
+## Pig mount preview
+
+Montura is a separate pig category: one adult rider, optional saddle requirement,
+player steering with a carrot on a stick or pig-controlled wandering, and seat
+height 0–4 / forward-back offset -2–2 blocks. Saddle removal is not included.
+Options are disabled with explanatory tooltips until mounting is enabled.
+
+Mount-enabled exports use entity format 1.21.80 for rideable rider-enter/exit
+events; BP/RP engine minima are raised only when necessary. Other exports retain
+their existing formats. Entering removes free AI, owner AI and breeding groups,
+while taming identity/healing remain. Leaving restores free AI, owner AI only
+when tamed, and adult breeding only when adult. A pig-controlled ride retains
+only wandering, if enabled. Birth removes riding access; growth adds it.
+Portable format 5 preserves mount options; formats 1–4 remain readable.
+Live Minecraft Education verification is still pending.

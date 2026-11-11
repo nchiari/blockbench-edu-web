@@ -1,6 +1,16 @@
 # Validación del prototipo
 
 
+## Montura del cerdo — 11 de noviembre de 2026
+
+- Categoría Montura: activar acceso, exigir silla o montar directamente, control con zanahoria en un palo o paseo decidido por el cerdo, un pasajero y asiento ajustable (altura 0–4; adelante/atrás −2–2 bloques). Opciones bloqueadas y grisadas hasta activar Se puede montar.
+- Acceso solo de adultos: el nacimiento elimina los grupos de montura; crecer incorpora acceso directo o interacción para colocar la silla. La silla colocada no se retira en esta primera versión.
+- Eventos de subir/bajar retiran y restauran grupos de IA, seguimiento/defensa y reproducción. El grupo de domesticación y curación permanece; restaurar seguimiento depende de is_tamed. Si decide el cerdo, solo mantiene el paseo configurado mientras lleva pasajero.
+- Los eventos de rideable requieren formato de entidad 1.21.80; solo al activar Montura se genera ese formato y se eleva el mínimo de BP/RP a esa versión cuando corresponde. Original y exportaciones sin montura conservan sus versiones. Se mantiene el esquema de reproducción anterior a 1.26.
+- 63 pruebas automáticas aprobadas, incluidas silla/acceso directo, ambos controles, asiento, pausa/restauración, crianza, domesticación, validación y versiones de manifiestos. Sintaxis y build web comprobados.
+- Navegador local: activar montura, quitar requisito de silla, cambiar ambos controles, asiento a altura 1,1 y posición −0,25; resumen actualizado y descargas reales de .bbedu y .mcaddon. Proyectos nuevos con estos ajustes: formato 5; siguen abriendo 1–4.
+- Pendiente: prueba en Minecraft Education de interacción con silla, controles, asiento, pausa al montar/restauración al bajar y crecimiento de crías montables.
+
 ## Comida y crías del cerdo — 11 de noviembre de 2026
 
 - Comida y cuidados: listas independientes para atraer, domesticar y curar; curación de 1–20 puntos por alimento y domesticación de 1–100 % por intento. Papa y remolacha se agregan a las opciones del cerdo.

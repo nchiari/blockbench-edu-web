@@ -6,6 +6,73 @@ const Zip=require('jszip');
 const core=require('../blockbench_edu.js');
 const catalog=require('../reference/wizard-catalog.json');
 
+test('pig mounting pauses movement, combat and breeding without losing ownership or healing',()=>{
+    let b=core.pigBehavior({...core.defaultBehavior(),profile:'companion'});
+    b.pig.mount={enabled:true,saddle:true,control:'player',height:1.15,offset:-0.25};
+    b.pig.breeding.enabled=true;
+    b.pig.heal=true;
+    const out=core.compileBehavior(JSON.parse(catalog.pig.behavior),b),e=out['minecraft:entity'],g=e.component_groups;
+    assert.equal(out.format_version,'1.21.80');
+    const ready=g['blockbench_edu:ride_ready']['minecraft:rideable'];
+    assert.equal(ready.seat_count,1);assert.deepEqual(ready.family_types,['player']);
+    assert.deepEqual(ready.seats.position,[0,1.15,-0.25]);
+    assert.ok(g['blockbench_edu:ride_ready']['minecraft:is_saddled']);
+    assert.equal(g['blockbench_edu:unsaddled']['minecraft:rideable'],undefined);
+    assert.deepEqual(e.events['blockbench_edu:on_saddle'].remove.component_groups,['blockbench_edu:unsaddled']);
+    assert.equal(ready.on_rider_enter_event.event,'blockbench_edu:on_mount');
+    assert.equal(ready.on_rider_exit_event.event,'blockbench_edu:on_dismount');
+    const pause=e.events['blockbench_edu:on_mount'];
+    assert.ok(pause.remove.component_groups.includes('blockbench_edu:owner_free'));
+    assert.ok(pause.remove.component_groups.includes('blockbench_edu:breed_free'));
+    assert.ok(!pause.remove.component_groups.includes('blockbench_edu:tamed'));
+    assert.ok(g['blockbench_edu:tamed']['minecraft:is_tamed']);
+    assert.ok(g['blockbench_edu:tamed']['minecraft:healable']);
+    assert.ok(g['blockbench_edu:owner_free']['minecraft:behavior.follow_owner']);
+    assert.equal(e.components['minecraft:behavior.tempt'],undefined);
+    assert.ok(g['blockbench_edu:free']['minecraft:behavior.tempt']);
+    assert.ok(g['blockbench_edu:mounted']['minecraft:item_controllable']);
+    const resume=e.events['blockbench_edu:on_dismount'].sequence;
+    assert.ok(resume.some(step=>step.filters?.test==='is_tamed'&&step.add.component_groups.includes('blockbench_edu:owner_free')));
+    assert.ok(!e.events['minecraft:entity_born'].add.component_groups.includes('blockbench_edu:unsaddled'));
+    assert.ok(e.events['minecraft:entity_born'].remove.component_groups.includes('blockbench_edu:ride_ready'));
+    assert.ok(e.events['blockbench_edu:grow_up'].add.component_groups.includes('blockbench_edu:unsaddled'));
+});
+
+test('pig ride modes respect saddle choices and validate seat coordinates',()=>{
+    let b=core.pigBehavior({...core.defaultBehavior(),profile:'calm'});
+    b=core.adjustPigBehavior(b,'mount.enabled',true);
+    b=core.adjustPigBehavior(b,'mount.saddle',false);
+    b=core.adjustPigBehavior(b,'mount.control','pig');
+    const e=core.compileBehavior(JSON.parse(catalog.pig.behavior),b)['minecraft:entity'];
+    assert.ok(e.events['minecraft:entity_spawned'].add.component_groups.includes('blockbench_edu:ride_ready'));
+    assert.equal(e.component_groups['blockbench_edu:unsaddled'],undefined);
+    assert.ok(e.component_groups['blockbench_edu:mounted']['minecraft:behavior.random_stroll']);
+    assert.equal(e.component_groups['blockbench_edu:mounted']['minecraft:item_controllable'],undefined);
+    b.pig.wander=false;
+    assert.deepEqual(core.compileBehavior(JSON.parse(catalog.pig.behavior),b)['minecraft:entity'].component_groups['blockbench_edu:mounted'],{});
+    for(const patch of [{control:'invalid'},{saddle:1},{height:-0.1},{height:5},{height:NaN},{offset:3},{enabled:'yes'}])
+        assert.throws(()=>core.validateBehavior({...b,pig:{...b.pig,mount:{...b.pig.mount,...patch}}}),/montura/);
+    const old=structuredClone(b);delete old.pig.mount;
+    assert.equal(core.pigBehavior(old).pig.mount.enabled,false);
+    assert.equal(old.pig.mount,undefined);
+});
+
+test('mount exports require compatible BP/RP engine versions, while Original and unmounted exports preserve them',async()=>{
+    const starter=await core.createMobAddon(catalog.pig,{},Zip,randomUUID),ref=await core.readAddon(starter.addon,Zip);
+    let b=core.pigBehavior({...core.defaultBehavior(),profile:'calm'});b.pig.mount.enabled=true;
+    const make=async settings=>core.readAddon(await (await core.buildAddon(ref,{'minecraft:geometry':[ref.geometry]},catalog.pig.textures.default.split(',')[1],Zip,{},settings)).zip.generateAsync({type:'uint8array'}),Zip);
+    const out=await make(b);
+    assert.deepEqual(out.bp.manifest.header.min_engine_version,[1,21,80]);
+    assert.deepEqual(out.rp.manifest.header.min_engine_version,[1,21,80]);
+    assert.equal(out.behavior.json.format_version,'1.21.80');
+    assert.equal(out.behavior.json['minecraft:entity'].description.identifier,starter.identifier);
+    const untouched=await make(core.defaultBehavior());
+    assert.deepEqual(untouched.behavior.json,ref.behavior.json);
+    assert.deepEqual(untouched.bp.manifest.header.min_engine_version,ref.bp.manifest.header.min_engine_version);
+    b.pig.mount.enabled=false;
+    assert.deepEqual((await make(b)).bp.manifest.header.min_engine_version,ref.bp.manifest.header.min_engine_version);
+});
+
 test('separate pig foods export to independent actions and healing follows taming',()=>{
     let b=core.pigBehavior({...core.defaultBehavior(),profile:'companion'});
     b.pig.food={attract:['carrot','potato'],tame:['apple'],heal:[{item:'beetroot',amount:3},{item:'wheat',amount:8}],chance:25};

@@ -95,3 +95,13 @@ ambos. Las crías se domestican por separado. Los alimentos para reproducirse y
 curar deben ser distintos cuando ambas acciones están activas. Los proyectos
 con estas opciones usan formato .bbedu versión 4, disponible en la web de test;
 se siguen abriendo proyectos de versiones anteriores.
+
+## Montura del cerdo en test
+
+**Montura** tiene su propio botón en Dale vida. Permite habilitar un pasajero
+adulto, exigir silla o montar directamente, elegir si dirige el jugador con
+zanahoria en un palo o el cerdo, y ajustar altura y posición del asiento.
+Las crías no se montan hasta crecer. Mientras lleva pasajero, pausa sus otras
+acciones; al bajar las recupera. Si dirige el cerdo, conserva su paseo si estaba
+activado. En esta versión la silla colocada no se retira. Los proyectos nuevos
+usan formato .bbedu versión 5 de la web de test; se admiten archivos anteriores.
