@@ -29,7 +29,7 @@ async (page) => {
     }) === expected, expected, {timeout:5000});
     const download = async name => {
         if (name === 'Llevar a Minecraft' || (name === 'Guardar mi criatura' && await page.locator('#edu-classroom').count())) {
-            await button('3 · Guardar y compartir').click();
+            await button('4 · Guardar y exportar').click();
             await page.locator('#blockbench_edu_save_options').waitFor();
             if (name === 'Guardar mi criatura') name = 'Guardar para seguir editando';
         }
@@ -57,7 +57,7 @@ async (page) => {
     await page.waitForFunction(() => Texture.all[0].img.complete);
     const before = await state();
     const limits = await page.evaluate(() => document.getElementById('edu-classroom').__vue__.maximum.slice());
-    await button('3 · Guardar y compartir').click();
+    await button('4 · Guardar y exportar').click();
     const options = page.locator('#blockbench_edu_save_options');
     check(await options.getByRole('button',{name:/^Guardar para seguir editando/}).isVisible() &&
         await options.getByRole('button',{name:/^Llevar a Minecraft/}).isVisible(),

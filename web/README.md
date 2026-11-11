@@ -19,7 +19,7 @@ These are separate interfaces, not authenticated accounts. Sessions stay in thei
 
 ## Rebuild
 
-The student's third step is **3 · Guardar y compartir**. It opens a chooser with **Guardar para seguir editando** (`.bbedu`) and **Llevar a Minecraft** (`.mcaddon`). A configured classroom adds **Entregar al profe** to the same chooser. Opening or closing the chooser does not generate a download or change the creature; the student selects an action explicitly. The sidebar save/open shortcuts remain available.
+The student's third step is **3 · Dale vida** (behavior setup); **4 · Guardar y exportar** opens the save/export choices. It opens a chooser with **Guardar para seguir editando** (`.bbedu`) and **Llevar a Minecraft** (`.mcaddon`). A configured classroom adds **Entregar al profe** to the same chooser. Opening or closing the chooser does not generate a download or change the creature; the student selects an action explicitly. The sidebar save/open shortcuts remain available.
 
 Use Node 22.15.0 and npm. From the repository root:
 
@@ -55,9 +55,23 @@ up a test classroom/inbox and allowing this exact preview origin in its receiver
 Do not merge into or push development changes to `main` until the user explicitly
 requests the production release.
 
-The initial preview contains the current editor. The planned behavior-editing
-step (3, before saving and exporting in step 4) is not implemented by setting up
-this environment.
+The preview includes the first behavior setup: Original, Animal tranquilo,
+Animal asustadizo, Compañero, Guardián, and Enemigo. Custom bases are enabled only
+for compatible walking templates. They replace the original AI and special
+abilities, using an adult walking base with the original physical dimensions.
+They expose health (1–200), speed (four choices), attraction/taming item,
+attraction toggle, melee damage (1–20), and detection range (4–32) as applicable.
+Companions follow their owner after guaranteed one-item taming; guardians also
+retaliate against whoever attacks their owner. Enemies target players; test
+combat in Survival or Adventure. Original keeps the BP entity file untouched.
+No simulation or additional animations are provided by the 3D preview.
+
+Behavior settings have their own undo/redo history while in step 3, including
+Ctrl/Cmd+Z and redo outside inputs. Changing modes retains settings. Portable
+projects now write format version 2, which preserves behavior settings and the
+untouched source addon; version 1 files still open with Original. Earlier Edu
+versions reject version 2 rather than silently discarding the behavior setup.
+These bases still require Minecraft Education validation before production.
 
 ### Production
 

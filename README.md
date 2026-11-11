@@ -18,7 +18,8 @@ Abre **[Blockbench Edu](https://blockbench-edu.pages.dev/)**. Edu se carga autom
 6. En «Dale forma», elegir la parte y cambiar su tamaño, moverla o girarla con los botones. Se pueden editar todas las partes existentes de la criatura.
 7. En «Dale color», elegir un color y pintar directamente sobre la criatura. Hay pincel, relleno y herramienta para copiar un color.
 8. Usar los botones inferiores para verla desde distintos lados o encuadrar toda la criatura con «Ver todo».
-9. **3 · Guardar y compartir** abre dos opciones: **Guardar para seguir editando** descarga el proyecto `.bbedu` para continuar otra clase; **Llevar a Minecraft** descarga un `.mcaddon` para importarlo en Education y activar sus packs en un mundo de prueba. Si hay una clase configurada, también aparece **Entregar al profe**. El nombre de la criatura es el de la plantilla seguido de «Edu».
+9. En **3 · Dale vida**, conservá el comportamiento **Original** o elegí una base terrestre: **Animal tranquilo**, **Animal asustadizo**, **Compañero**, **Guardián** o **Enemigo**. Ajustá vida, velocidad y las opciones que ofrece cada base. Las bases nuevas reemplazan las habilidades especiales de la plantilla; se prueban dentro de Minecraft.
+10. **4 · Guardar y exportar** abre dos opciones: **Guardar para seguir editando** descarga el proyecto `.bbedu` para continuar otra clase; **Llevar a Minecraft** descarga un `.mcaddon` para importarlo en Education y activar sus packs en un mundo de prueba. Si hay una clase configurada, también aparece **Entregar al profe**. El nombre de la criatura es el de la plantilla seguido de «Edu».
 
 Puedes arrastrar el separador entre el menú izquierdo y la vista 3D para ampliar el menú: mínimo 260 px y máximo 480 px, limitado al 40 % de la ventana cuando hay menos espacio. El ancho se conserva durante la sesión, también al cambiar entre forma, color y la vista del docente.
 

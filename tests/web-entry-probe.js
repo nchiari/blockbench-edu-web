@@ -56,7 +56,7 @@ async (page) => {
     report.teacher = {fullEditor: true, studentPreview: true, classLink};
 
     await discardProbeProject(); await page.goto(classLink); await waitWizard(); await openCreature();
-    await page.getByRole('button', {name: '3 · Guardar y compartir', exact: true}).click();
+    await page.getByRole('button', {name: '4 · Guardar y exportar', exact: true}).click();
     check(await page.locator('#blockbench_edu_save_options').getByRole('button', {name: /^Entregar al profe/}).isVisible(), 'Class link enables student delivery in save options');
     await page.getByRole('button', {name:'Seguir creando',exact:true}).click();
     check(await page.locator('.edu-teacher').count() === 0, 'Class link stays in student role');

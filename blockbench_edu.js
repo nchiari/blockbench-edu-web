@@ -197,9 +197,100 @@
         requireThat(!!rp.zip.file(texturePath), 'No se encontró la textura PNG referenciada por la entidad.');
         requireThat(bp.manifest.header.uuid !== rp.manifest.header.uuid, 'Los dos packs tienen el mismo UUID.');
         const linkedGeometryIds = geometryEntries(matches[0].json).filter(g => ids.includes(g.description.identifier) && signature(g) === signature(matches[0].geometry)).map(g => g.description.identifier);
-        return {root, containers, bp, rp, entity, ...matches[0], texturePath, geometryId: primaryId, linkedGeometryIds, lastVersion: null};
+        const behaviors = [];
+        for (const path of Object.keys(bp.zip.files).sort()) {
+            if (!path.startsWith(bp.prefix+'entities/') || !path.endsWith('.json')) continue;
+            let json;
+            try { json = JSON.parse(await bp.zip.file(path).async('string')); }
+            catch { continue; } // Uneditable files remain byte-for-byte intact in Original.
+            if (json['minecraft:entity']?.description?.identifier === entity.description.identifier) behaviors.push({path,json});
+        }
+        const behavior = behaviors.length===1 ? behaviors[0] : null;
+        return {root, containers, bp, rp, entity, behavior, ...matches[0], texturePath, geometryId: primaryId, linkedGeometryIds, lastVersion: null};
     }
-    async function buildAddon(reference, compiled, pngBase64, Zip, auxiliaryTextures = {}) {
+    const BEHAVIOR_PROFILES = [
+        {id:'original', label:'Original', detail:'Conserva el comportamiento de la criatura que elegiste.'},
+        {id:'calm', label:'Animal tranquilo', detail:'Pasea y no ataca. Huye si recibe daño.'},
+        {id:'shy', label:'Animal asustadizo', detail:'Huye cuando un jugador se acerca.'},
+        {id:'companion', label:'Compañero', detail:'Después de domesticarlo, sigue a su dueño. No ataca.'},
+        {id:'guardian', label:'Guardián', detail:'Después de domesticarlo, sigue a su dueño y lo defiende de quien lo ataque.'},
+        {id:'enemy', label:'Enemigo', detail:'Persigue y ataca a los jugadores que ve en Supervivencia o Aventura.'}
+    ];
+    const BEHAVIOR_ITEMS = [{id:'apple',label:'Manzana'},{id:'carrot',label:'Zanahoria'},
+        {id:'wheat',label:'Trigo'},{id:'wheat_seeds',label:'Semillas de trigo'},{id:'bone',label:'Hueso'}];
+    const BEHAVIOR_SPEEDS = [{value:0.15,label:'Lenta'},{value:0.25,label:'Normal'},{value:0.35,label:'Rápida'},{value:0.45,label:'Muy rápida'}];
+    function defaultBehavior() { return {version:1,profile:'original',health:20,speed:0.25,damage:4,range:16,item:'apple',tempt:true}; }
+    function validateBehavior(settings) {
+        requireThat(settings && settings.version === 1 && BEHAVIOR_PROFILES.some(p=>p.id===settings.profile) &&
+            Number.isInteger(settings.health) && settings.health>=1 && settings.health<=200 &&
+            BEHAVIOR_SPEEDS.some(s=>s.value===settings.speed) && Number.isInteger(settings.damage) && settings.damage>=1 && settings.damage<=20 &&
+            Number.isInteger(settings.range) && settings.range>=4 && settings.range<=32 &&
+            BEHAVIOR_ITEMS.some(i=>i.id===settings.item) && typeof settings.tempt==='boolean',
+            'Los ajustes de comportamiento no son válidos.');
+        return settings;
+    }
+    function supportsBehavior(source) {
+        const c = source?.['minecraft:entity']?.components;
+        const family = c?.['minecraft:type_family']?.family || [];
+        return !!(c?.['minecraft:navigation.walk'] && c?.['minecraft:movement.basic'] && c?.['minecraft:collision_box'] &&
+            c['minecraft:breathable']?.breathes_air !== false && c['minecraft:physics']?.has_gravity !== false &&
+            c['minecraft:physics']?.has_collision !== false && !c['minecraft:lava_movement'] && !family.includes('blaze'));
+    }
+    function compileBehavior(source, settings = defaultBehavior()) {
+        validateBehavior(settings);
+        if (settings.profile==='original') return clone(source);
+        requireThat(supportsBehavior(source), 'Esta criatura conserva su movimiento original en esta primera versión.');
+        const original = source['minecraft:entity'], c = {};
+        // Reuse physical dimensions from the actual template, but never its event hooks or AI.
+        for (const key of ['collision_box','breathable','physics','pushable','nameable','hurt_on_condition']) {
+            if (original.components['minecraft:'+key]) c['minecraft:'+key] = clone(original.components['minecraft:'+key]);
+        }
+        c['minecraft:type_family'] = {family:['blockbench_edu_creature','mob']};
+        c['minecraft:health'] = {value:settings.health,max:settings.health};
+        c['minecraft:movement'] = {value:settings.speed};
+        c['minecraft:navigation.walk'] = {can_path_over_water:true,avoid_water:true,avoid_damage_blocks:true};
+        c['minecraft:movement.basic'] = {};
+        c['minecraft:jump.static'] = {};
+        c['minecraft:persistent'] = {};
+        c['minecraft:behavior.float'] = {priority:0};
+        c['minecraft:behavior.random_stroll'] = {priority:6,speed_multiplier:1};
+        c['minecraft:behavior.look_at_player'] = {priority:7,look_distance:6,probability:0.02};
+        c['minecraft:behavior.random_look_around'] = {priority:8};
+        const playerFilter = {test:'is_family',subject:'other',value:'player'};
+        const tamed = ['companion','guardian'].includes(settings.profile);
+        const fighter = ['guardian','enemy'].includes(settings.profile);
+        const groups = {}, events = {};
+        if (settings.profile==='calm' || settings.profile==='shy') c['minecraft:behavior.panic'] = {priority:1,speed_multiplier:1.5};
+        if (settings.profile==='shy') c['minecraft:behavior.avoid_mob_type'] = {priority:2,
+            entity_types:[{filters:playerFilter,max_dist:settings.range,walk_speed_multiplier:1.2,sprint_speed_multiplier:1.5}]};
+        if (settings.tempt && ['calm','companion','guardian'].includes(settings.profile))
+            c['minecraft:behavior.tempt'] = {priority:4,speed_multiplier:1.2,items:[settings.item]};
+        if (fighter) {
+            c['minecraft:attack'] = {damage:settings.damage};
+            c['minecraft:follow_range'] = {value:settings.range};
+            c['minecraft:behavior.melee_attack'] = {priority:3,speed_multiplier:1.2,track_target:true};
+        }
+        if (settings.profile==='enemy') {
+            c['minecraft:behavior.nearest_attackable_target'] = {priority:1,must_see:true,
+                entity_types:[{filters:playerFilter,max_dist:settings.range}]};
+            c['minecraft:behavior.hurt_by_target'] = {priority:2};
+        }
+        if (tamed) {
+            groups['blockbench_edu:wild'] = {'minecraft:tameable':{probability:1,tame_items:[settings.item],
+                tame_event:{event:'blockbench_edu:on_tame',target:'self'}}};
+            groups['blockbench_edu:tamed'] = {
+                'minecraft:is_tamed':{},
+                'minecraft:behavior.follow_owner':{priority:5,speed_multiplier:1.2,start_distance:6,stop_distance:2}
+            };
+            if (settings.profile==='guardian') groups['blockbench_edu:tamed']['minecraft:behavior.owner_hurt_by_target'] = {priority:1};
+            events['minecraft:entity_spawned'] = {add:{component_groups:['blockbench_edu:wild']}};
+            events['blockbench_edu:on_tame'] = {remove:{component_groups:['blockbench_edu:wild']},add:{component_groups:['blockbench_edu:tamed']}};
+        }
+        const description = clone(original.description);
+        delete description.runtime_identifier;
+        return {format_version:source.format_version,'minecraft:entity':{description,components:c,component_groups:groups,events}};
+    }
+    async function buildAddon(reference, compiled, pngBase64, Zip, auxiliaryTextures = {}, behaviorSettings = defaultBehavior()) {
         const entries = geometryEntries(compiled);
         requireThat(entries.length === 1 && entries[0].description.identifier === reference.geometryId,
             'El identificador del proyecto no corresponde al addon de referencia.');
@@ -210,6 +301,11 @@
         }
         const manifests = syncManifests(reference.bp.manifest, reference.rp.manifest, reference.lastVersion);
         copies.get(reference.bp.outerPath).file(reference.bp.path, JSON.stringify(manifests.bp, null, 2));
+        validateBehavior(behaviorSettings);
+        if (behaviorSettings.profile !== 'original') {
+            requireThat(reference.behavior, 'No se encontró un comportamiento único para esta criatura.');
+            copies.get(reference.bp.outerPath).file(reference.behavior.path, JSON.stringify(compileBehavior(reference.behavior.json, behaviorSettings), null, 2));
+        }
         const rpZip = copies.get(reference.rp.outerPath);
         rpZip.file(reference.rp.path, JSON.stringify(manifests.rp, null, 2));
         // Preserve any additional geometries in the reference file.
@@ -344,11 +440,12 @@
                     Number.isInteger(faces[0].width) && faces[0].width > 0 && Number.isInteger(faces[0].height) && faces[0].height > 0;
             })), 'Faltan datos de la pintura original.');
         requireThat(state.lastVersion === null || (vector(state.lastVersion,3) && state.lastVersion.every(v => Number.isInteger(v) && v >= 0)), 'La versión del addon guardado no es válida.');
+        if (state.behavior !== undefined) validateBehavior(state.behavior);
     }
     async function writeCreatureProject(model, state, reference, Zip) {
         validateCreatureProject(model, state);
         const zip = new Zip();
-        zip.file('project.json', JSON.stringify({format: 'blockbench-edu', version: 1, model, state}));
+        zip.file('project.json', JSON.stringify({format: 'blockbench-edu', version: 2, model, state}));
         zip.file('reference.mcaddon', await reference.root.generateAsync({type:'uint8array'}));
         return zip.generateAsync({type:'uint8array', compression:'DEFLATE'});
     }
@@ -358,15 +455,18 @@
             zip = await Zip.loadAsync(content);
             data = JSON.parse(await zip.file('project.json').async('string'));
         } catch { throw new Error('Este archivo no es un proyecto de Blockbench Edu o está dañado. Elige el archivo .bbedu que guardaste.'); }
-        requireThat(data.format === 'blockbench-edu' && data.version === 1, 'Este proyecto necesita otra versión de Blockbench Edu.');
+        requireThat(data.format === 'blockbench-edu' && [1,2].includes(data.version), 'Este proyecto necesita otra versión de Blockbench Edu.');
         validateCreatureProject(data.model, data.state);
         requireThat(zip.file('reference.mcaddon'), 'El proyecto no contiene su addon base.');
         const reference = await readAddon(await zip.file('reference.mcaddon').async('uint8array'), Zip);
+        if (data.state.behavior?.profile && data.state.behavior.profile!=='original') {
+            requireThat(reference.behavior && supportsBehavior(reference.behavior.json), 'La base de comportamiento no es compatible con esta criatura.');
+        }
         requireThat('geometry.' + data.model.model_identifier === reference.geometryId, 'El modelo y el addon base no corresponden a la misma criatura.');
         reference.lastVersion = data.state.lastVersion;
         return {...data, reference};
     }
-    const core = {resizePixels, smoothPixels, extractPixels, extractSurface, sampleRegion, packFaces, centeredBounds, geometryEntries, signature, syncManifests, readAddon, buildAddon, createStarter, createMobAddon, compatibleSounds, writeCreatureProject, readCreatureProject};
+    const core = {resizePixels, smoothPixels, extractPixels, extractSurface, sampleRegion, packFaces, centeredBounds, geometryEntries, signature, syncManifests, readAddon, buildAddon, createStarter, createMobAddon, compatibleSounds, writeCreatureProject, readCreatureProject, defaultBehavior, validateBehavior, supportsBehavior, compileBehavior};
     if (typeof module !== 'undefined' && module.exports) { module.exports = core; return; }
 
     let panel, style, projectStyle, wizardStyle, action, loader, wizard, classroom, classroomStyle, selectionTool, smoothTool, colorSelectionTool, selectionFillTool, previousTool, teacherReturn, alive = false;
@@ -622,6 +722,10 @@
         panel.vue.version = session?.reference.lastVersion?.join('.') || 'Referencia original';
         panel.vue.status = session ? 'Tu cerdo está listo para crear.' : 'Empieza desde Blockbench Edu en Cargadores.';
         if (classroom) {
+            classroom.behavior = clone(session?.behavior || defaultBehavior());
+            classroom.behaviorSupported = supportsBehavior(session?.reference.behavior?.json);
+            classroom.behaviorCanUndo = !!session?.behaviorPast?.length;
+            classroom.behaviorCanRedo = !!session?.behaviorFuture?.length;
             const selection = Texture.all.find(texture => texture.uuid === session?.textureId)?.selection;
             classroom.selectedPixelCount = selection?.is_custom ? selection.array.reduce((count,value) => count+(value ? 1 : 0),0) : 0;
             // UV repacking can resize the native mask and leave an empty custom selection.
@@ -894,7 +998,7 @@
         const state = clone({prepared:true, cubeIds:session.cubeIds, textureId:session.textureId,
             headId:session.headId, selectedId:session.selectedId, initial:session.initial, initialSizes:session.initialSizes,
             originalFaces:session.originalFaces.filter(face=>session.cubeIds.includes(face.cubeId)), originalResolution:session.originalResolution,
-            lastVersion:session.reference.lastVersion});
+            lastVersion:session.reference.lastVersion, behavior:session.behavior || defaultBehavior()});
         const name = Project.name.replace(/[^\p{L}\p{N}_-]+/gu,'_') || 'Mi_criatura';
         session.busy = true; refresh();
         try {
@@ -1012,7 +1116,7 @@
         const png = Texture.all[0].canvas.toDataURL('image/png').split(',')[1];
         const modelContent = includeModel ? captureDeliveryModel(session) : null;
         const auxiliary = await remapAuxiliaryTextures(session, faces, width, height);
-        const result = await buildAddon(session.reference, compiled, png, JSZip, auxiliary);
+        const result = await buildAddon(session.reference, compiled, png, JSZip, auxiliary, session.behavior || defaultBehavior());
         const content = await result.zip.generateAsync({type: 'blob'});
         requireThat(alive && Project?.uuid === projectId, 'Cambió el proyecto durante la exportación. Vuelve a exportar.');
         return {result, content, modelContent, creatureName: Project.name,
@@ -1042,7 +1146,7 @@
             if (Project?.uuid !== projectId || current()?.busy) return;
             dialog.hide(); attempt(work);
         };
-        dialog = new Dialog({id:'blockbench_edu_save_options', title:'Guardar y compartir', width:540,
+        dialog = new Dialog({id:'blockbench_edu_save_options', title:'Guardar y exportar', width:540,
             buttons:['Seguir creando'], component:{
                 data:() => ({hasClass:!!window.BlockbenchEduDrive?.classCode}),
                 methods:{save:() => choose(saveCreature), minecraft:() => choose(exportAddon), deliver:() => choose(deliverAddon)},
@@ -1172,7 +1276,7 @@
     function leaveClassroom() {
         showPaintBones();
         clearColorSelectionPreview();
-        document.body.classList.remove('edu-classroom', 'edu-sidebar-dragging');
+        document.body.classList.remove('edu-classroom', 'edu-sidebar-dragging', 'edu-behavior');
         document.body.style.removeProperty('--edu-sidebar-width');
         document.body.style.removeProperty('--edu-preview-bottom');
         document.body.style.removeProperty('--edu-parts-panel-width');
@@ -1190,11 +1294,22 @@
         const mount = document.createElement('div'); document.body.append(mount);
         classroom = new Vue({el: mount,
             data: {sidebarWidth: current()?.sidebarWidth || 260, sidebarMax: 480, sidebarDragging: false, sidebarStartX: 0, sidebarStartWidth: 260, mode: 'shape', operation: 'size', position: [0,0,0], rotation: [0,0,0], axes: ['De lado', 'Arriba / abajo', 'Adelante / atrás'], turns: ['Inclinar', 'Girar', 'Ladear'], pieces: [], selectedId: '', dimensions: [0,0,0], maximum: [0,0,0], minimum: [1,1,1], busy: false, canUndo: false, canRedo: false,
+                behavior:clone(current()?.behavior || defaultBehavior()), behaviorSupported:false, behaviorProfiles:BEHAVIOR_PROFILES,
+                behaviorItems:BEHAVIOR_ITEMS, behaviorSpeeds:BEHAVIOR_SPEEDS, behaviorCanUndo:false, behaviorCanRedo:false,
                 bones: [], partsOpen: current()?.partsOpen ?? true, soloBoneId: '', selectedPixelCount: 0, paintTool: 'brush_tool', brushSize: 1, cameraControlsOpen: false, cameraIsOrtho: false,
                 teacherViewAvailable: allowsTeacherView(), driveAvailable: !!window.BlockbenchEduDrive, driveClass: !!window.BlockbenchEduDrive?.classCode,
                 cameraRotate: Keybinds.extra.preview_rotate.keybind.toString(), cameraPan: Keybinds.extra.preview_drag.keybind.toString(), cameraZoom: Keybinds.extra.preview_scroll_zoom.keybind.toString(),
                 labels: ['Ancho', 'Alto', 'Profundidad'], color: ColorPanel.get(), colors: ['#ffffff','#20252d','#e85b61','#f7b45c','#f9e778','#60d98b','#63bee8','#8479df','#ed90c4','#986a48']},
             mounted() {
+                this.behaviorUndoKey = event => {
+                    if(this.mode!=='behavior' || !(event.ctrlKey || event.metaKey) || event.altKey ||
+                        event.target?.closest('input,textarea,[contenteditable="true"]')) return;
+                    const key=event.key.toLowerCase();
+                    if(key!=='z' && key!=='y') return;
+                    event.preventDefault(); event.stopImmediatePropagation();
+                    this.behaviorHistory(key==='y' || event.shiftKey);
+                };
+                window.addEventListener('keydown',this.behaviorUndoKey,true);
                 // The native preview is above the classroom root: mount its launcher beside that root.
                 this.partsToggleButton = document.createElement('button');
                 this.partsToggleButton.id = 'edu-parts-toggle'; this.partsToggleButton.className = 'edu-parts-toggle';
@@ -1213,13 +1328,27 @@
                 this.cameraFooterObserver.observe(this.$el.querySelector('footer'));
             },
             beforeDestroy() {
+                window.removeEventListener('keydown',this.behaviorUndoKey,true);
                 this.partsToggleButton?.remove();
                 window.removeEventListener('edu-drive-class-changed', this.driveClassChanged);
                 window.removeEventListener('resize', this.sidebarWindowResize);
                 this.cameraFooterObserver?.disconnect();
                 document.body.classList.remove('edu-sidebar-dragging');
             },
-            computed: {hiddenBoneCount() { return this.bones.filter(bone => bone.hidden).length; }},
+            computed: {hiddenBoneCount() { return this.bones.filter(bone => bone.hidden).length; },
+                behaviorDetail() { return this.behaviorProfiles.find(p=>p.id===this.behavior.profile)?.detail || ''; },
+                behaviorTamed() { return ['companion','guardian'].includes(this.behavior.profile); },
+                behaviorFighter() { return ['enemy','guardian'].includes(this.behavior.profile); },
+                behaviorSummary() {
+                    if (this.behavior.profile==='original') return this.behaviorDetail;
+                    const b=this.behavior, speed=this.behaviorSpeeds.find(s=>s.value===b.speed).label.toLowerCase();
+                    const item=this.behaviorItems.find(i=>i.id===b.item).label.toLowerCase();
+                    return `${this.behaviorDetail} Tiene ${b.health} puntos de vida y velocidad ${speed}.`+
+                        (this.behaviorTamed ? ` Se domestica dándole ${item} una vez.` : '')+
+                        (this.behaviorFighter ? ` Hace ${b.damage} puntos de daño por golpe.` : '')+
+                        (['enemy','shy'].includes(b.profile) ? ` Detecta jugadores a ${b.range} bloques.` : '')+
+                        (b.tempt && ['calm','companion','guardian'].includes(b.profile) ? ` Se acerca si llevás ${item} en la mano.` : '');
+                }},
             watch: {operation() { selectClassroomTool(); }, selectedPixelCount() {
                 if (this.mode==='paint' && this.paintTool==='fill_tool') this.tool('fill_tool');
             }, hiddenBoneCount() { this.refreshPartsToggle(); }, partsOpen(open) {
@@ -1287,19 +1416,45 @@
                 resize: (axis, step) => attempt(() => resize(axis, step)),
                 transform: (kind, axis, step) => attempt(() => transformPiece(kind, axis, step)),
                 move: (axis, step) => attempt(() => transformPiece('move', axis, axis === 0 ? -step : step)),
-                undo: () => Undo.undo(), redo: () => Undo.redo(), download: () => attempt(exportAddon),
+                undo() { if(this.mode==='behavior') this.behaviorHistory(false); else Undo.undo(); },
+                redo() { if(this.mode==='behavior') this.behaviorHistory(true); else Undo.redo(); }, download: () => attempt(exportAddon),
                 deliver: () => attempt(deliverAddon), saveCreature: () => attempt(saveCreature), openCreature: importCreature,
                 saveOptions: () => attempt(showSaveOptions),
-                setMode(mode) { this.mode = mode; Modes.options[mode === 'paint' ? 'paint' : 'edit'].select(); if (mode === 'paint') { this.tool(this.paintTool); ColorPanel.set(this.color); } else { selectClassroomTool(); } applyPaintVisibility(); updateColorSelectionPreview(); window.dispatchEvent(new Event('resize')); },
+                numberBehavior(key, raw) {
+                    if(raw==='') return;
+                    const next={...this.behavior,[key]:Number(raw)};
+                    try { validateBehavior(next); } catch { return; }
+                    this.changeBehavior(key,next[key]);
+                },
+                changeBehavior(key, value) {
+                    attempt(()=>{
+                        const session=validateSession(), before=clone(session.behavior || defaultBehavior()), next={...before,[key]:value};
+                        validateBehavior(next);
+                        requireThat(next.profile==='original' || supportsBehavior(session.reference.behavior?.json), 'Esta criatura conserva su comportamiento original por ahora.');
+                        if (JSON.stringify(before)===JSON.stringify(next)) return;
+                        (session.behaviorPast ||= []).push(before); session.behaviorFuture=[];
+                        session.behavior=next; Project.saved=false; refresh();
+                    });
+                },
+                behaviorHistory(forward) {
+                    const session=current(), from=forward ? session?.behaviorFuture : session?.behaviorPast;
+                    if (!from?.length || session.busy) return;
+                    const to=forward ? (session.behaviorPast ||= []) : (session.behaviorFuture ||= []);
+                    to.push(clone(session.behavior || defaultBehavior())); session.behavior=from.pop(); Project.saved=false; refresh();
+                },
+                resetBehavior() {
+                    Blockbench.showMessageBox({title:'Restaurar comportamiento original',message:'Se volverá al comportamiento de la criatura que elegiste. Podés recuperar tus ajustes con Deshacer en Dale vida.',buttons:['Restaurar','Cancelar'],confirm:0,cancel:1}, result=>{if(result===0) this.changeBehavior('profile','original');});
+                },
+                setMode(mode) { this.mode = mode; document.body.classList.toggle('edu-behavior',mode==='behavior'); Modes.options[mode === 'paint' ? 'paint' : 'edit'].select(); if (mode === 'paint') { this.tool(this.paintTool); ColorPanel.set(this.color); } else { selectClassroomTool(); } applyPaintVisibility(); updateColorSelectionPreview(); window.dispatchEvent(new Event('resize')); },
                 paintColor(color) { this.color = color; ColorPanel.set(color); },
                 tool(id) { this.paintTool = id; BarItems[id==='fill_tool' && this.selectedPixelCount ? 'blockbench_edu_fill_selection' : id].select(); if (['brush_tool','eraser','blockbench_edu_smooth'].includes(id)) BarItems.slider_brush_size.setValue(this.brushSize); },
                 changeBrushSize(step) { this.brushSize = Math.max(1,Math.min(64,this.brushSize+step)); if (['brush_tool','eraser','blockbench_edu_smooth'].includes(this.paintTool)) BarItems.slider_brush_size.setValue(this.brushSize); },
                 clearColorSelection: clearPaintColorSelection,
                 toggleBone: togglePaintBone, showOnlyBone: showOnlyPaintBone, showAllBones: showPaintBones, duplicateBone: id => attempt(()=>duplicatePaintBone(id))
             },
-            template: `<div id="edu-classroom"><header><strong>Blockbench Edu</strong><nav aria-label="Crear tu criatura"><button @click="setMode('shape')" :class="{active:mode==='shape'}">1 · Dale forma</button><button @click="setMode('paint')" :class="{active:mode==='paint'}">2 · Dale color</button><button @click="saveOptions" :disabled="busy">3 · Guardar y compartir</button></nav><button v-if="teacherViewAvailable" @click="exit" class="edu-teacher">Para el docente</button></header>
+            template: `<div id="edu-classroom"><header><strong>Blockbench Edu</strong><nav aria-label="Crear tu criatura"><button @click="setMode('shape')" :class="{active:mode==='shape'}">1 · Dale forma</button><button @click="setMode('paint')" :class="{active:mode==='paint'}">2 · Dale color</button><button @click="setMode('behavior')" :class="{active:mode==='behavior'}">3 · Dale vida</button><button @click="saveOptions" :disabled="busy">4 · Guardar y exportar</button></nav><button v-if="teacherViewAvailable" @click="exit" class="edu-teacher">Para el docente</button></header>
                 <aside><div class="edu-sidebar-scroll"><template v-if="mode==='shape'"><h2>Dale forma</h2><label>¿Qué parte quieres cambiar?<select :value="selectedId" @change="selectPiece($event.target.value)"><option v-for="piece in pieces" :key="piece.id" :value="piece.id">{{piece.label}}</option></select></label><div class="edu-paint-tools edu-shape-tools" role="group" aria-label="¿Qué quieres hacer?"><button @click="operation='size'" :class="{active:operation==='size'}" :aria-pressed="operation==='size'"><i class="material-icons" aria-hidden="true">open_in_full</i>Tamaño</button><button @click="operation='move'" :class="{active:operation==='move'}" :aria-pressed="operation==='move'"><i class="material-icons" aria-hidden="true">open_with</i>Mover</button><button @click="operation='rotate'" :class="{active:operation==='rotate'}" :aria-pressed="operation==='rotate'"><i class="material-icons" aria-hidden="true">rotate_right</i>Girar</button></div><template v-if="operation==='size'"><div class="edu-size"><span>Tamaño general</span><button @click="resize('all',-1)" :disabled="busy || dimensions.some((value,axis) => value-1 &lt; minimum[axis])" aria-label="Reducir tamaño general">−</button><b></b><button @click="resize('all',1)" :disabled="busy || dimensions.some((value,axis) => value+1 &gt; maximum[axis])" aria-label="Aumentar tamaño general">+</button></div><p>Cambia el ancho, el alto y la profundidad a la vez.</p><div class="edu-size" v-for="(label,axis) in labels" :key="label"><span>{{label}}</span><button @click="resize(axis,-1)" :disabled="busy || dimensions[axis]&lt;=minimum[axis]" :aria-label="'Reducir '+label">−</button><b>{{dimensions[axis]}}</b><button @click="resize(axis,1)" :disabled="busy || dimensions[axis]&gt;=maximum[axis]" :aria-label="'Aumentar '+label">+</button></div><p>Usa − para reducir y + para aumentar.<br>Puedes deshacer si no te gusta.</p></template><template v-else-if="operation==='move'"><div class="edu-move-arrows"><strong>Mover</strong><div class="edu-size" v-for="(label,axis) in axes" :key="'move-'+axis"><span>{{label}}</span><button @click="move(axis,-1)" :disabled="busy" :aria-label="'Mover '+label+' menos'">{{axis===1?'↓':axis===2?'↙':'←'}}</button><b></b><button @click="move(axis,1)" :disabled="busy" :aria-label="'Mover '+label+' más'">{{axis===1?'↑':axis===2?'↗':'→'}}</button></div><p>Las capas de esta parte se mueven y cambian de tamaño juntas.</p></div></template><template v-else><div class="edu-size" v-for="(label,index) in turns" :key="label"><span>{{label}}</span><button :aria-label="'Girar menos: '+label" @click="transform('rotate',index,-15)" :disabled="busy">−</button><b>{{rotation[index]}}</b><button :aria-label="'Girar más: '+label" @click="transform('rotate',index,15)" :disabled="busy">+</button></div><p>Usa − y + para girar esta parte poco a poco.</p></template></template>
-                <template v-else><h2>Dale color</h2><p>Elige un color y pinta sobre tu criatura.</p><div class="edu-palette"><button v-for="swatch in colors" :key="swatch" :style="{background:swatch}" :aria-label="'Color '+swatch" @click="paintColor(swatch)"></button></div><label>Otro color<input type="color" :value="color" @input="paintColor($event.target.value)"/></label><div class="edu-paint-tools">
+                <template v-else-if="mode==='paint'"><h2>Dale color</h2><p>Elige un color y pinta sobre tu criatura.</p><div class="edu-palette"><button v-for="swatch in colors" :key="swatch" :style="{background:swatch}" :aria-label="'Color '+swatch" @click="paintColor(swatch)"></button></div><label>Otro color<input type="color" :value="color" @input="paintColor($event.target.value)"/></label><div class="edu-paint-tools">
                     <button @click="tool('brush_tool')" :class="{active:paintTool==='brush_tool'}"><i class="material-icons" aria-hidden="true">brush</i>Pincel</button>
                     <button @click="tool('eraser')" :class="{active:paintTool==='eraser'}"><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14 14 4a2 2 0 0 1 3 0l4 4a2 2 0 0 1 0 3L11 21H7l-3-3a3 3 0 0 1 0-4Z M9 9l8 8 M11 21h10" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>Borrador</button>
                     <button @click="tool('blockbench_edu_smooth')" :class="{active:paintTool==='blockbench_edu_smooth'}"><i class="material-icons" aria-hidden="true">blur_on</i>Suavizar</button>
@@ -1310,7 +1465,32 @@
                     <div v-if="selectedPixelCount" class="edu-color-selection" role="group" aria-label="Selección de color"><p role="status" aria-live="polite">{{selectedPixelCount}} píxeles seleccionados.<br>Incluye las partes ocultas.</p><p>Usa el pincel, el bote, el borrador o Suavizar sobre la selección. El bote pinta toda la selección.</p><button @click="clearColorSelection" :disabled="busy"><i class="material-icons" aria-hidden="true">deselect</i>Quitar selección</button></div>
                     <div v-if="paintTool==='brush_tool' || paintTool==='eraser' || paintTool==='blockbench_edu_smooth'" class="edu-size"><span>Tamaño</span><button @click="changeBrushSize(-1)" :disabled="brushSize===1" aria-label="Reducir pincel un píxel">−</button><b>{{brushSize}}</b><button @click="changeBrushSize(1)" :disabled="brushSize===64" aria-label="Aumentar pincel un píxel">+</button></div>
                     <p v-if="paintTool==='brush_tool' || paintTool==='eraser' || paintTool==='blockbench_edu_smooth'">Tamaño en píxeles.</p><p v-if="paintTool==='blockbench_edu_smooth'">Mezcla los colores cercanos.</p>
-                    </template></div><div class="edu-project-files" role="group" aria-label="Guardar y continuar otro día"><button @click="saveCreature" :disabled="busy"><i class="material-icons" aria-hidden="true">save</i>Guardar mi criatura</button><button @click="openCreature" :disabled="busy"><i class="material-icons" aria-hidden="true">folder_open</i>Abrir una criatura</button></div><div class="edu-history" role="group" aria-label="Historial de cambios"><button @click="undo" :disabled="busy || !canUndo" title="Volver un paso atrás"><i class="material-icons" aria-hidden="true">undo</i>Deshacer</button><button @click="redo" :disabled="busy || !canRedo" title="Recuperar el paso que deshiciste"><i class="material-icons" aria-hidden="true">redo</i>Rehacer</button></div></aside>
+                    </template>
+                    <template v-else-if="mode==='behavior'">
+                        <h2>Dale vida</h2><p>Elegí cómo se comportará tu criatura en Minecraft.</p>
+                        <label>Comportamiento<select v-model="behavior.profile" @change="changeBehavior('profile',$event.target.value)" :disabled="busy"><option v-for="profile in behaviorProfiles" :key="profile.id" :value="profile.id" :disabled="profile.id!=='original' &amp;&amp; !behaviorSupported">{{profile.label}}</option></select></label>
+                        <p v-if="!behaviorSupported" class="edu-behavior-note">Esta primera versión permite cambiar la base de criaturas terrestres que caminan. Esta criatura conserva su comportamiento original.</p>
+                        <p v-if="behavior.profile==='original'">Conserva sus habilidades y movimiento. Elegí otra base para personalizarla.</p>
+                        <template v-else>
+                            <details class="edu-behavior-note"><summary>Reemplaza las habilidades originales</summary><p>La criatura caminará y aparecerá como adulta. Esta base reemplaza crías, montura, transformaciones y otras acciones especiales. El modelo y la pintura se conservan.</p></details>
+                            <details open class="edu-behavior-section"><summary>Vida y movimiento</summary>
+                                <label>Puntos de vida<input type="number" min="1" max="200" step="1" :value="behavior.health" @input="numberBehavior('health',$event.target.value)" @change="changeBehavior('health',Number($event.target.value)); $event.target.value=behavior.health" :disabled="busy"/></label><p>2 puntos de vida equivalen a un corazón. De 1 a 200.</p>
+                                <label>Velocidad<select v-model.number="behavior.speed" @change="changeBehavior('speed',Number($event.target.value))" :disabled="busy"><option v-for="speed in behaviorSpeeds" :key="speed.value" :value="speed.value">{{speed.label}}</option></select></label>
+                            </details>
+                            <details open class="edu-behavior-section" v-if="behavior.profile==='calm' || behaviorTamed"><summary>Relación con el jugador</summary>
+                                <label>{{behaviorTamed ? 'Objeto para domesticar' : 'Objeto para atraer'}}<select v-model="behavior.item" @change="changeBehavior('item',$event.target.value)" :disabled="busy"><option v-for="item in behaviorItems" :key="item.id" :value="item.id">{{item.label}}</option></select></label>
+                                <label class="edu-behavior-check"><input type="checkbox" :checked="behavior.tempt" @change="changeBehavior('tempt',$event.target.checked)" :disabled="busy"/>Se acerca si llevás ese objeto en la mano</label>
+                                <p v-if="behaviorTamed">Usá el objeto sobre la criatura para domesticarla. Después seguirá a su dueño. No necesita silla ni se puede montar en esta versión.</p>
+                            </details>
+                            <details open class="edu-behavior-section" v-if="behaviorFighter"><summary>Combate</summary>
+                                <label>Daño por golpe<input type="number" min="1" max="20" step="1" :value="behavior.damage" @input="numberBehavior('damage',$event.target.value)" @change="changeBehavior('damage',Number($event.target.value)); $event.target.value=behavior.damage" :disabled="busy"/></label><p>De 1 a 20 puntos. La armadura puede reducir el daño.</p>
+                            </details>
+                            <label v-if="behavior.profile==='enemy' || behavior.profile==='shy'">Distancia para detectar jugadores<input type="number" min="4" max="32" step="1" :value="behavior.range" @input="numberBehavior('range',$event.target.value)" @change="changeBehavior('range',Number($event.target.value)); $event.target.value=behavior.range" :disabled="busy"/></label><p v-if="behavior.profile==='enemy' || behavior.profile==='shy'">De 4 a 32 bloques.</p>
+                            <button @click="resetBehavior" :disabled="busy">Restaurar comportamiento original</button>
+                        </template>
+                        <div class="edu-behavior-summary" role="status" aria-live="polite"><strong>Tu criatura en Minecraft</strong><p>{{behaviorSummary}}</p></div>
+                        <p class="edu-behavior-note">La vista 3D muestra el aspecto. Para probar el comportamiento, descargá la criatura y abrila en un mundo de prueba de Minecraft Education. Las bases nuevas no agregan animaciones. Usá los botones de vista y Controles de cámara para mirar el modelo.</p>
+                    </template></div><div class="edu-project-files" role="group" aria-label="Guardar y continuar otro día"><button @click="saveCreature" :disabled="busy"><i class="material-icons" aria-hidden="true">save</i>Guardar mi criatura</button><button @click="openCreature" :disabled="busy"><i class="material-icons" aria-hidden="true">folder_open</i>Abrir una criatura</button></div><div class="edu-history" role="group" aria-label="Historial de cambios"><button @click="undo" :disabled="busy || !(mode==='behavior' ? behaviorCanUndo : canUndo)" :title="mode==='behavior' ? 'Deshacer comportamiento' : 'Volver un paso atrás'"><i class="material-icons" aria-hidden="true">undo</i>Deshacer</button><button @click="redo" :disabled="busy || !(mode==='behavior' ? behaviorCanRedo : canRedo)" :title="mode==='behavior' ? 'Rehacer comportamiento' : 'Recuperar el paso que deshiciste'"><i class="material-icons" aria-hidden="true">redo</i>Rehacer</button></div></aside>
                 <section v-if="partsOpen" id="edu-parts-panel" class="edu-parts-panel" role="region" aria-labelledby="edu-parts-title" @keydown.esc.stop.prevent="setPartsOpen(false)">
                     <div class="edu-parts-heading"><h2 id="edu-parts-title"><i class="material-icons" aria-hidden="true">visibility</i>Partes</h2><button ref="partsClose" @click="setPartsOpen(false)" aria-label="Plegar panel de partes" title="Plegar panel de partes"><i class="material-icons" aria-hidden="true">chevron_right</i></button></div>
                     <button class="edu-parts-show-all" @click="showAllBones" :disabled="busy || !hiddenBoneCount"><i class="material-icons" aria-hidden="true">visibility</i>Mostrar todas</button>
@@ -1324,7 +1504,7 @@
                         <div role="group" aria-label="Girar la vista"><strong>Girar la vista</strong><div><button v-for="direction in ['left','right','up','down']" :key="direction" :disabled="cameraIsOrtho" @click="cameraControl('rotate',direction)" :aria-label="'Girar la vista '+({left:'a la izquierda',right:'a la derecha',up:'hacia arriba',down:'hacia abajo'}[direction])"><i class="material-icons" aria-hidden="true">{{cameraArrow(direction)}}</i></button></div><small v-if="cameraIsOrtho">Elige Vista 3D para girar.</small></div>
                         <div role="group" aria-label="Desplazar la vista"><strong>Desplazar la vista</strong><div><button v-for="direction in ['left','right','up','down']" :key="direction" @click="cameraControl('pan',direction)" :aria-label="'Desplazar la vista '+({left:'a la izquierda',right:'a la derecha',up:'hacia arriba',down:'hacia abajo'}[direction])"><i class="material-icons" aria-hidden="true">{{cameraArrow(direction)}}</i></button></div></div>
                         <div role="group" aria-label="Acercar o alejar"><strong>Acercar / alejar</strong><div><button @click="cameraControl('zoom','in')" aria-label="Acercar la vista"><i class="material-icons" aria-hidden="true">zoom_in</i></button><button @click="cameraControl('zoom','out')" aria-label="Alejar la vista"><i class="material-icons" aria-hidden="true">zoom_out</i></button></div></div>
-                    </div><p class="edu-camera-help"><span>{{cameraRotate}} + arrastrar: girar la vista</span><span>{{cameraPan}} + arrastrar: desplazar la vista</span><span>{{cameraZoom}}: acercar o alejar</span></p></footer></div>`
+                    </div><p class="edu-camera-help" v-if="mode!=='behavior'"><span>{{cameraRotate}} + arrastrar: girar la vista</span><span>{{cameraPan}} + arrastrar: desplazar la vista</span><span>{{cameraZoom}}: acercar o alejar</span></p></footer></div>`
         });
         document.body.classList.add('edu-classroom');
         selectClassroomTool();
@@ -1391,7 +1571,7 @@
                     <section class="edu-wizard-content"><div class="edu-wizard-scroll">
                         <template v-if="step===0"><img :src="icon" class="edu-wizard-icon" alt=""/><h2>Crea tu propia criatura</h2><p>Elige una criatura de Minecraft, cambia su forma, píntala y llévatela a Minecraft Education.</p><p>Te vamos a acompañar paso a paso. Necesitas teclado y ratón.</p><button @click="openCreature" :disabled="busy"><i class="material-icons" aria-hidden="true">folder_open</i> Abrir una criatura</button><p>¿Ya habías empezado? Abre tu archivo .bbedu para continuar.</p></template>
                         <template v-if="step===1"><h2>Elige tu criatura</h2><search-bar v-model="search" placeholder="Buscar criatura…" aria-label="Buscar criatura"/><ul class="entity_wizard_mob_list edu-catalog" aria-label="Criaturas"><li v-for="entry in choices" :key="entry[0]" :class="{selected:creature===entry[0]}" :style="{backgroundImage:'url('+entry[1].thumbnail+')'}" role="button" tabindex="0" :aria-pressed="creature===entry[0]" @click="creature=entry[0]" @keydown.enter.stop.prevent="creature=entry[0]" @keyup.enter.stop.prevent @keydown.space.stop.prevent="creature=entry[0]" @keyup.space.stop.prevent><label>{{entry[1].name}}</label></li></ul><p v-if="!choices.length">No encontramos esa criatura. Prueba con otro nombre.</p><p v-if="creature">Has elegido: <strong>{{catalog[creature].name}}</strong></p><p v-else>Selecciona una criatura para continuar.</p></template>
-                        <template v-if="step===2"><h2>¡Tu criatura está lista!</h2><ol class="edu-instructions"><li>Elige una parte y usa <strong>− y +</strong> para darle forma.</li><li>Entra en <strong>Dale color</strong> y elige tus colores.</li><li>Guarda tu criatura para llevarla a <strong>Minecraft Education</strong>.</li></ol><p>Tu dibujo se acomoda solo. Para volver un paso atrás, usa <strong>Ctrl+Z</strong>.</p></template>
+                        <template v-if="step===2"><h2>¡Tu criatura está lista!</h2><ol class="edu-instructions"><li>Elige una parte y usa <strong>− y +</strong> para darle forma.</li><li>Entra en <strong>Dale color</strong> y elige tus colores.</li><li>Entrá en <strong>Dale vida</strong> para elegir su comportamiento.</li><li>Guardá tu criatura para llevarla a <strong>Minecraft Education</strong>.</li></ol><p>Tu dibujo se acomoda solo. Para volver un paso atrás, usa <strong>Ctrl+Z</strong>.</p></template>
                         <p v-if="error" role="alert" class="edu-wizard-error">{{error}}</p>
                         </div><div class="edu-wizard-footer"><button @click="cancel" :disabled="busy">Cancelar</button><div><button v-if="step&gt;0" @click="back" :disabled="busy">Atrás</button><button class="edu-primary" @click="next" :disabled="busy || (step===1 && !creature)">{{busy ? 'Preparando tu criatura…' : step===2 ? 'Abrir editor' : step===0 ? 'Comenzar' : 'Siguiente'}}</button></div></div>
                     </section>
@@ -1481,6 +1661,14 @@
                 #edu-parts-toggle[hidden]{display:none}
                 #edu-parts-toggle:hover{background:#65d98a;color:#102c1c}
                 #edu-classroom .edu-parts-panel button:focus-visible,#edu-parts-toggle:focus-visible{outline:3px solid #65d98a;outline-offset:-3px}
+
+                #edu-classroom header{gap:12px}#edu-classroom nav{gap:6px}#edu-classroom nav button{font-size:14px;padding:8px 10px;white-space:nowrap}
+                #edu-classroom .edu-behavior-section{border-top:1px solid #456052;padding-top:12px}#edu-classroom .edu-behavior-section summary{cursor:pointer;color:#b8ffd1;font-weight:600;margin-bottom:14px}#edu-classroom .edu-behavior-section label{margin-top:12px}
+                #edu-classroom input[type=number]{width:100%;min-height:42px;height:auto;box-sizing:border-box;background:#14281f;color:#eaf5ee;border:1px solid #71877c;border-radius:8px;padding:8px;font:inherit}
+                #edu-classroom .edu-behavior-check{display:flex;align-items:flex-start;font-size:14px;line-height:1.5}#edu-classroom .edu-behavior-check input{flex-shrink:0;margin-top:4px}
+                #edu-classroom .edu-behavior-summary{background:#14281f;border-left:3px solid #65d98a;border-radius:8px;padding:12px}#edu-classroom .edu-behavior-summary p{margin:8px 0 0}#edu-classroom .edu-behavior-note{font-size:13px}
+                body.edu-behavior #preview{pointer-events:none}body.edu-behavior .edu-part-solo{display:none!important}
+                @media(max-width:1050px){#edu-classroom header{gap:8px;padding:12px}#edu-classroom header strong{font-size:16px}#edu-classroom nav button{font-size:12px;padding:8px}#edu-classroom .edu-teacher{padding:8px;font-size:11px}}
                 #edu-classroom .edu-color-selection{display:flex;flex-direction:column;gap:8px;border-top:1px solid #456052;padding-top:12px}
                 #edu-classroom .edu-color-selection p{margin:0;font-size:12px}
                 #edu-classroom .edu-color-selection button{display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px}

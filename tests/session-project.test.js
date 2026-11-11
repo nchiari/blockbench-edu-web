@@ -43,11 +43,27 @@ test('rejects malformed, future and incomplete projects before importing',async(
         change(data,zip); zip.file('project.json',JSON.stringify(data));
         return readCreatureProject(await zip.generateAsync({type:'uint8array'}),Zip);
     };
-    await assert.rejects(mutate(d=>{d.version=2;}),/otra versión/);
+    await assert.rejects(mutate(d=>{d.version=3;}),/otra versión/);
     await assert.rejects(mutate((d,z)=>z.remove('reference.mcaddon')),/addon base/);
     await assert.rejects(mutate(d=>{d.model.textures[0].source='';}),/pintura incluida/);
     await assert.rejects(mutate(d=>{d.state.originalFaces.pop();}),/pintura original/);
     await assert.rejects(mutate(d=>{d.state.cubeIds[0]=d.state.cubeIds[1];}),/piezas/);
     await assert.rejects(mutate(d=>{d.model.model_identifier='another_creature';}),/misma criatura/);
     await assert.rejects(mutate(d=>{d.state.lastVersion=[1,-1,0];}),/versión del addon/);
+});
+
+test('behavior settings survive saving and loading while v1 projects keep their original behavior',async()=>{
+    const {model,state,reference} = await fixture();
+    state.behavior={...require('../blockbench_edu.js').defaultBehavior(),profile:'guardian',health:60,item:'carrot'};
+    const bytes=await writeCreatureProject(model,state,reference,Zip);
+    const loaded=await readCreatureProject(bytes,Zip);
+    assert.deepEqual(loaded.state.behavior,state.behavior);
+    const archive=await Zip.loadAsync(bytes), data=JSON.parse(await archive.file('project.json').async('string'));
+    assert.equal(data.version,2);
+    data.version=1; delete data.state.behavior;
+    archive.file('project.json',JSON.stringify(data));
+    const old=await readCreatureProject(await archive.generateAsync({type:'uint8array'}),Zip);
+    assert.equal(old.state.behavior,undefined);
+    data.state.behavior={...state.behavior,health:Infinity}; archive.file('project.json',JSON.stringify(data));
+    await assert.rejects(readCreatureProject(await archive.generateAsync({type:'uint8array'}),Zip),/comportamiento/);
 });

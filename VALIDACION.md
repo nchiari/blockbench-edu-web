@@ -1,5 +1,16 @@
 # Validación del prototipo
 
+## Dale vida — primera versión en pruebas — 11 de noviembre de 2026
+
+- Rama `codex/pruebas`, sin incorporar cambios a `main`. Paso 3 «Dale vida» y paso 4 «Guardar y exportar».
+- Bases: Original, Animal tranquilo, Animal asustadizo, Compañero, Guardián y Enemigo. Vida de 1 a 200 puntos, cuatro velocidades, objeto para atraer/domesticar y atracción opcional, daño de 1 a 20 y detección de 4 a 32 bloques según la base.
+- Las bases nuevas generan una criatura terrestre adulta y reemplazan las habilidades especiales de la plantilla. Se conserva el tamaño de colisión original, sin adaptarlo a las ediciones del modelo. Original conserva intacto el archivo BP de comportamiento. No se simula la inteligencia en la vista 3D ni se agregan animaciones de ataque.
+- Compañero y Guardián se domestican con un objeto, siguen a su dueño y no se pueden montar. Guardián selecciona como objetivo a quien daña al dueño después de la domesticación. Enemigo selecciona jugadores; la prueba de combate requiere Supervivencia o Aventura.
+- `npm test`: 53 pruebas aprobadas, incluidos catálogo, rechazo de opciones inválidas/movimientos no admitidos, domesticación y separación de roles, exportación BP en carpetas y packs anidados, restauración de Original y persistencia de ajustes. `npm run check` y `npm run build:web` completados.
+- Navegador local: creación de cerdo, cambio a Guardián, vida 40, velocidad rápida, zanahoria; deshacer/rehacer; cambio de pasos; descarga real de `.bbedu` y `.mcaddon`; lectura de ambos archivos confirmó los ajustes y los grupos de domesticación/seguimiento/defensa. Reapertura del `.bbedu` en una sesión nueva conservó los valores. También se configuró Enemigo, daño 8 y detección 24; sin errores de JavaScript en esa sesión.
+- Los proyectos nuevos usan formato `.bbedu` versión 2. Se siguen abriendo proyectos versión 1 con comportamiento Original. Las versiones anteriores de Edu rechazan la versión 2; continuar estos proyectos en la web de pruebas hasta lanzar la actualización.
+- Pendiente: validación real en Minecraft Education de persecución, daño, domesticación, seguimiento y defensa; revisión de animaciones y de cada plantilla que se vaya a usar en clase. Drive continúa deshabilitado para el origen de pruebas.
+
 ## Rescate ante cambios de estructura — 10 de noviembre de 2026
 
 - El bloqueo por piezas sin registrar ofrece una copia `.bbmodel` y ya no aconseja reabrir la referencia. El rescate conserva modelo y pintura sin exigir los metadatos necesarios para exportar a Edu/Minecraft.

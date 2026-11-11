@@ -23,7 +23,7 @@ async page => {
     const nativeDownload = await nativePending;
     await nativeDownload.saveAs('output/playwright/native-structure-rescue.bbmodel');
     check(nativeDownload.suggestedFilename().endsWith('.bbmodel'), 'Existing sessions can download a native backup using Ctrl+Alt+S');
-    await page.getByRole('button', {name: '3 · Guardar y compartir', exact: true}).click();
+    await page.getByRole('button', {name: '4 · Guardar y exportar', exact: true}).click();
     await page.getByText('Guarda una copia de tu trabajo', {exact: true}).waitFor();
     check(await page.getByText(/Esta copia no se abre/).isVisible(), 'Explains that the rescue file opens in Blockbench');
     await page.getByRole('button', {name: 'Volver', exact: true}).click();
