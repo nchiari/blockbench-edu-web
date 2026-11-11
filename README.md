@@ -105,3 +105,7 @@ Las crías no se montan hasta crecer. Mientras lleva pasajero, pausa sus otras
 acciones; al bajar las recupera. Si dirige el cerdo, conserva su paseo si estaba
 activado. En esta versión la silla colocada no se retira. Los proyectos nuevos
 usan formato .bbedu versión 5 de la web de test; se admiten archivos anteriores.
+
+En el cerdo, **Vida y daño** reúne los puntos de vida y el daño por golpe editable
+(de 1 a 20). El daño solo se aplica si el cerdo ataca o defiende; las decisiones
+de combate siguen separadas de la cantidad de daño.

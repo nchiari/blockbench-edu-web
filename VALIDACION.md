@@ -1,6 +1,11 @@
 # Validación del prototipo
 
 
+## Vida y daño — 11 de noviembre de 2026
+
+- La categoría del cerdo se llama Vida y daño. Agrupa vida máxima (1–200) y daño por golpe editable (1–20); conserva la activación de curación y su acceso a los alimentos.
+- El control de daño se mueve desde Combate, sin duplicarlo ni cambiar el valor guardado. Combate conserva la decisión de defender al dueño y remite a Vida y daño para la cantidad. El daño configurado solo actúa cuando el cerdo tiene un comportamiento de ataque o defensa.
+
 ## Montura del cerdo — 11 de noviembre de 2026
 
 - Categoría Montura: activar acceso, exigir silla o montar directamente, control con zanahoria en un palo o paseo decidido por el cerdo, un pasajero y asiento ajustable (altura 0–4; adelante/atrás −2–2 bloques). Opciones bloqueadas y grisadas hasta activar Se puede montar.

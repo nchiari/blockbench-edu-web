@@ -153,3 +153,8 @@ when tamed, and adult breeding only when adult. A pig-controlled ride retains
 only wandering, if enabled. Birth removes riding access; growth adds it.
 Portable format 5 preserves mount options; formats 1–4 remain readable.
 Live Minecraft Education verification is still pending.
+
+Pig health is now labeled Vida y daño. Health (1–200) and melee damage (1–20)
+are editable together there. Combate retains the owner-defense option and links
+the amount conceptually to Vida y daño. This UI move preserves saved values and
+export behavior; damage is effective only with an attack or defense behavior.
