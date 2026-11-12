@@ -158,3 +158,12 @@ Pig health is now labeled Vida y daño. Health (1–200) and melee damage (1–2
 are editable together there. Combate retains the owner-defense option and links
 the amount conceptually to Vida y daño. This UI move preserves saved values and
 export behavior; damage is effective only with an attack or defense behavior.
+
+Vida y daño also includes 15 incoming-damage toggles in four collapsible groups.
+All default to enabled. Only disabled causes emit damage_sensor triggers; there
+is no catch-all immunity. Disabling lava additionally removes the template's
+lava hurt_on_condition entry. Fire and fire_tick are separate from lava damage.
+The sensor remains in base components through riding and baby/adult transitions.
+Original retains the source BP unchanged. Format 6 portable projects preserve
+these choices; formats 1–5 remain readable. Unknown/missing/non-boolean source
+flags are rejected when the object is present. In-game verification is pending.

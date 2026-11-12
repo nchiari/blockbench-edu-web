@@ -109,3 +109,11 @@ usan formato .bbedu versión 5 de la web de test; se admiten archivos anteriores
 En el cerdo, **Vida y daño** reúne los puntos de vida y el daño por golpe editable
 (de 1 a 20). El daño solo se aplica si el cerdo ataca o defiende; las decisiones
 de combate siguen separadas de la cantidad de daño.
+
+En esa categoría también podés elegir qué puede quitarle vida al cerdo. Abrí
+**Golpes y proyectiles**, **Fuego y explosiones**, **Peligros del entorno** o
+**Daño mágico** y desmarcá las causas que quieras bloquear. Lava y quemaduras se
+configuran por separado. Los daños que no estén en la lista siguen funcionando
+normalmente. El resumen derecho muestra las protecciones elegidas. Los proyectos
+con estas opciones usan formato .bbedu versión 6 de la web de test; se siguen
+abriendo los formatos anteriores.

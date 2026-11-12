@@ -6,6 +6,51 @@ const Zip=require('jszip');
 const core=require('../blockbench_edu.js');
 const catalog=require('../reference/wizard-catalog.json');
 
+test('pig damage-source choices block only selected causes and remove the separate lava hazard',()=>{
+    const source=JSON.parse(catalog.pig.behavior),before=JSON.stringify(source);
+    let b=core.pigBehavior({...core.defaultBehavior(),profile:'calm'});
+    assert.ok(Object.values(b.pig.damageSources).every(Boolean));
+    assert.equal(core.compileBehavior(source,b)['minecraft:entity'].components['minecraft:damage_sensor'],undefined);
+    b=core.adjustPigBehavior(b,'damageSources.fire',false);
+    b=core.adjustPigBehavior(b,'damageSources.lava',false);
+    b=core.adjustPigBehavior(b,'damageSources.fall',false);
+    const c=core.compileBehavior(source,b)['minecraft:entity'].components;
+    assert.deepEqual(c['minecraft:damage_sensor'].triggers,[{cause:'fire',deals_damage:false},{cause:'fire_tick',deals_damage:false},{cause:'lava',deals_damage:false},{cause:'fall',deals_damage:false}]);
+    assert.equal(c['minecraft:hurt_on_condition'],undefined);
+    assert.ok(!c['minecraft:damage_sensor'].triggers.some(t=>t.cause==='entity_attack'||t.cause==='all'));
+    assert.equal(c['minecraft:health'].max,20);
+    assert.equal(JSON.stringify(source),before);
+    b=core.adjustPigBehavior(b,'damageSources.lava',true);
+    assert.ok(core.compileBehavior(source,b)['minecraft:entity'].components['minecraft:hurt_on_condition']);
+    b.profile='original';
+    assert.deepEqual(core.compileBehavior(source,b),source);
+});
+
+test('pig damage-source guards remain on babies and mounted pigs without replacing other systems',()=>{
+    const b=core.pigBehavior({...core.defaultBehavior(),profile:'companion'});
+    b.pig.mount.enabled=true;b.pig.breeding.enabled=true;b.pig.heal=true;
+    for(const key of Object.keys(b.pig.damageSources)) b.pig.damageSources[key]=false;
+    const e=core.compileBehavior(JSON.parse(catalog.pig.behavior),b)['minecraft:entity'];
+    const triggers=e.components['minecraft:damage_sensor'].triggers;
+    for(const cause of ['entity_attack','projectile','fire','fire_tick','lava','fall','drowning','suffocation','magic','wither','block_explosion','entity_explosion','contact','magma','lightning','freezing','anvil'])
+        assert.ok(triggers.some(t=>t.cause===cause&&!t.deals_damage),cause);
+    assert.equal(new Set(triggers.map(t=>t.cause)).size,triggers.length);
+    assert.ok(!triggers.some(t=>['all','void','override','none'].includes(t.cause)));
+    for(const group of Object.values(e.component_groups)) assert.equal(group['minecraft:damage_sensor'],undefined);
+    assert.ok(e.component_groups['blockbench_edu:tamed']['minecraft:healable']);
+    assert.ok(e.events['blockbench_edu:on_mount']);assert.ok(e.component_groups['blockbench_edu:baby']);
+});
+
+test('damage-source data rejects missing, unknown and non-boolean flags while preserving old projects',()=>{
+    const b=core.pigBehavior({...core.defaultBehavior(),profile:'calm'});
+    for(const bad of [null,[],{}, {...b.pig.damageSources,lava:'false'}, {...b.pig.damageSources,unknown:true}])
+        assert.throws(()=>core.validateBehavior({...b,pig:{...b.pig,damageSources:bad}}),/causas de daño/);
+    const old=structuredClone(b);delete old.pig.damageSources;
+    assert.doesNotThrow(()=>core.validateBehavior(old));
+    assert.ok(Object.values(core.pigBehavior(old).pig.damageSources).every(Boolean));
+    assert.equal(old.pig.damageSources,undefined);
+});
+
 test('pig mounting pauses movement, combat and breeding without losing ownership or healing',()=>{
     let b=core.pigBehavior({...core.defaultBehavior(),profile:'companion'});
     b.pig.mount={enabled:true,saddle:true,control:'player',height:1.15,offset:-0.25};

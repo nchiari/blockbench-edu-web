@@ -1,5 +1,14 @@
 # Validación del prototipo
 
+## Causas de daño del cerdo — 12 de noviembre de 2026
+
+- Vida y daño incorpora 15 opciones en cuatro desplegables: golpes/proyectiles/Espinas; fuego/lava/magma/explosiones/rayos; caídas/ahogamiento/asfixia/contacto/bloques que caen/congelación; daño mágico y Wither.
+- Por defecto todas las causas siguen activas. Desmarcar una genera únicamente los bloqueos correspondientes con damage_sensor; no se agrega inmunidad general. Los daños fuera de la lista conservan su comportamiento. Fuego y lava se configuran por separado.
+- Al desactivar lava también se elimina la condición adicional de daño por lava de la plantilla. No se modifica el addon de referencia, la curación, el daño que causa la criatura ni su vida. La protección permanece al montar o cambiar entre cría/adulto.
+- 66 pruebas automáticas aprobadas. Navegador local: desactivar fuego/lava/caídas, resumen actualizado, deshacer/rehacer y descargas reales. Lectura de los archivos: formato portátil 6, causas bloqueadas fire, fire_tick, lava y fall; golpes todavía habilitados.
+- Se admiten proyectos de formatos 1–5, con todas las causas activas al incorporar esta configuración. Original conserva intacto su comportamiento.
+- Pendiente: verificación real de cada causa en Minecraft Education. Las opciones se refieren a pérdida de vida; no prometen inmunidad a todos los comandos, efectos, empujes o daños ajenos a la lista.
+
 
 ## Vida y daño — 11 de noviembre de 2026
 
