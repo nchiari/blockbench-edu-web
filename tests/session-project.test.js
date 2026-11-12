@@ -43,7 +43,7 @@ test('rejects malformed, future and incomplete projects before importing',async(
         change(data,zip); zip.file('project.json',JSON.stringify(data));
         return readCreatureProject(await zip.generateAsync({type:'uint8array'}),Zip);
     };
-    await assert.rejects(mutate(d=>{d.version=7;}),/otra versión/);
+    await assert.rejects(mutate(d=>{d.version=8;}),/otra versión/);
     await assert.rejects(mutate((d,z)=>z.remove('reference.mcaddon')),/addon base/);
     await assert.rejects(mutate(d=>{d.model.textures[0].source='';}),/pintura incluida/);
     await assert.rejects(mutate(d=>{d.state.originalFaces.pop();}),/pintura original/);
@@ -68,7 +68,7 @@ test('behavior settings survive saving and loading while v1 projects keep their 
     await assert.rejects(readCreatureProject(await archive.generateAsync({type:'uint8array'}),Zip),/comportamiento/);
 });
 
-test('pig category projects require format 6 and retain all detailed choices',async()=>{
+test('pig category projects require format 7 and retain all detailed choices',async()=>{
     const {model,state,reference}=await fixture();
     state.behavior=require('../blockbench_edu.js').pigBehavior({...require('../blockbench_edu.js').defaultBehavior(),profile:'companion'});
     state.behavior.pig.followStart=12;
@@ -81,7 +81,7 @@ test('pig category projects require format 6 and retain all detailed choices',as
     state.behavior.pig.damageSources.lava=false;
     const bytes=await writeCreatureProject(model,state,reference,Zip);
     const loaded=await readCreatureProject(bytes,Zip);
-    assert.equal(loaded.version,6);
+    assert.equal(loaded.version,7);
     assert.deepEqual(loaded.state.behavior,state.behavior);
     const result=await buildAddon(loaded.reference,{'minecraft:geometry':[loaded.reference.geometry]},model.textures[0].source.split(',')[1],Zip,{},loaded.state.behavior);
     const exported=await readAddon(await result.zip.generateAsync({type:'uint8array'}),Zip);
@@ -90,11 +90,31 @@ test('pig category projects require format 6 and retain all detailed choices',as
     assert.deepEqual(exported.behavior.json['minecraft:entity'].component_groups['blockbench_edu:ride_ready']['minecraft:rideable'].seats.position,[0,1.1,-0.3]);
     assert.deepEqual(exported.behavior.json['minecraft:entity'].components['minecraft:damage_sensor'].triggers.map(t=>t.cause),['fire','fire_tick','lava']);
     const zip=await Zip.loadAsync(bytes),data=JSON.parse(await zip.file('project.json').async('string'));
-    data.version=3; delete data.state.behavior.pig.food;delete data.state.behavior.pig.breeding;delete data.state.behavior.pig.mount;delete data.state.behavior.pig.damageSources;
+    data.version=3; delete data.state.behavior.pig.food;delete data.state.behavior.pig.breeding;delete data.state.behavior.pig.mount;delete data.state.behavior.pig.damageSources;delete data.state.behavior.pig.locomotion;delete data.state.behavior.pig.respiration;delete data.state.behavior.pig.targets;
     zip.file('project.json',JSON.stringify(data));
     const previous=await readCreatureProject(await zip.generateAsync({type:'uint8array'}),Zip);
     assert.equal(previous.state.behavior.pig.food,undefined);
     const migrated=require('../blockbench_edu.js').pigBehavior(previous.state.behavior);
     assert.deepEqual(migrated.pig.food.tame,[previous.state.behavior.item]);
     assert.equal(migrated.pig.breeding.enabled,false);
+});
+
+test('flight, respiration and mob targets survive portable save and addon export',async()=>{
+    const {model,state,reference}=await fixture(),core=require('../blockbench_edu.js');
+    let b=core.pigBehavior({...core.defaultBehavior(),profile:'calm'});
+    for(const [key,value] of [['locomotion.mode','fly'],['respiration.medium','both'],['respiration.reserve',45],['targets.attack',['zombie','skeleton']],['targets.avoid',['creeper']]]) b=core.adjustPigBehavior(b,key,value);
+    state.behavior=b;
+    const loaded=await readCreatureProject(await writeCreatureProject(model,state,reference,Zip),Zip);
+    assert.equal(loaded.version,7);assert.deepEqual(loaded.state.behavior,b);
+    const built=await buildAddon(loaded.reference,{'minecraft:geometry':[loaded.reference.geometry]},model.textures[0].source.split(',')[1],Zip,{},loaded.state.behavior);
+    const exported=await readAddon(await built.zip.generateAsync({type:'uint8array'}),Zip),c=exported.behavior.json['minecraft:entity'].components;
+    assert.ok(c['minecraft:movement.fly']);assert.equal(c['minecraft:breathable'].breathes_water,true);
+    assert.equal(c['minecraft:behavior.nearest_attackable_target'].entity_types.length,2);
+    assert.equal(c['minecraft:behavior.avoid_mob_type'].entity_types[0].filters.value,'creeper');
+    const zip=await Zip.loadAsync(await writeCreatureProject(model,state,reference,Zip));
+    const data=JSON.parse(await zip.file('project.json').async('string'));
+    data.version=6;delete data.state.behavior.pig.locomotion;delete data.state.behavior.pig.respiration;delete data.state.behavior.pig.targets;
+    zip.file('project.json',JSON.stringify(data));
+    const old=await readCreatureProject(await zip.generateAsync({type:'uint8array'}),Zip);
+    assert.equal(old.version,6);assert.equal(core.pigBehavior(old.state.behavior).pig.locomotion.mode,'walk');
 });

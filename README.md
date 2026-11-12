@@ -117,3 +117,16 @@ configuran por separado. Los daños que no estén en la lista siguen funcionando
 normalmente. El resumen derecho muestra las protecciones elegidas. Los proyectos
 con estas opciones usan formato .bbedu versión 6 de la web de test; se siguen
 abriendo los formatos anteriores.
+
+
+En el cerdo de test, **Movimiento** permite elegir Camina, Nada, Camina y nada o
+Vuela. El vuelo es autónomo con Pasea por su cuenta; la montura requiere Camina.
+**Vida y daño → Respiración** separa respirar aire, agua o ambos y permite
+configurar de 5 a 300 segundos sin respirar. Nadar no cambia la respiración.
+**Combate** incluye listas desplegables con buscador para atacar o evitar 12
+familias de Minecraft. Una familia no puede estar en ambas listas; las opciones
+incompatibles se muestran deshabilitadas con su motivo. La selección para atacar
+excluye mascotas domesticadas y desactiva la huida al recibir daño y las crías.
+Evitar tiene prioridad sobre el ataque y excluye esa familia de la defensa.
+Los proyectos con estos ajustes usan formato .bbedu 7; se leen formatos 1–6.
+Pendiente verificar los movimientos y sus combinaciones dentro de Minecraft Education.

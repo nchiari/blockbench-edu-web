@@ -6,6 +6,93 @@ const Zip=require('jszip');
 const core=require('../blockbench_edu.js');
 const catalog=require('../reference/wizard-catalog.json');
 
+test('pig locomotion replaces incompatible controllers and exports swimming, amphibious and flight',()=>{
+    const source=JSON.parse(catalog.pig.behavior),before=JSON.stringify(source);
+    let b=core.pigBehavior({...core.defaultBehavior(),profile:'calm'});
+    b=core.adjustPigBehavior(b,'mount.enabled',true);
+    for(const mode of ['swim','amphibious','fly']) {
+        b=core.adjustPigBehavior(b,'locomotion.mode',mode);
+        assert.equal(b.pig.mount.enabled,false);
+        const c=core.compileBehavior(source,b)['minecraft:entity'].components;
+        assert.equal(c['minecraft:navigation.walk'],undefined);
+        assert.equal(c['minecraft:movement.basic'],undefined);
+        assert.equal(c['minecraft:behavior.float'],undefined);
+        if(mode==='fly') {
+            assert.ok(c['minecraft:movement.fly']);assert.ok(c['minecraft:can_fly']);
+            assert.equal(c['minecraft:physics'].has_gravity,false);
+            assert.ok(c['minecraft:behavior.random_fly']);assert.equal(c['minecraft:behavior.random_swim'],undefined);
+        } else {
+            assert.equal(c['minecraft:navigation.generic'].can_walk,mode==='amphibious');
+            assert.ok(c['minecraft:behavior.random_swim']);assert.ok(c['minecraft:behavior.breath_air']);
+            assert.equal(c['minecraft:underwater_movement'].value,b.speed);
+        }
+        assert.throws(()=>core.adjustPigBehavior(b,'mount.enabled',true),/montura/);
+        const still=core.adjustPigBehavior(b,'wander',false);
+        const sc=core.compileBehavior(source,still)['minecraft:entity'].components;
+        for(const goal of ['random_fly','random_swim','random_stroll']) assert.equal(sc['minecraft:behavior.'+goal],undefined);
+    }
+    b=core.adjustPigBehavior(b,'locomotion.mode','walk');
+    const c=core.compileBehavior(source,b)['minecraft:entity'].components;
+    assert.ok(c['minecraft:navigation.walk']);assert.equal(c['minecraft:can_fly'],undefined);
+    assert.equal(JSON.stringify(source),before);
+});
+
+test('respiration is independent of swimming and incoming damage protection',()=>{
+    const source=JSON.parse(catalog.pig.behavior);
+    let b=core.adjustPigBehavior(core.pigBehavior({...core.defaultBehavior(),profile:'calm'}),'locomotion.mode','swim');
+    for(const medium of ['air','water','both']) {
+        b=core.adjustPigBehavior(b,'respiration.medium',medium);
+        b=core.adjustPigBehavior(b,'respiration.reserve',60);
+        const c=core.compileBehavior(source,b)['minecraft:entity'].components;
+        assert.equal(c['minecraft:breathable'].breathes_air,medium!=='water');
+        assert.equal(c['minecraft:breathable'].breathes_water,medium!=='air');
+        assert.equal(c['minecraft:breathable'].total_supply,60);
+        assert.equal(!!c['minecraft:behavior.breath_air'],medium==='air');
+    }
+    b=core.adjustPigBehavior(b,'damageSources.drowning',false);
+    assert.ok(core.compileBehavior(source,b)['minecraft:entity'].components['minecraft:damage_sensor'].triggers.some(t=>t.cause==='drowning'));
+    for(const value of [0,301,15.5,'15']) assert.throws(()=>core.adjustPigBehavior(b,'respiration.reserve',value),/respiración/);
+});
+
+test('mob choices allow a friendly player reaction, merge targeting and prevent contradictory goals',()=>{
+    const source=JSON.parse(catalog.pig.behavior);
+    let b=core.pigBehavior({...core.defaultBehavior(),profile:'calm'});
+    b=core.adjustPigBehavior(b,'breeding.enabled',true);
+    b=core.adjustPigBehavior(b,'targets.attack',['zombie','skeleton']);
+    assert.equal(b.pig.reaction,'neutral');assert.equal(b.pig.panic,false);assert.equal(b.pig.breeding.enabled,false);
+    b=core.adjustPigBehavior(b,'targets.avoid',['creeper']);
+    assert.throws(()=>core.adjustPigBehavior(b,'targets.avoid',['zombie']),/misma criatura/);
+    assert.throws(()=>core.adjustPigBehavior(b,'panic',true),/Atacar criaturas/);
+    assert.throws(()=>core.adjustPigBehavior(b,'breeding.enabled',true),/Atacar criaturas/);
+    for(const list of [['dragon'],['zombie','zombie'],'zombie']) assert.throws(()=>core.adjustPigBehavior(b,'targets.attack',list),/criaturas/);
+    let c=core.compileBehavior(source,b)['minecraft:entity'].components;
+    assert.equal(c['minecraft:attack'].damage,b.damage);
+    assert.equal(c['minecraft:behavior.nearest_attackable_target'].entity_types.length,2);
+    assert.deepEqual(c['minecraft:behavior.nearest_attackable_target'].entity_types[0].filters.all_of,[{test:'is_family',subject:'other',value:'zombie'},{test:'is_tamed',subject:'other',value:false}]);
+    assert.equal(c['minecraft:behavior.avoid_mob_type'].entity_types[0].filters.value,'creeper');
+    b=core.adjustPigBehavior(b,'reaction','enemy');
+    c=core.compileBehavior(source,b)['minecraft:entity'].components;
+    assert.equal(c['minecraft:behavior.nearest_attackable_target'].entity_types.length,3);
+    assert.deepEqual(c['minecraft:behavior.hurt_by_target'].entity_types[0].filters.none_of,[{test:'is_family',subject:'other',value:'creeper'}]);
+    b=core.adjustPigBehavior(b,'reaction','flee');
+    c=core.compileBehavior(source,b)['minecraft:entity'].components;
+    assert.equal(c['minecraft:behavior.avoid_mob_type'].entity_types.length,2);
+    b=core.adjustPigBehavior(b,'defend',true);
+    const e=core.compileBehavior(source,b)['minecraft:entity'];
+    assert.equal(e.component_groups['blockbench_edu:tamed']['minecraft:behavior.owner_hurt_by_target'].entity_types[0].filters.none_of[0].value,'creeper');
+});
+
+test('old pig projects gain walking and air defaults without modifying saved choices',()=>{
+    const b=core.pigBehavior({...core.defaultBehavior(),profile:'calm'});
+    delete b.pig.locomotion;delete b.pig.respiration;delete b.pig.targets;
+    assert.doesNotThrow(()=>core.validateBehavior(b));
+    const upgraded=core.pigBehavior(b);
+    assert.deepEqual(upgraded.pig.locomotion,{mode:'walk'});
+    assert.deepEqual(upgraded.pig.respiration,{medium:'air',reserve:15});
+    assert.deepEqual(upgraded.pig.targets,{attack:[],avoid:[]});
+    assert.equal(b.pig.locomotion,undefined);
+});
+
 test('pig damage-source choices block only selected causes and remove the separate lava hazard',()=>{
     const source=JSON.parse(catalog.pig.behavior),before=JSON.stringify(source);
     let b=core.pigBehavior({...core.defaultBehavior(),profile:'calm'});

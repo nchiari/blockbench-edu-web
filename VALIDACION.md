@@ -335,3 +335,12 @@ Publicación confirmada en `https://nchiari.github.io/blockbench-edu-web/`, revi
 - Sintaxis correcta, 41 pruebas automáticas aprobadas y compilación web correcta. `tests/web-entry-probe.js` pasó en Chromium con los archivos servidos desde la raíz y desde `/blockbench-edu-web/`: cancelación de ambos accesos, creación de un zombi, barra alumno, ausencia de controles docentes, pintura, recarga, editor docente, vista de prueba y regreso, enlace de clase y botón «Entregar al profe». Se usó un código ficticio y no se envió ningún archivo a Drive.
 - Capturas revisadas en `output/playwright/entry-student.png` y `output/playwright/entry-teacher.png`. Las pruebas existentes de interfaz y partes reconocen la entrada alumno, que ya no ofrece el cambio al docente; sus baterías completas de resoluciones no se repitieron en este cambio.
 - Validación local. Pendiente publicar y comprobar el despliegue en Cloudflare; no se realizó una nueva importación en Minecraft Education. El plugin instalado manualmente conserva el cambio de vista anterior y no se sincronizó su instalación en este trabajo.
+
+
+## Movimiento, respiración y objetivos del cerdo — 2026-11-12
+
+- Controladores de vuelo, natación y movimiento anfibio basados en los BP vanilla 1.26.30 (loro, bacalao, ajolote) y la documentación de Minecraft Creator. Respiración independiente del movimiento y protecciones por daño.
+- Listas con búsqueda para atacar o evitar 12 familias, exclusión mutua y respeto de mascotas domesticadas en la selección de ataque. Evitar filtra también represalias y defensa del dueño. Detección compartida de 4 a 32 bloques.
+- Restricciones verificadas: montura solo con Camina; atacar criaturas desactiva pánico y reproducción. Opciones bloqueadas en gris con tooltip. Resumen derecho e historial reflejan los cambios.
+- Pruebas automáticas de controladores, respiración, validación de objetivos y conflictos, exportación y guardado .bbedu 7 con lectura de proyectos previos. Navegador: búsqueda, selección y bloqueo de zombis en la lista opuesta, respiración en ambos medios, resumen, descarga de .bbedu y .mcaddon inspeccionados.
+- Pendiente probar dentro de Minecraft Education el vuelo, el regreso a tomar aire, la supervivencia de una criatura acuática en tierra y el combate/huida con distintos objetivos. La estructura del addon y la interfaz no acreditan esas pruebas en el juego.
