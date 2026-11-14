@@ -396,3 +396,13 @@ Publicación confirmada en `https://nchiari.github.io/blockbench-edu-web/`, revi
 - Pruebas de catálogo, cantidades 200 + espadas no apilables, duplicados, entradas inválidas y totales; montaje y cambios de modo; archivos BP/RP planos y anidados, identidad, inmutabilidad y las 70 entidades. Guardado y reapertura con .bbedu 11, exportación exacta de las filas y migración desde formato 10.
 - Navegador local: 200 diamantes y 2 espadas de diamante, búsqueda, añadir/quitar una fila, resumen, guardado y exportación sin errores de consola. La estructura exportada se inspecciona por separado; el resultado dentro de Minecraft Education queda pendiente.
 - Se publica solo en codex/pruebas. La comprobación del juego sigue pendiente: importar el mcaddon, activar BP/RP en un mundo de prueba, generar la criatura, matarla y contar el botín; repetir con No suelta objetos.
+
+
+## Botín sencillo con posibilidades — 2026-11-14 (Preview)
+
+- Sustituye los límites experimentales anteriores: máximo 5 filas, 1–64 unidades por fila y duplicados permitidos. Añadir objeto se desactiva al llegar a 5 y explica cómo liberar una fila.
+- Selector Posibilidad con Siempre, Muy alta, Alta, Media, Baja y Muy baja. Mapeo interno 100/90/75/50/25/10 %, sin porcentajes visibles en el editor. El resumen muestra la palabra elegida.
+- Cada pool lleva su condición random_chance, que decide la fila completa antes de generar sus unidades. Las filas son independientes y sus posibilidades no se suman. Siempre no añade condición aleatoria.
+- Formato .bbedu 12 para impedir que editores antiguos ignoren las posibilidades. Las filas antiguas sin posibilidad conservan Siempre; las listas que exceden los nuevos límites se rechazan sin recortarlas silenciosamente.
+- Pruebas automáticas de los seis niveles, cantidades no apilables, cinco filas idénticas de 64 unidades, rechazo de sexta fila/cantidad 65 y posibilidades desconocidas, guardado/reapertura y tablas en BP planos/anidados. La comprobación de drops dentro de Minecraft Education sigue pendiente.
+- Navegador local: reapertura del ejemplo, selector por palabras, rechazo de 65 unidades sin perder 64, cinco filas y duplicados, bloqueo de Añadir objeto, eliminación de filas, guardado real y exportación real. Archivo .bbedu descargado con formato 12 y Siempre/Media; mcaddon descargado contrastado con 64 diamantes garantizados y dos espadas condicionadas al 50 %. 87 pruebas, sintaxis y compilación web correctas.

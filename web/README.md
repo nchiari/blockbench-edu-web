@@ -235,20 +235,20 @@ lectura de proyectos 1–9 conservada. Prueba real en Minecraft Education pendie
 ### Botín al morir — test, 14/11/2026
 
 Nueva categoría Botín para las 70 entidades: Original, Nada o Mis objetos. La opción original usa la tabla de botín de la plantilla;
-la personalizada entrega todas las filas, cada una con objeto y cantidad fija.
+la personalizada admite hasta 5 filas, cada una con objeto, cantidad de 1 a 64 y posibilidad. Se pueden repetir objetos.
 Permite añadir, quitar, cambiar y repetir objetos, con búsqueda en español
 entre 1518 objetos y bloques del registro oficial Bedrock 1.26.30.5. Los ajustes
 anteriores conservan su botín (Original: el de la plantilla; personalizado: ninguno).
 
-Las cantidades admiten más de un stack y objetos no apilables. Cada fila produce
-una recompensa independiente repetida la cantidad elegida; no hay sorteo entre
-las filas ni recorte a 64. Límite inicial del editor: 128 filas y 10 000 unidades
-en total. No incluye experiencia, encantamientos, variantes de pociones ni
-probabilidades. El comportamiento de recogida y los stacks los gestiona Minecraft.
+La posibilidad se elige con palabras: Siempre (100 %), Muy alta (90 %), Alta
+(75 %), Media (50 %), Baja (25 %) y Muy baja (10 %). Los porcentajes solo se usan
+internamente; la interfaz muestra las palabras. Cada fila se sortea por separado
+y, si sale, entrega toda su cantidad, incluidos objetos no apilables. No incluye
+experiencia, encantamientos ni variantes de pociones.
 
 La tabla generada tiene una ruta privada por criatura en el BP y no modifica
 las tablas de Minecraft ni las de otras creaciones. Se mantiene al montar y
-al guardar .bbedu 11; los formatos 1–10 siguen siendo legibles. Prueba real de
+al guardar .bbedu 12; los formatos 1–11 siguen siendo legibles si cumplen los límites actuales. Los ajustes antiguos sin posibilidad equivalen a Siempre. Las listas antiguas que exceden 5 filas o 64 unidades se rechazan con un aviso, sin modificar el archivo original. Prueba real de
 las cantidades y los drops en Minecraft Education pendiente.
 
 El catálogo reproducible está en reference/loot-items.json. Para regenerarlo:
