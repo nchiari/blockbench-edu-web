@@ -780,7 +780,7 @@
     const core = {resizePixels, smoothPixels, extractPixels, extractSurface, sampleRegion, packFaces, centeredBounds, geometryEntries, signature, syncManifests, readAddon, buildAddon, createStarter, createMobAddon, compatibleSounds, writeCreatureProject, readCreatureProject, simplePigBehavior, entityBehavior, entityComponent, supportsEntityBehavior, defaultBehavior, validateBehavior, supportsBehavior, compileBehavior, pigBehavior, adjustPigBehavior};
     if (typeof module !== 'undefined' && module.exports) { module.exports = core; return; }
 
-    let cameraViewTool, panel, style, projectStyle, wizardStyle, action, loader, wizard, classroom, classroomStyle, selectionTool, smoothTool, colorSelectionTool, selectionFillTool, previousTool, teacherReturn, alive = false;
+    let cameraViewTool, panel, style, projectStyle, wizardStyle, action, loader, wizard, classroom, classroomStyle, selectionTool, smoothTool, colorSelectionTool, selectionFillTool, previousTool, teacherReturn, wholeModelTransformer, alive = false;
     const EDU_ICON = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="5" fill="#123d27"/><path d="m16 3 12 7v13l-12 7-12-7V10Z" fill="#53d983"/><path d="m4 10 12 7 12-7M16 17v13" fill="none" stroke="#143e28" stroke-width="2"/><path d="m8 9 8-4 8 4-8 5Z" fill="#b8ffd1"/><path d="M8 18v5m16-5v5" stroke="#143e28" stroke-width="3"/></svg>');
     const sessions = new Map(), listeners = [];
     const allowsTeacherView = () => window.BlockbenchEduWeb?.role !== 'student';
@@ -1092,7 +1092,7 @@
             const expected = FACE_AXES[name].map(axis => Math.max(1, Math.floor(cleanDimension(cube.to[axis] - cube.from[axis]))));
             const scaledUV = face.uv.map((v,i) => v * (i%2 ? atlas.height/Project.texture_height : atlas.width/Project.texture_width));
             const pixels = normalizing ? sampleRegion(atlas, scaledUV, ...expected) : extractSurface(atlas, face.uv);
-            requireThat(pixels.width === expected[0] && pixels.height === expected[1], 'La plantilla no tiene densidad de un píxel por unidad en todas sus caras.');
+            // Whole-model scaling intentionally keeps UVs and their pixel density unchanged.
             faces.push({cubeId: cube.uuid, name, uv: face.uv.slice(), signs: [Math.sign(face.uv[2] - face.uv[0]) || 1, Math.sign(face.uv[3] - face.uv[1]) || 1], pixels});
         }
         return faces;
@@ -1152,6 +1152,10 @@
         }
         return links;
     }
+    function resizedFacePixels(pixels, before, after) {
+        if (pixels === Math.max(1,Math.floor(cleanDimension(before)))) return Math.max(1,Math.floor(cleanDimension(after)));
+        return Math.max(1, Math.round(before > 0 ? pixels * after / before : pixels + after));
+    }
     function resize(axis, step) {
         const session = validateSession();
         requireThat(session.prepared && Cube.all.every(c => !c.box_uv), 'Prepara la textura antes de cambiar el tamaño.');
@@ -1173,7 +1177,7 @@
             const change = changes.find(item => item.cube.uuid === face.cubeId);
             if (!change) continue;
             const [a,b] = FACE_AXES[face.name];
-            face.pixels = resizePixels(face.pixels, Math.max(1,Math.floor(change.sizes[a])), Math.max(1,Math.floor(change.sizes[b])), face.signs);
+            face.pixels = resizePixels(face.pixels, resizedFacePixels(face.pixels.width, change.cube.size(a), change.sizes[a]), resizedFacePixels(face.pixels.height, change.cube.size(b), change.sizes[b]), face.signs);
         }
         const atlas = packFaces(faces);
         transaction('Cambiar partes vinculadas Edu', texture => {
@@ -1182,16 +1186,15 @@
         });
     }
     // Work in model coordinates so pivots, nested bones and hidden cubes stay together.
-    // Resample the painting with nearest neighbours to keep the complete pattern at the new size.
-    function transformWholeModel(kind, axis, step) {
+    // Like Blockbench ModelScaler, scale geometry without resampling the bitmap or changing UVs.
+    function transformWholeModel(kind, axis, step, record = true) {
         validateSession();
         requireThat(['size','move','rotate'].includes(kind) && Number.isFinite(step), 'El cambio no es válido.');
         const cubes = Cube.all.slice(), groups = Group.all.slice();
         requireThat(cubes.length, 'Abre una criatura para cambiarla.');
         const factor = step > 0 ? 1.1 : 1 / 1.1;
         requireThat(kind !== 'size' || cubes.every(c => [...c.from,...c.to,...c.origin,c.inflate].every(v => Number.isFinite(v * factor) && Math.abs(v * factor) < 100000)), 'Se alcanzó el límite de tamaño del modelo.');
-        const texture = Texture.all[0], faces = kind === 'size' ? captureFaces(texture) : null;
-        Undo.initEdit({elements:cubes, groups, ...(faces ? {textures:[texture], bitmap:true, uv_mode:true} : {})});
+        if (record) Undo.initEdit({elements:cubes, groups});
         try {
             if (kind === 'size') {
                 for (const cube of cubes) {
@@ -1199,17 +1202,11 @@
                     cube.inflate *= factor;
                 }
                 for (const group of groups) group.origin = group.origin.map(v => v * factor);
-                for (const face of faces) {
-                    const cube = cubes.find(c => c.uuid === face.cubeId), [a,b] = FACE_AXES[face.name];
-                    face.pixels = sampleRegion(face.pixels, [0,0,face.pixels.width,face.pixels.height],
-                        Math.max(1,Math.floor(cleanDimension(cube.to[a]-cube.from[a]))), Math.max(1,Math.floor(cleanDimension(cube.to[b]-cube.from[b]))));
-                }
-                updateAtlas(texture, packFaces(faces));
             } else if (kind === 'move') {
                 for (const cube of cubes) for (const key of ['from','to','origin']) cube[key][axis] += step;
                 for (const group of groups) group.origin[axis] += step;
             } else {
-                const direction = new THREE.Vector3(); direction.setComponent(axis, 1);
+                const direction = axis instanceof THREE.Vector3 ? axis.clone().normalize() : new THREE.Vector3().setComponent(axis, 1);
                 const turn = new THREE.Quaternion().setFromAxisAngle(direction, step * Math.PI / 180);
                 const roots = [...groups.filter(g => !(g.parent instanceof Group)), ...cubes.filter(c => !(c.parent instanceof Group))];
                 for (const root of roots) {
@@ -1225,21 +1222,22 @@
                 }
             }
             Canvas.updateAll();
-            Undo.finishEdit({size:'Cambiar tamaño de todo el modelo Edu',move:'Mover todo el modelo Edu',rotate:'Girar todo el modelo Edu'}[kind]);
-        } catch (error) { Undo.cancelEdit(true); throw error; }
-        refresh();
+            if (record) Undo.finishEdit({size:'Cambiar tamaño de todo el modelo Edu',move:'Mover todo el modelo Edu',rotate:'Girar todo el modelo Edu'}[kind]);
+        } catch (error) { if (record) Undo.cancelEdit(true); throw error; }
+        if (record) refresh();
     }
     let eduDrag = null, eduPointerDown = false;
     function selectClassroomTool() {
         if (!classroom || classroom.mode !== 'shape') return;
-        if (classroom.wholeModel) {
+        if (classroom.wholeModel && classroom.operation === 'size') {
             cameraViewTool ||= new Tool('edu_camera_view',{name:'Vista de la criatura',icon:'3d_rotation',modes:['edit'],selectElements:false,selectFace:false,transformerMode:'hidden'});
             cameraViewTool.select(); return;
         }
+        if (classroom.wholeModel) { Cube.all.forEach(c => c.markAsSelected()); updateSelection(); }
         BarItems[{size: 'resize_tool', move: 'move_tool', rotate: 'rotate_tool'}[classroom.operation]].select();
     }
     function beginEduDrag({aspects, save}) {
-        if (!eduPointerDown || !classroom || classroom.mode !== 'shape' || !current()?.prepared) return;
+        if (!eduPointerDown || !classroom || classroom.wholeModel || classroom.mode !== 'shape' || !current()?.prepared) return;
         const cube = selectedPiece();
         if (!cube || !['move_tool','resize_tool','rotate_tool'].includes(Toolbox.selected.id)) return;
         const affected = linkedPieces(cube);
@@ -1276,7 +1274,8 @@
                     const part=affected.find(c=>c.uuid===face.cubeId);
                     if (!part) continue;
                     const [a,b]=FACE_AXES[face.name];
-                    face.pixels=resizePixels(face.pixels,Math.max(1,Math.floor(cleanDimension(part.to[a]-part.from[a]))),Math.max(1,Math.floor(cleanDimension(part.to[b]-part.from[b]))),face.signs);
+                    const previous = before.get(part.uuid);
+                    face.pixels=resizePixels(face.pixels,resizedFacePixels(face.pixels.width,previous.to[a]-previous.from[a],part.to[a]-part.from[a]),resizedFacePixels(face.pixels.height,previous.to[b]-previous.from[b],part.to[b]-part.from[b]),face.signs);
                 }
                 updateAtlas(Texture.all[0],packFaces(faces));
             } else {
@@ -1615,7 +1614,7 @@
         if (which === 'frame') {
             const selectedId = classroom?.wholeModel ? '__model__' : selectedPiece()?.uuid;
             const event = new MouseEvent('click', {shiftKey: true});
-            BarItems.select_all.trigger(event); BarItems.focus_on_selection.trigger(event);
+            Cube.all.forEach(c => c.markAsSelected()); updateSelection(); BarItems.focus_on_selection.trigger(event);
             if (selectedId) selectPiece(selectedId);
         }
         else BarItems[{front: 'camera_north', side: 'camera_east', back: 'camera_south', left: 'camera_west', top: 'camera_top', bottom: 'camera_bottom', orbit: 'camera_initial'}[which]]?.trigger();
@@ -1663,7 +1662,7 @@
         Modes.options.edit.select();
         const mount = document.createElement('div'); document.body.append(mount);
         classroom = new Vue({el: mount,
-            data: {sidebarWidth: current()?.sidebarWidth || 260, sidebarMax: 480, sidebarDragging: false, sidebarStartX: 0, sidebarStartWidth: 260, mode: 'shape', operation: 'size', wholeModel: false, position: [0,0,0], rotation: [0,0,0], axes: ['De lado', 'Arriba / abajo', 'Adelante / atrás'], turns: ['Inclinar', 'Girar', 'Ladear'], pieces: [], selectedId: '', dimensions: [0,0,0], maximum: [0,0,0], minimum: [1,1,1], busy: false, canUndo: false, canRedo: false,
+            data: {sidebarWidth: current()?.sidebarWidth || 260, sidebarMax: 480, sidebarDragging: false, sidebarStartX: 0, sidebarStartWidth: 260, mode: 'shape', operation: 'size', wholeModel: true, position: [0,0,0], rotation: [0,0,0], axes: ['De lado', 'Arriba / abajo', 'Adelante / atrás'], turns: ['Inclinar', 'Girar', 'Ladear'], pieces: [], selectedId: '', dimensions: [0,0,0], maximum: [0,0,0], minimum: [1,1,1], busy: false, canUndo: false, canRedo: false,
                 behavior:clone(current()?.behavior || defaultBehavior()), behaviorSupported:false, categoryEditor:false, behaviorNotice:'', behaviorPage:'', behaviorCategories:[{id:'base',label:'Base',icon:'auto_awesome'},{id:'movement',label:'Movimiento',icon:'directions_walk'},{id:'reaction',label:'Reacción al jugador',icon:'visibility'},{id:'friendship',label:'Amistad',icon:'favorite'},{id:'health',label:'Vida y daño',icon:'healing'},{id:'combat',label:'Combate',icon:'sports_martial_arts'},{id:'mount',label:'Montura',icon:'airline_seat_recline_normal'}], behaviorProfiles:BEHAVIOR_PROFILES,
                 movementChoices:PIG_MOVEMENT, mobChoices:PIG_TARGETS, mobSearch:'', behaviorItems:BEHAVIOR_ITEMS, pigFoodItems:PIG_FOOD_ITEMS, damageSourceChoices:PIG_DAMAGE_SOURCES, damageSourceGroups:[{id:'combat',label:'Golpes y proyectiles'},{id:'fire',label:'Fuego y explosiones'},{id:'environment',label:'Peligros del entorno'},{id:'magic',label:'Daño mágico'}], behaviorSpeeds:BEHAVIOR_SPEEDS, behaviorCanUndo:false, behaviorCanRedo:false,
                 bones: [], partsOpen: current()?.partsOpen ?? true, soloBoneId: '', selectedPixelCount: 0, paintTool: 'brush_tool', brushSize: 1, cameraControlsOpen: false, cameraIsOrtho: false,
@@ -1993,7 +1992,7 @@
                 toggleBone: togglePaintBone, showOnlyBone: showOnlyPaintBone, showAllBones: showPaintBones, duplicateBone: id => attempt(()=>duplicatePaintBone(id))
             },
             template: `<div id="edu-classroom"><div v-if="behaviorNotice" class="edu-center-notice" role="status">{{behaviorNotice}}</div><header><strong>Blockbench Edu</strong><nav aria-label="Crear tu criatura"><button @click="setMode('shape')" :class="{active:mode==='shape'}">1 · Dale forma</button><button @click="setMode('paint')" :class="{active:mode==='paint'}">2 · Dale color</button><button @click="setMode('behavior')" :class="{active:mode==='behavior'}">3 · Dale vida</button><button @click="saveOptions" :disabled="busy">4 · Guardar y exportar</button></nav><button v-if="teacherViewAvailable" @click="exit" class="edu-teacher">Para el docente</button></header>
-                <aside><div class="edu-sidebar-scroll"><template v-if="mode==='shape'"><h2>Dale forma</h2><label>¿Qué quieres cambiar?<select :value="selectedId" @change="selectPiece($event.target.value)"><option value="__model__">Todo el modelo</option><option v-for="piece in pieces" :key="piece.id" :value="piece.id">{{piece.label}}</option></select></label><p v-if="wholeModel"><strong>Estás cambiando todo el modelo.</strong><br>Incluye todas las partes, también las ocultas.</p><div class="edu-paint-tools edu-shape-tools" role="group" aria-label="¿Qué quieres hacer?"><button @click="operation='size'" :class="{active:operation==='size'}" :aria-pressed="operation==='size'"><i class="material-icons" aria-hidden="true">open_in_full</i>Tamaño</button><button @click="operation='move'" :class="{active:operation==='move'}" :aria-pressed="operation==='move'"><i class="material-icons" aria-hidden="true">open_with</i>Mover</button><button @click="operation='rotate'" :class="{active:operation==='rotate'}" :aria-pressed="operation==='rotate'"><i class="material-icons" aria-hidden="true">rotate_right</i>Girar</button></div><template v-if="operation==='size' &amp;&amp; wholeModel"><div class="edu-size"><span>Tamaño de todo</span><button @click="resize('all',-1)" :disabled="busy" aria-label="Reducir todo el modelo">−</button><b></b><button @click="resize('all',1)" :disabled="busy" aria-label="Aumentar todo el modelo">+</button></div><p>Agranda o achica toda la criatura en proporción, sin separar las partes. Cada + aumenta un 10 %; − revierte ese aumento.</p></template><template v-else-if="operation==='size'"><div class="edu-size"><span>Tamaño general</span><button @click="resize('all',-1)" :disabled="busy || dimensions.some((value,axis) => value-1 &lt; minimum[axis])" aria-label="Reducir tamaño general">−</button><b></b><button @click="resize('all',1)" :disabled="busy || dimensions.some((value,axis) => value+1 &gt; maximum[axis])" aria-label="Aumentar tamaño general">+</button></div><p>Cambia el ancho, el alto y la profundidad a la vez.</p><div class="edu-size" v-for="(label,axis) in labels" :key="label"><span>{{label}}</span><button @click="resize(axis,-1)" :disabled="busy || dimensions[axis]&lt;=minimum[axis]" :aria-label="'Reducir '+label">−</button><b>{{dimensions[axis]}}</b><button @click="resize(axis,1)" :disabled="busy || dimensions[axis]&gt;=maximum[axis]" :aria-label="'Aumentar '+label">+</button></div><p>Usa − para reducir y + para aumentar.<br>Puedes deshacer si no te gusta.</p></template><template v-else-if="operation==='move'"><div class="edu-move-arrows"><strong>Mover</strong><div class="edu-size" v-for="(label,axis) in axes" :key="'move-'+axis"><span>{{label}}</span><button @click="move(axis,-1)" :disabled="busy" :aria-label="'Mover '+label+' menos'">{{axis===1?'↓':axis===2?'↙':'←'}}</button><b></b><button @click="move(axis,1)" :disabled="busy" :aria-label="'Mover '+label+' más'">{{axis===1?'↑':axis===2?'↗':'→'}}</button></div><p>{{wholeModel ? 'Mueve toda la criatura sin separar sus partes.' : 'Las capas de esta parte se mueven y cambian de tamaño juntas.'}}</p></div></template><template v-else><div class="edu-size" v-for="(label,index) in turns" :key="label"><span>{{label}}</span><button :aria-label="'Girar menos: '+label" @click="transform('rotate',index,-15)" :disabled="busy">−</button><b>{{wholeModel ? '' : rotation[index]}}</b><button :aria-label="'Girar más: '+label" @click="transform('rotate',index,15)" :disabled="busy">+</button></div><p>{{wholeModel ? 'Gira toda la criatura en pasos de 15°, alrededor del origen del modelo.' : 'Usa − y + para girar esta parte poco a poco.'}}</p></template></template>
+                <aside><div class="edu-sidebar-scroll"><template v-if="mode==='shape'"><h2>Dale forma</h2><label>¿Qué quieres cambiar?<select :value="selectedId" @change="selectPiece($event.target.value)"><option value="__model__">Todo el modelo</option><option v-for="piece in pieces" :key="piece.id" :value="piece.id">{{piece.label}}</option></select></label><div v-if="wholeModel" class="edu-whole-model-notice" role="status"><i class="material-icons" aria-hidden="true">select_all</i><strong>Estás cambiando<br>TODO EL MODELO</strong><span>Incluye todas las partes, también las ocultas.</span></div><div class="edu-paint-tools edu-shape-tools" role="group" aria-label="¿Qué quieres hacer?"><button @click="operation='size'" :class="{active:operation==='size'}" :aria-pressed="operation==='size'"><i class="material-icons" aria-hidden="true">open_in_full</i>Tamaño</button><button @click="operation='move'" :class="{active:operation==='move'}" :aria-pressed="operation==='move'"><i class="material-icons" aria-hidden="true">open_with</i>Mover</button><button @click="operation='rotate'" :class="{active:operation==='rotate'}" :aria-pressed="operation==='rotate'"><i class="material-icons" aria-hidden="true">rotate_right</i>Girar</button></div><template v-if="operation==='size' &amp;&amp; wholeModel"><div class="edu-size"><span>Tamaño de todo</span><button @click="resize('all',-1)" :disabled="busy" aria-label="Reducir todo el modelo">−</button><b></b><button @click="resize('all',1)" :disabled="busy" aria-label="Aumentar todo el modelo">+</button></div><p>Agranda o achica toda la criatura en proporción, sin separar las partes. Cada + aumenta un 10 %; − revierte ese aumento.</p></template><template v-else-if="operation==='size'"><div class="edu-size"><span>Tamaño general</span><button @click="resize('all',-1)" :disabled="busy || dimensions.some((value,axis) => value-1 &lt; minimum[axis])" aria-label="Reducir tamaño general">−</button><b></b><button @click="resize('all',1)" :disabled="busy || dimensions.some((value,axis) => value+1 &gt; maximum[axis])" aria-label="Aumentar tamaño general">+</button></div><p>Cambia el ancho, el alto y la profundidad a la vez.</p><div class="edu-size" v-for="(label,axis) in labels" :key="label"><span>{{label}}</span><button @click="resize(axis,-1)" :disabled="busy || dimensions[axis]&lt;=minimum[axis]" :aria-label="'Reducir '+label">−</button><b>{{dimensions[axis]}}</b><button @click="resize(axis,1)" :disabled="busy || dimensions[axis]&gt;=maximum[axis]" :aria-label="'Aumentar '+label">+</button></div><p>Usa − para reducir y + para aumentar.<br>Puedes deshacer si no te gusta.</p></template><template v-else-if="operation==='move'"><div class="edu-move-arrows"><strong>Mover</strong><div class="edu-size" v-for="(label,axis) in axes" :key="'move-'+axis"><span>{{label}}</span><button @click="move(axis,-1)" :disabled="busy" :aria-label="'Mover '+label+' menos'">{{axis===1?'↓':axis===2?'↙':'←'}}</button><b></b><button @click="move(axis,1)" :disabled="busy" :aria-label="'Mover '+label+' más'">{{axis===1?'↑':axis===2?'↗':'→'}}</button></div><p>{{wholeModel ? 'Mueve toda la criatura sin separar sus partes.' : 'Las capas de esta parte se mueven y cambian de tamaño juntas.'}}</p></div></template><template v-else><div class="edu-size" v-for="(label,index) in turns" :key="label"><span>{{label}}</span><button :aria-label="'Girar menos: '+label" @click="transform('rotate',index,-15)" :disabled="busy">−</button><b>{{wholeModel ? '' : rotation[index]}}</b><button :aria-label="'Girar más: '+label" @click="transform('rotate',index,15)" :disabled="busy">+</button></div><p>{{wholeModel ? 'Gira toda la criatura en pasos de 15°, alrededor del origen del modelo.' : 'Usa − y + para girar esta parte poco a poco.'}}</p></template></template>
                 <template v-else-if="mode==='paint'"><h2>Dale color</h2><p>Elige un color y pinta sobre tu criatura.</p><div class="edu-palette"><button v-for="swatch in colors" :key="swatch" :style="{background:swatch}" :aria-label="'Color '+swatch" @click="paintColor(swatch)"></button></div><label>Otro color<input type="color" :value="color" @input="paintColor($event.target.value)"/></label><div class="edu-paint-tools">
                     <button @click="tool('brush_tool')" :class="{active:paintTool==='brush_tool'}"><i class="material-icons" aria-hidden="true">brush</i>Pincel</button>
                     <button @click="tool('eraser')" :class="{active:paintTool==='eraser'}"><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14 14 4a2 2 0 0 1 3 0l4 4a2 2 0 0 1 0 3L11 21H7l-3-3a3 3 0 0 1 0-4Z M9 9l8 8 M11 21h10" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>Borrador</button>
@@ -2215,7 +2214,7 @@
             });
             selectionTool = new Tool('blockbench_edu_select', {name: 'Elegir una parte', icon: 'touch_app', modes: ['edit'],
                 selectElements: true, condition: () => !!classroom});
-            classroomStyle = Blockbench.addCSS(`body.edu-classroom #blackout{z-index:200!important}body.edu-classroom #dialog_wrapper .dialog{z-index:201!important}body.edu-setup #page_wrapper,body.edu-classroom #page_wrapper{visibility:hidden}body.edu-setup:before{content:"";position:fixed;inset:0;background:#141e24;z-index:10}body.edu-setup #blackout{background:#141e24}body.edu-classroom #preview{visibility:visible!important;position:fixed!important;left:calc(var(--edu-sidebar-width,260px) + 32px)!important;top:84px!important;right:calc(16px + var(--edu-parts-inset,0px))!important;bottom:var(--edu-preview-bottom,116px)!important;width:calc(100vw - var(--edu-sidebar-width,260px) - 48px - var(--edu-parts-inset,0px))!important;height:calc(100vh - 84px - var(--edu-preview-bottom,116px))!important;z-index:101;background:#202b32;border-radius:20px}body.edu-classroom #preview .preview_menu,body.edu-classroom #preview .orbit_gizmo{display:none!important}#edu-classroom{position:fixed;inset:0;z-index:100;background:#141e24;color:#eaf5ee;font-size:16px}#edu-classroom button,#edu-classroom select{min-width:0;max-width:100%;min-height:42px;border-radius:10px;background:#30423b;color:#eaf5ee;padding:8px 12px;border:0;cursor:pointer}#edu-classroom button:disabled{opacity:.4;cursor:default}#edu-classroom button:hover:not(:disabled),#edu-classroom button.active{background:#65d98a;color:#102c1c}#edu-classroom header{height:76px;display:flex;gap:24px;align-items:center;padding:12px 20px}#edu-classroom header strong{color:#65d98a;font-size:20px}#edu-classroom nav{display:flex;gap:10px}#edu-classroom .edu-teacher{margin-left:auto;font-size:12px;background:transparent}#edu-classroom aside{position:absolute;left:16px;top:84px;bottom:86px;width:var(--edu-sidebar-width,260px);background:#21302e;border-radius:20px;padding:22px;display:flex;flex-direction:column;gap:0;overflow:hidden}#edu-classroom h2{font-size:24px;color:#b8ffd1}#edu-classroom label{display:grid;gap:10px}#edu-classroom select{width:100%}#edu-classroom .edu-size{display:grid;grid-template-columns:1fr 38px 32px 38px;align-items:center;gap:4px}#edu-classroom .edu-size button{padding:0;font-size:24px}#edu-classroom .edu-size b{text-align:center}#edu-classroom p{line-height:1.5;color:#bed0c7}#edu-classroom .edu-history{flex-shrink:0;margin-top:12px;padding-top:12px;border-top:1px solid #456052;display:grid;grid-template-columns:1fr 1fr;gap:8px}#edu-classroom .edu-history button{display:flex;justify-content:center;align-items:center;gap:4px;padding:8px 4px;font-size:13px}#edu-classroom .edu-sidebar-scroll{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;gap:16px;padding-right:4px}#edu-classroom .edu-sidebar-scroll>*{flex-shrink:0;min-width:0}#edu-classroom footer{position:absolute;bottom:18px;left:calc(var(--edu-sidebar-width,260px) + 32px);right:16px;display:flex;justify-content:center;gap:8px;flex-wrap:wrap}#edu-classroom .edu-palette{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}#edu-classroom .edu-palette button{padding:0;border:2px solid #71877c;min-height:34px}#edu-classroom input[type=color]{height:42px;width:100%;min-width:0}#edu-classroom aside>*{flex-shrink:0;min-width:0}#edu-classroom .edu-palette button{width:100%}#edu-classroom .edu-paint-tools{display:grid;grid-template-columns:1fr 1fr;gap:8px}#edu-classroom .edu-paint-tools button{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:14px;height:auto;min-height:66px;line-height:18px}#edu-classroom .edu-paint-tools button>*{flex-shrink:0}#edu-classroom .edu-shape-tools{grid-template-columns:repeat(3,minmax(0,1fr))}#edu-classroom .edu-shape-tools button{padding:8px 4px}#edu-classroom .edu-camera-help{flex-basis:100%;display:flex;justify-content:center;flex-wrap:wrap;gap:4px 18px;margin:0;font-size:12px;line-height:1.4}#edu-classroom .edu-camera-help span{white-space:nowrap}#edu-classroom .edu-camera-toggle{display:flex;align-items:center;gap:6px}#edu-classroom .edu-camera-controls{flex-basis:100%;display:flex;justify-content:center;gap:16px;flex-wrap:wrap;background:#21302e;border-radius:12px;padding:10px}#edu-classroom .edu-camera-controls>div{display:flex;flex-direction:column;align-items:center;gap:6px}#edu-classroom .edu-camera-controls strong{font-size:13px}#edu-classroom .edu-camera-controls>div>div{display:flex;gap:4px}#edu-classroom .edu-camera-controls button{padding:6px;min-width:36px;min-height:36px}#edu-classroom .edu-camera-controls small{font-size:11px}#edu-return-students{position:fixed;right:20px;top:84px;z-index:110;display:flex;align-items:center;gap:8px;border:0;border-radius:10px;background:#65d98a;color:#102c1c;padding:10px 16px;min-height:42px;cursor:pointer;box-shadow:0 3px 12px #0006}#edu-return-students[hidden]{display:none}#edu-return-students:focus-visible{outline:3px solid #fff;outline-offset:2px}#edu-classroom .edu-sidebar-resizer{position:fixed;left:calc(var(--edu-sidebar-width,260px) + 16px);top:84px;bottom:var(--edu-preview-bottom,116px);width:16px;z-index:102;cursor:col-resize;touch-action:none;display:flex;align-items:center;justify-content:center;border-radius:8px}#edu-classroom .edu-sidebar-resizer span{width:4px;height:48px;border-radius:4px;background:#71877c;pointer-events:none}#edu-classroom .edu-sidebar-resizer:hover span,#edu-classroom .edu-sidebar-resizer:focus-visible span,#edu-classroom .edu-sidebar-resizer.dragging span{background:#65d98a}#edu-classroom .edu-sidebar-resizer:focus-visible{outline:2px solid #65d98a;outline-offset:-2px}body.edu-sidebar-dragging,body.edu-sidebar-dragging *{cursor:col-resize!important;user-select:none!important}
+            classroomStyle = Blockbench.addCSS(`body.edu-classroom #blackout{z-index:200!important}body.edu-classroom #dialog_wrapper .dialog{z-index:201!important}body.edu-setup #page_wrapper,body.edu-classroom #page_wrapper{visibility:hidden}body.edu-setup:before{content:"";position:fixed;inset:0;background:#141e24;z-index:10}body.edu-setup #blackout{background:#141e24}body.edu-classroom #preview{visibility:visible!important;position:fixed!important;left:calc(var(--edu-sidebar-width,260px) + 32px)!important;top:84px!important;right:calc(16px + var(--edu-parts-inset,0px))!important;bottom:var(--edu-preview-bottom,116px)!important;width:calc(100vw - var(--edu-sidebar-width,260px) - 48px - var(--edu-parts-inset,0px))!important;height:calc(100vh - 84px - var(--edu-preview-bottom,116px))!important;z-index:101;background:#202b32;border-radius:20px}body.edu-classroom #preview .preview_menu,body.edu-classroom #preview .orbit_gizmo{display:none!important}#edu-classroom{position:fixed;inset:0;z-index:100;background:#141e24;color:#eaf5ee;font-size:16px}#edu-classroom button,#edu-classroom select{min-width:0;max-width:100%;min-height:42px;border-radius:10px;background:#30423b;color:#eaf5ee;padding:8px 12px;border:0;cursor:pointer}#edu-classroom button:disabled{opacity:.4;cursor:default}#edu-classroom button:hover:not(:disabled),#edu-classroom button.active{background:#65d98a;color:#102c1c}#edu-classroom header{height:76px;display:flex;gap:24px;align-items:center;padding:12px 20px}#edu-classroom header strong{color:#65d98a;font-size:20px}#edu-classroom nav{display:flex;gap:10px}#edu-classroom .edu-teacher{margin-left:auto;font-size:12px;background:transparent}#edu-classroom aside{position:absolute;left:16px;top:84px;bottom:86px;width:var(--edu-sidebar-width,260px);background:#21302e;border-radius:20px;padding:22px;display:flex;flex-direction:column;gap:0;overflow:hidden}#edu-classroom h2{font-size:24px;color:#b8ffd1}#edu-classroom label{display:grid;gap:10px}#edu-classroom select{width:100%}#edu-classroom .edu-size{display:grid;grid-template-columns:1fr 38px 32px 38px;align-items:center;gap:4px}#edu-classroom .edu-size button{padding:0;font-size:24px}#edu-classroom .edu-size b{text-align:center}#edu-classroom p{line-height:1.5;color:#bed0c7}#edu-classroom .edu-history{flex-shrink:0;margin-top:12px;padding-top:12px;border-top:1px solid #456052;display:grid;grid-template-columns:1fr 1fr;gap:8px}#edu-classroom .edu-history button{display:flex;justify-content:center;align-items:center;gap:4px;padding:8px 4px;font-size:13px}#edu-classroom .edu-sidebar-scroll{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;gap:16px;padding-right:4px}#edu-classroom .edu-sidebar-scroll>*{flex-shrink:0;min-width:0}#edu-classroom footer{position:absolute;bottom:18px;left:calc(var(--edu-sidebar-width,260px) + 32px);right:16px;display:flex;justify-content:center;gap:8px;flex-wrap:wrap}#edu-classroom .edu-palette{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}#edu-classroom .edu-palette button{padding:0;border:2px solid #71877c;min-height:34px}#edu-classroom input[type=color]{height:42px;width:100%;min-width:0}#edu-classroom aside>*{flex-shrink:0;min-width:0}#edu-classroom .edu-palette button{width:100%}#edu-classroom .edu-paint-tools{display:grid;grid-template-columns:1fr 1fr;gap:8px}#edu-classroom .edu-paint-tools button{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:14px;height:auto;min-height:66px;line-height:18px}#edu-classroom .edu-paint-tools button>*{flex-shrink:0}#edu-classroom .edu-whole-model-notice{display:grid;grid-template-columns:28px 1fr;gap:8px;background:#65d98a;color:#102c1c;border:2px solid #b8ffd1;border-radius:12px;padding:12px;box-shadow:0 3px 10px #0003}#edu-classroom .edu-whole-model-notice strong{font-size:16px;line-height:1.35}#edu-classroom .edu-whole-model-notice span{grid-column:1/-1;font-size:13px;line-height:1.4}#edu-classroom .edu-shape-tools{grid-template-columns:repeat(3,minmax(0,1fr))}#edu-classroom .edu-shape-tools button{padding:8px 4px}#edu-classroom .edu-camera-help{flex-basis:100%;display:flex;justify-content:center;flex-wrap:wrap;gap:4px 18px;margin:0;font-size:12px;line-height:1.4}#edu-classroom .edu-camera-help span{white-space:nowrap}#edu-classroom .edu-camera-toggle{display:flex;align-items:center;gap:6px}#edu-classroom .edu-camera-controls{flex-basis:100%;display:flex;justify-content:center;gap:16px;flex-wrap:wrap;background:#21302e;border-radius:12px;padding:10px}#edu-classroom .edu-camera-controls>div{display:flex;flex-direction:column;align-items:center;gap:6px}#edu-classroom .edu-camera-controls strong{font-size:13px}#edu-classroom .edu-camera-controls>div>div{display:flex;gap:4px}#edu-classroom .edu-camera-controls button{padding:6px;min-width:36px;min-height:36px}#edu-classroom .edu-camera-controls small{font-size:11px}#edu-return-students{position:fixed;right:20px;top:84px;z-index:110;display:flex;align-items:center;gap:8px;border:0;border-radius:10px;background:#65d98a;color:#102c1c;padding:10px 16px;min-height:42px;cursor:pointer;box-shadow:0 3px 12px #0006}#edu-return-students[hidden]{display:none}#edu-return-students:focus-visible{outline:3px solid #fff;outline-offset:2px}#edu-classroom .edu-sidebar-resizer{position:fixed;left:calc(var(--edu-sidebar-width,260px) + 16px);top:84px;bottom:var(--edu-preview-bottom,116px);width:16px;z-index:102;cursor:col-resize;touch-action:none;display:flex;align-items:center;justify-content:center;border-radius:8px}#edu-classroom .edu-sidebar-resizer span{width:4px;height:48px;border-radius:4px;background:#71877c;pointer-events:none}#edu-classroom .edu-sidebar-resizer:hover span,#edu-classroom .edu-sidebar-resizer:focus-visible span,#edu-classroom .edu-sidebar-resizer.dragging span{background:#65d98a}#edu-classroom .edu-sidebar-resizer:focus-visible{outline:2px solid #65d98a;outline-offset:-2px}body.edu-sidebar-dragging,body.edu-sidebar-dragging *{cursor:col-resize!important;user-select:none!important}
                 #edu-classroom .edu-parts-panel{position:absolute;right:16px;top:84px;bottom:var(--edu-preview-bottom,116px);width:var(--edu-parts-panel-width,224px);z-index:102;background:#21302e;border-radius:20px;padding:14px 10px;display:flex;flex-direction:column;gap:10px;min-height:0;overflow:hidden}
                 #edu-classroom .edu-parts-heading{display:flex;align-items:center;justify-content:space-between;gap:4px;flex-shrink:0}
                 #edu-classroom .edu-parts-heading h2{display:flex;align-items:center;gap:7px;font-size:18px;margin:0;color:#eaf5ee}
@@ -2333,6 +2332,33 @@
             document.body.append(teacherReturn);
             // A pending canvas-to-image load must not suppress the bitmap restored
             // by native undo. Its source has already been replaced by the snapshot.
+            wholeModelTransformer = new TransformerModule('edu_whole_model', {
+                priority:100,
+                condition:() => !!classroom && classroom.mode === 'shape' && classroom.wholeModel && ['move','rotate'].includes(classroom.operation),
+                use_condition:() => !current()?.busy,
+                updateGizmo() {
+                    const visible = TransformerModule.modules.edit.updateGizmo.call(this);
+                    delete Transformer.rotation_ref;
+                    Transformer.rotation_selection.set(0,0,0);
+                    if (classroom.operation === 'rotate') Transformer.position.set(0,0,0);
+                    return visible;
+                },
+                calculateOffset(context) { return TransformerModule.modules.edit.calculateOffset.call(this, context); },
+                onStart() { Undo.initEdit({elements:Cube.all.slice(),groups:Group.all.slice()}); },
+                onMove(context) {
+                    const delta = context.value - this.previous_value;
+                    const axis = context.axis_number ?? context.rotate_normal;
+                    transformWholeModel(classroom.operation, axis, delta, false);
+                    Transformer.updateSelection();
+                },
+                onEnd(context) {
+                    if (!context.has_changed) return;
+                    if (context.keep_changes) Undo.finishEdit(classroom.operation === 'move' ? 'Mover todo el modelo Edu' : 'Girar todo el modelo Edu');
+                    else Undo.cancelEdit(true);
+                    refresh();
+                },
+                onCancel(context) { if (context.has_changed) Undo.cancelEdit(true); refresh(); }
+            });
             const dragStart = () => { eduPointerDown = !!classroom && classroom.mode === 'shape'; };
             const dragEnd = () => { queueMicrotask(() => { eduPointerDown = false; eduDrag = null; }); };
             Transformer.addEventListener('mouseDown', dragStart);
@@ -2387,6 +2413,7 @@
                 else if (event === 'edu_transform_end') Transformer.removeEventListener('mouseUp', listener);
                 else Blockbench.removeListener(event, listener);
             }
+            wholeModelTransformer?.delete(); wholeModelTransformer = null;
             eduDrag = null; eduPointerDown = false;
             listeners.length = 0; sessions.clear();
             panel?.delete(); action?.delete(); style?.delete(); panel = null;
