@@ -37,7 +37,7 @@ async (page) => {
     await viewport(1366,768,1);
     await page.locator('.edu-catalog>li').first().focus(); await page.keyboard.press('Enter');
     assert(!await page.getByRole('button',{name:'Siguiente',exact:true}).isDisabled(), 'Keyboard card selection enables Next');
-    await page.evaluate(async () => { const w=Dialog.open.content_vue; w.creature='zombie'; w.step=2; await w.next(); });
+    await page.evaluate(async () => { const w=Dialog.open.content_vue; w.creature='zombie'; w.step=3; await w.next(); });
     assert(!await page.locator('#edu-camera-controls').count(), 'Camera panel initially closed');
     for (const [w,h] of [[1366,768],[1280,720],[1024,768]]) for (const zoom of [1,1.25]) {
         await viewport(w,h,zoom);

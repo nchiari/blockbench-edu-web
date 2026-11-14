@@ -17,7 +17,7 @@ async (page) => {
                 try {
                     ModelLoader.loaders.blockbench_edu.onStart();
                     const wizard = Dialog.open.content_vue;
-                    wizard.creature = id; wizard.step = 2;
+                    wizard.creature = id; wizard.step = 3;
                     await wizard.next();
                     if (Project?.uuid !== previousId) created = Project;
                     if (wizard.error) throw new Error(wizard.error);

@@ -4,7 +4,7 @@ async page => {
     const check=(ok,message)=>{if(!ok)throw Error(message);results.push(message);};
     await page.setViewportSize({width:1366,height:768});
     await page.waitForFunction(()=>Dialog.open?.content_vue?.steps);
-    await page.evaluate(async()=>{const wizard=Dialog.open.content_vue;wizard.creature='zombie';wizard.step=2;await wizard.next();});
+    await page.evaluate(async()=>{const wizard=Dialog.open.content_vue;wizard.creature='zombie';wizard.step=3;await wizard.next();});
     await page.waitForSelector('#edu-classroom');
     await page.evaluate(()=>{settings.undo_selections.value=true;});
     const point=await page.evaluate(()=>{

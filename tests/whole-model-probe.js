@@ -3,7 +3,7 @@ async (page) => {
     const checks = [];
     const check = (ok, label) => {if (!ok) throw new Error(label); checks.push(label);};
     await page.waitForFunction(() => typeof ModelLoader !== 'undefined' && ModelLoader.loaders.blockbench_edu);
-    await page.evaluate(async () => {const w=Dialog.open.content_vue; w.creature='zombie'; w.step=2; await w.next();});
+    await page.evaluate(async () => {const w=Dialog.open.content_vue; w.creature='zombie'; w.step=3; await w.next();});
     await page.waitForSelector('#edu-classroom');
     const selector = page.locator('#edu-classroom aside select').first();
     await selector.selectOption('__model__');

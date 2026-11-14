@@ -131,3 +131,11 @@ test('flight, respiration and mob targets survive portable save and addon export
     const old=await readCreatureProject(await zip.generateAsync({type:'uint8array'}),Zip);
     assert.equal(old.version,6);assert.equal(core.pigBehavior(old.state.behavior).pig.locomotion.mode,'walk');
 });
+test('egg colors survive saving and reopening a portable project', async () => {
+    const {model,state,reference} = await fixture();
+    const colors = {base_color:'#ee9900',overlay_color:'#1133ff'};
+    reference.entity.description.spawn_egg = colors;
+    reference.rp.zip.file(reference.entity.path, JSON.stringify(reference.entity.json));
+    const loaded = await readCreatureProject(await writeCreatureProject(model,state,reference,Zip),Zip);
+    assert.deepEqual(loaded.reference.entity.description.spawn_egg, colors);
+});

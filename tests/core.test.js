@@ -249,3 +249,17 @@ test('smoothing mixes colors within a two-pixel radius and preserves alpha and d
     const edge=core.smoothPixels(source,0,0,2);
     assert.deepEqual(pixel(edge,0,0),[0,0,0,255]);
 });
+test('chosen egg colors replace catalog textures and survive export', async () => {
+    const mob = require('../reference/wizard-catalog.json').pig;
+    const colors = {base_color:'#f123ab', overlay_color:'#1245ef'};
+    const starter = await core.createMobAddon(mob, {spawnEgg:colors}, Zip, require('node:crypto').randomUUID);
+    const reference = await core.readAddon(starter.addon, Zip);
+    assert.deepEqual(reference.entity.description.spawn_egg, colors);
+    const result = await core.buildAddon(reference, starter.geometry, mob.textures.default.split(',')[1], Zip);
+    const exported = await core.readAddon(await result.zip.generateAsync({type:'uint8array'}), Zip);
+    assert.deepEqual(exported.entity.description.spawn_egg, colors);
+    const original = await core.createMobAddon(mob, {}, Zip, require('node:crypto').randomUUID);
+    assert.deepEqual((await core.readAddon(original.addon, Zip)).entity.description.spawn_egg,
+        JSON.parse(mob.entity)['minecraft:client_entity'].description.spawn_egg);
+    await assert.rejects(core.createMobAddon(mob, {spawnEgg:{...colors,base_color:'invalid'}}, Zip, require('node:crypto').randomUUID), /colores/);
+});
