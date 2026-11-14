@@ -130,3 +130,21 @@ excluye mascotas domesticadas y desactiva la huida al recibir daño y las crías
 Evitar tiene prioridad sobre el ataque y excluye esa familia de la defensa.
 Los proyectos con estos ajustes usan formato .bbedu 7; se leen formatos 1–6.
 Pendiente verificar los movimientos y sus combinaciones dentro de Minecraft Education.
+
+
+### Interfaz de comportamiento simplificada (test, 14/11/2026)
+
+Siete categorías: Base, Movimiento, Reacción al jugador, Amistad, Vida y daño,
+Combate y Montura. Se eliminan Comida y cuidados y Crías. El editor actual no
+permite reproducirse, tampoco con la base Original. Los archivos antiguos se
+adaptan al abrirlos: un alimento por acción, domesticación al 100 % y curación
+fija de 4 puntos. Los alimentos se eligen junto a sus casillas en Amistad y Vida
+y daño. Los proyectos nuevos usan .bbedu 8; los anteriores siguen siendo legibles.
+
+Las selecciones llevan una marca visible; Volver y los títulos se destacan.
+Los requisitos aparecen en amarillo y los cambios automáticos se anuncian sobre
+el modelo durante unos segundos. Textos breves en español de España.
+Montura mantiene un único pasajero, con vista 3D y botones de posición vertical,
+longitudinal y lateral. La conversión de coordenadas se contrastó con el plugin
+Seat Position instalado; no necesita instalar ese plugin en la web. El ayudante
+es una previsualización y no forma parte del modelo exportado.

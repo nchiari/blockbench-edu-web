@@ -344,3 +344,12 @@ Publicación confirmada en `https://nchiari.github.io/blockbench-edu-web/`, revi
 - Restricciones verificadas: montura solo con Camina; atacar criaturas desactiva pánico y reproducción. Opciones bloqueadas en gris con tooltip. Resumen derecho e historial reflejan los cambios.
 - Pruebas automáticas de controladores, respiración, validación de objetivos y conflictos, exportación y guardado .bbedu 7 con lectura de proyectos previos. Navegador: búsqueda, selección y bloqueo de zombis en la lista opuesta, respiración en ambos medios, resumen, descarga de .bbedu y .mcaddon inspeccionados.
 - Pendiente probar dentro de Minecraft Education el vuelo, el regreso a tomar aire, la supervivencia de una criatura acuática en tierra y el combate/huida con distintos objetivos. La estructura del addon y la interfaz no acreditan esas pruebas en el juego.
+
+
+## Simplificación del editor de comportamiento — 2026-11-14
+
+- Interfaz de siete categorías, textos breves de España, selecciones persistentes con marca, títulos y Volver destacados. Alimentos integrados en su acción, probabilidad fija 100 %, curación fija 4 puntos; sin reproducción, incluida base Original.
+- Requisitos en recuadro amarillo y avisos temporales centrados sobre el modelo.
+- Revisado el plugin local seat_position.js: coordenadas del asiento convertidas a escena con X/Z negativos y escala 16, corrección vertical 2,2. Se implementa un ayudante propio con un pasajero y seis botones; sin ventana técnica ni dependencia del plugin externo. Vista retirada al cambiar categoría/modo, geometrías y materiales liberados.
+- Validación automática de normalización de proyectos, ausencia de reproducción, probabilidad fija, desplazamiento lateral y único asiento. Validación en navegador del selector de alimentos, categorías, posición del pasajero y ausencia de errores de consola. Formato portable 8 conserva las reglas simplificadas y desplazamiento lateral.
+- Pendiente comprobar en Minecraft Education el encaje real del pasajero en el asiento y las interacciones de comida. Ninguna comprobación del navegador sustituye esa prueba.

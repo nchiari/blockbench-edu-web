@@ -6,6 +6,29 @@ const Zip=require('jszip');
 const core=require('../blockbench_edu.js');
 const catalog=require('../reference/wizard-catalog.json');
 
+test('simplified classroom removes breeding even for Original and fixes food amounts',()=>{
+    let b=core.pigBehavior({...core.defaultBehavior(),profile:'companion'});
+    b.pig.breeding.enabled=true;b.pig.food.chance=25;
+    b.pig.food.heal=[{item:'apple',amount:12},{item:'carrot',amount:7}];
+    b=core.simplePigBehavior(b);
+    assert.equal(b.pig.breeding.enabled,false);assert.equal(b.pig.food.chance,100);
+    assert.deepEqual(b.pig.food.heal,[{item:'apple',amount:4}]);
+    b=core.adjustPigBehavior(b,'mount.enabled',true);
+    b=core.adjustPigBehavior(b,'mount.lateral',0.3);
+    const entity=core.compileBehavior(JSON.parse(catalog.pig.behavior),b)['minecraft:entity'];
+    assert.deepEqual(entity.component_groups['blockbench_edu:ride_ready']['minecraft:rideable'].seats.position,[0.3,0.63,0]);
+    assert.equal(entity.component_groups['blockbench_edu:ride_ready']['minecraft:rideable'].seat_count,1);
+    assert.equal(entity.component_groups['blockbench_edu:wild']['minecraft:tameable'].probability,1);
+    const edited=core.adjustPigBehavior(b,'speed',0.35);
+    assert.equal(edited.pig.baseProfile,'companion');
+    assert.throws(()=>core.adjustPigBehavior(b,'mount.lateral',3),/montura/);
+    b.profile='original';
+    const original=core.compileBehavior(JSON.parse(catalog.pig.behavior),b)['minecraft:entity'];
+    for(const group of [original.components,...Object.values(original.component_groups)]) {
+        assert.equal(group['minecraft:breedable'],undefined);assert.equal(group['minecraft:behavior.breed'],undefined);
+    }
+});
+
 test('pig locomotion replaces incompatible controllers and exports swimming, amphibious and flight',()=>{
     const source=JSON.parse(catalog.pig.behavior),before=JSON.stringify(source);
     let b=core.pigBehavior({...core.defaultBehavior(),profile:'calm'});
@@ -300,7 +323,7 @@ test('pig categories combine independent movement, healing, friendship and defen
     assert.equal(e.components['minecraft:behavior.tempt'].within_radius,18);
     assert.equal(e.component_groups['blockbench_edu:tamed']['minecraft:behavior.follow_owner'],undefined);
     assert.ok(e.component_groups['blockbench_edu:tamed']['minecraft:behavior.owner_hurt_by_target']);
-    assert.throws(()=>core.compileBehavior(JSON.parse(catalog.cow.behavior),b),/cerdo/);
+    assert.throws(()=>core.compileBehavior(JSON.parse(catalog.cow.behavior),b),/criatura/);
     const retaliation=core.pigBehavior({...core.defaultBehavior(),profile:'calm'});
     Object.assign(retaliation.pig,{reaction:'retaliate',panic:false});
     const r=core.compileBehavior(JSON.parse(catalog.pig.behavior),retaliation)['minecraft:entity'].components;
@@ -311,7 +334,7 @@ test('pig categories combine independent movement, healing, friendship and defen
 test('pig category dependencies and distance bounds reject contradictory combinations',()=>{
     const b=core.pigBehavior({...core.defaultBehavior(),profile:'calm'});
     for(const patch of [{follow:true},{defend:true},{tame:true,reaction:'enemy'},{reaction:'retaliate'},{followStart:2},{followStop:6},{healAmount:21},{temptRange:25},{wander:'yes'}])
-        assert.throws(()=>core.validateBehavior({...b,pig:{...b.pig,...patch}}),/cerdo/);
+        assert.throws(()=>core.validateBehavior({...b,pig:{...b.pig,...patch}}),/criatura/);
     const legacy={...core.defaultBehavior(),profile:'guardian',health:60};
     const upgraded=core.pigBehavior(legacy);
     assert.equal(upgraded.health,60);
