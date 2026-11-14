@@ -392,3 +392,9 @@ Publicación confirmada en `https://nchiari.github.io/blockbench-edu-web/`, revi
 - Formato .bbedu 12 para impedir que editores antiguos ignoren las posibilidades. Las filas antiguas sin posibilidad conservan Siempre; las listas que exceden los nuevos límites se rechazan sin recortarlas silenciosamente.
 - Pruebas automáticas de los seis niveles, cantidades no apilables, cinco filas idénticas de 64 unidades, rechazo de sexta fila/cantidad 65 y posibilidades desconocidas, guardado/reapertura y tablas en BP planos/anidados. La comprobación de drops dentro de Minecraft Education sigue pendiente.
 - Navegador local: reapertura del ejemplo, selector por palabras, rechazo de 65 unidades sin perder 64, cinco filas y duplicados, bloqueo de Añadir objeto, eliminación de filas, guardado real y exportación real. Archivo .bbedu descargado con formato 12 y Siempre/Media; mcaddon descargado contrastado con 64 diamantes garantizados y dos espadas condicionadas al 50 %. 87 pruebas, sintaxis y compilación web correctas.
+
+## Publicación de Botín — 2026-11-14 (producción)
+
+- Por indicación explícita del usuario se trasladan exclusivamente los cambios de Botín (49fc6cb y 996c7e5) sobre main. Los controles de modelo completo y el asistente del huevo siguen en pruebas.
+- Combinación de producción verificada con 85 pruebas, sintaxis, compilación web y navegador local: reapertura .bbedu 12 con 64 diamantes Siempre y 2 espadas Media, selector con las seis palabras y límites actuales.
+- La prueba de drops dentro de Minecraft Education sigue pendiente.
