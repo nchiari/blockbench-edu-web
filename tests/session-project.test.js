@@ -43,7 +43,7 @@ test('rejects malformed, future and incomplete projects before importing',async(
         change(data,zip); zip.file('project.json',JSON.stringify(data));
         return readCreatureProject(await zip.generateAsync({type:'uint8array'}),Zip);
     };
-    await assert.rejects(mutate(d=>{d.version=9;}),/otra versión/);
+    await assert.rejects(mutate(d=>{d.version=10;}),/otra versión/);
     await assert.rejects(mutate((d,z)=>z.remove('reference.mcaddon')),/addon base/);
     await assert.rejects(mutate(d=>{d.model.textures[0].source='';}),/pintura incluida/);
     await assert.rejects(mutate(d=>{d.state.originalFaces.pop();}),/pintura original/);

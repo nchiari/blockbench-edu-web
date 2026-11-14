@@ -6,6 +6,20 @@ const Zip=require('jszip');
 const core=require('../blockbench_edu.js');
 const catalog=require('../reference/wizard-catalog.json');
 
+test('direct ground riding accepts keyboard input without requiring a held item',()=>{
+    let b=core.simplePigBehavior(core.defaultBehavior());
+    assert.equal(b.pig.mount.control,'direct');
+    b=core.adjustPigBehavior(b,'mount.enabled',true);
+    const e=core.compileBehavior(JSON.parse(catalog.pig.behavior),b)['minecraft:entity'];
+    const mounted=e.component_groups['blockbench_edu:mounted'];
+    assert.deepEqual(mounted,{'minecraft:input_ground_controlled':{}});
+    assert.equal(e.component_groups['blockbench_edu:ride_ready']['minecraft:rideable'].seat_count,1);
+    assert.ok(e.events['blockbench_edu:on_dismount'].sequence[0].remove.component_groups.includes('blockbench_edu:mounted'));
+    const legacy=core.adjustPigBehavior(b,'mount.control','player');
+    assert.ok(core.compileBehavior(JSON.parse(catalog.pig.behavior),legacy)['minecraft:entity'].component_groups['blockbench_edu:mounted']['minecraft:item_controllable']);
+    assert.equal(core.simplePigBehavior(legacy).pig.mount.control,'player');
+});
+
 test('simplified classroom removes breeding even for Original and fixes food amounts',()=>{
     let b=core.pigBehavior({...core.defaultBehavior(),profile:'companion'});
     b.pig.breeding.enabled=true;b.pig.food.chance=25;

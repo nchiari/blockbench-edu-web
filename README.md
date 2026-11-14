@@ -148,3 +148,14 @@ Montura mantiene un único pasajero, con vista 3D y botones de posición vertica
 longitudinal y lateral. La conversión de coordenadas se contrastó con el plugin
 Seat Position instalado; no necesita instalar ese plugin en la web. El ayudante
 es una previsualización y no forma parte del modelo exportado.
+
+
+Revisión del 14/11: Volver utiliza borde verde claro; selección solo por color,
+descripciones breves restauradas y resumen derecho con título en negrita. Los
+avisos amarillos nombran cada opción entre comillas y en negrita y ofrecen un
+acceso que abre la categoría y enfoca el control. Montura permite la navegación
+normal del ratón con una herramienta de cámara que no edita el modelo.
+Nuevo control de montura Directo (WASD y ratón), sin objeto en la mano, mediante
+input_ground_controlled; se mantienen el control con zanahoria y el paseo autónomo.
+Las nuevas configuraciones eligen Directo; las monturas existentes conservan su
+control. Los proyectos con Directo usan formato 9, compatible con lectura 1–8.

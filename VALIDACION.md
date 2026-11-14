@@ -353,3 +353,12 @@ Publicación confirmada en `https://nchiari.github.io/blockbench-edu-web/`, revi
 - Revisado el plugin local seat_position.js: coordenadas del asiento convertidas a escena con X/Z negativos y escala 16, corrección vertical 2,2. Se implementa un ayudante propio con un pasajero y seis botones; sin ventana técnica ni dependencia del plugin externo. Vista retirada al cambiar categoría/modo, geometrías y materiales liberados.
 - Validación automática de normalización de proyectos, ausencia de reproducción, probabilidad fija, desplazamiento lateral y único asiento. Validación en navegador del selector de alimentos, categorías, posición del pasajero y ausencia de errores de consola. Formato portable 8 conserva las reglas simplificadas y desplazamiento lateral.
 - Pendiente comprobar en Minecraft Education el encaje real del pasajero en el asiento y las interacciones de comida. Ninguna comprobación del navegador sustituye esa prueba.
+
+
+## Ajuste de ayudas y cámara de Montura — 2026-11-14
+
+- Volver con borde verde, selección por color sin marca textual, descripciones de Base y frase de ayuda por categoría. Se retira Sin crías del resumen Original. Título del resumen en negrita.
+- Avisos estructurados: opción entre comillas y en negrita; el enlace abre la categoría, despliega si corresponde y enfoca el control. Sin HTML dinámico.
+- Causa del bloqueo de cámara: pointer-events:none en #preview para todo comportamiento. Montura lo habilita y selecciona una herramienta de vista (selectElements:false, transformerMode:hidden). Se evita el cambio a herramientas de edición por doble clic; al salir vuelven las herramientas de forma.
+- Control directo de montura con input_ground_controlled, contrastado con caballo vanilla y documentación Creator; sin requisito de objeto y sin alterar el estado de domesticación. Se mantiene la alternativa con zanahoria para proyectos existentes y el límite de un pasajero. Nuevo modo guardado en formato 9.
+- Navegador: descripciones, aviso con foco en Se puede montar y giro real del modelo mediante arrastre. Validación estructural del control directo, salida de montura y alternativa con objeto. Pendiente prueba en Minecraft Education de WASD y orientación con ratón.
