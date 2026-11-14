@@ -35,13 +35,13 @@ test('portable project retains exact model, original addon, limits and export id
     assert.deepEqual(next.version,[1,0,5]);
 });
 
-test('universal category settings use portable format 11 and retain high health and custom movement',async()=>{
+test('universal category settings use portable format 12 and retain high health and custom movement',async()=>{
     const {model,state,reference}=await fixture(),core=require('../blockbench_edu.js');
     state.behavior=core.entityBehavior(reference.behavior.json,{...core.defaultBehavior(),profile:'companion'});
     state.behavior=core.adjustPigBehavior(state.behavior,'health',500);
     state.behavior=core.adjustPigBehavior(state.behavior,'locomotion.mode','fly');
     const loaded=await readCreatureProject(await writeCreatureProject(model,state,reference,Zip),Zip);
-    assert.equal(loaded.version,11);assert.deepEqual(loaded.state.behavior,state.behavior);
+    assert.equal(loaded.version,12);assert.deepEqual(loaded.state.behavior,state.behavior);
     const exported=await buildAddon(loaded.reference,{'minecraft:geometry':[loaded.reference.geometry]},model.textures[0].source.split(',')[1],Zip,{},loaded.state.behavior);
     const addon=await readAddon(await exported.zip.generateAsync({type:'uint8array'}),Zip);
     assert.equal(addon.behavior.json['minecraft:entity'].components['minecraft:health'].max,500);
@@ -51,16 +51,22 @@ test('universal category settings use portable format 11 and retain high health 
 test('portable loot rows reopen and export exactly, while format 10 keeps its inherited drops',async()=>{
     const {model,state,reference}=await fixture(),core=require('../blockbench_edu.js');
     state.behavior=core.entityBehavior(reference.behavior.json);
-    state.behavior=core.adjustPigBehavior(state.behavior,'loot',{mode:'custom',entries:[{item:'minecraft:diamond',count:200},{item:'minecraft:diamond_sword',count:2}]});
+    state.behavior=core.adjustPigBehavior(state.behavior,'loot',{mode:'custom',entries:[{item:'minecraft:diamond',count:64,chance:'medium'},{item:'minecraft:diamond_sword',count:2}]});
     const bytes=await writeCreatureProject(model,state,reference,Zip);
     const loaded=await readCreatureProject(bytes,Zip);
-    assert.equal(loaded.version,11);assert.deepEqual(loaded.state.behavior.pig.loot,state.behavior.pig.loot);
+    assert.equal(loaded.version,12);assert.deepEqual(loaded.state.behavior.pig.loot,state.behavior.pig.loot);
     const result=await buildAddon(loaded.reference,{'minecraft:geometry':[loaded.reference.geometry]},model.textures[0].source.split(',')[1],Zip,{},loaded.state.behavior);
     const out=await readAddon(await result.zip.generateAsync({type:'uint8array'}),Zip);
     const table=out.behavior.json['minecraft:entity'].components['minecraft:loot'].table;
     const root=out.bp.path.slice(0,out.bp.path.lastIndexOf('/')+1);
     assert.deepEqual(JSON.parse(await out.bp.zip.file(root+table).async('string')),core.compileLootTable(state.behavior.pig.loot));
     const zip=await Zip.loadAsync(bytes),data=JSON.parse(await zip.file('project.json').async('string'));
+    data.version=11;for(const row of data.state.behavior.pig.loot.entries)delete row.chance;
+    zip.file('project.json',JSON.stringify(data));
+    const legacy=await readCreatureProject(await zip.generateAsync({type:'uint8array'}),Zip);
+    assert.ok(core.compileLootTable(legacy.state.behavior.pig.loot).pools.every(p=>p.conditions===undefined));
+    data.state.behavior.pig.loot.entries[0].count=200;zip.file('project.json',JSON.stringify(data));
+    await assert.rejects(readCreatureProject(await zip.generateAsync({type:'uint8array'}),Zip),/hasta 5 objetos, de 1 a 64/);
     data.version=10;delete data.state.behavior.pig.loot;zip.file('project.json',JSON.stringify(data));
     const previous=await readCreatureProject(await zip.generateAsync({type:'uint8array'}),Zip);
     assert.deepEqual(core.entityBehavior(previous.reference.behavior.json,previous.state.behavior).pig.loot,{mode:'inherit',entries:[]});
@@ -74,7 +80,7 @@ test('rejects malformed, future and incomplete projects before importing',async(
         change(data,zip); zip.file('project.json',JSON.stringify(data));
         return readCreatureProject(await zip.generateAsync({type:'uint8array'}),Zip);
     };
-    await assert.rejects(mutate(d=>{d.version=12;}),/otra versión/);
+    await assert.rejects(mutate(d=>{d.version=13;}),/otra versión/);
     await assert.rejects(mutate((d,z)=>z.remove('reference.mcaddon')),/addon base/);
     await assert.rejects(mutate(d=>{d.model.textures[0].source='';}),/pintura incluida/);
     await assert.rejects(mutate(d=>{d.state.originalFaces.pop();}),/pintura original/);

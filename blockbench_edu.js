@@ -224,11 +224,17 @@
     // END EMBEDDED LOOT ITEMS
     const LOOT_ITEM_IDS = new Set(LOOT_ITEMS.map(item=>item.id));
     const LOOT_ITEM_LABELS = new Map(LOOT_ITEMS.map(item=>[item.id,item.label]));
-    const MAX_LOOT_TOTAL = 10000;
+    const MAX_LOOT_ROWS = 5, MAX_LOOT_COUNT = 64;
+    const LOOT_CHANCES = [
+        {id:'always',label:'Siempre',chance:1}, {id:'very_high',label:'Muy alta',chance:0.9},
+        {id:'high',label:'Alta',chance:0.75}, {id:'medium',label:'Media',chance:0.5},
+        {id:'low',label:'Baja',chance:0.25}, {id:'very_low',label:'Muy baja',chance:0.1}
+    ];
+    function lootChance(row) {return LOOT_CHANCES.find(choice=>choice.id===(row.chance??'always'));}
     function validateLoot(loot) {
-        requireThat(loot&&['inherit','original','none','custom'].includes(loot.mode)&&Array.isArray(loot.entries)&&loot.entries.length<=128&&
-            (loot.mode!=='custom'||loot.entries.length>0)&&loot.entries.every(row=>row&&LOOT_ITEM_IDS.has(row.item)&&Number.isInteger(row.count)&&row.count>=1&&row.count<=MAX_LOOT_TOTAL)&&
-            loot.entries.reduce((sum,row)=>sum+row.count,0)<=MAX_LOOT_TOTAL,'El botín debe tener objetos válidos y entre 1 y 10 000 unidades en total.');
+        requireThat(loot&&['inherit','original','none','custom'].includes(loot.mode)&&Array.isArray(loot.entries)&&loot.entries.length<=MAX_LOOT_ROWS&&
+            (loot.mode!=='custom'||loot.entries.length>0)&&loot.entries.every(row=>row&&LOOT_ITEM_IDS.has(row.item)&&Number.isInteger(row.count)&&row.count>=1&&row.count<=MAX_LOOT_COUNT&&lootChance(row)),
+            'El botín admite hasta 5 objetos, de 1 a 64 unidades cada uno, con una posibilidad válida.');
         return loot;
     }
     function lootTablePath(source) {
@@ -236,9 +242,11 @@
     }
     function compileLootTable(loot) {
         validateLoot(loot);
-        // A roll produces one item, even for tools or armour. Large amounts are never
-        // truncated to one stack, and independent pools award every selected row.
-        return {pools:loot.mode==='custom'?loot.entries.map(row=>({rolls:row.count,entries:[{type:'item',name:row.item,weight:1,functions:[{function:'set_count',count:1}]}]})):[]};
+        // Pool conditions gate the entire quantity once; entry conditions would
+        // instead test each unit. Separate pools keep repeated items independent.
+        return {pools:loot.mode==='custom'?loot.entries.map(row=>({rolls:row.count,
+            ...(lootChance(row).chance<1?{conditions:[{condition:'random_chance',chance:lootChance(row).chance}]}:{}),
+            entries:[{type:'item',name:row.item,weight:1,functions:[{function:'set_count',count:1}]}]})):[]};
     }
     function applyLootOverride(source,settings,result) {
         const loot=settings.pig?.loot;
@@ -789,7 +797,7 @@
     async function writeCreatureProject(model, state, reference, Zip) {
         validateCreatureProject(model, state);
         const zip = new Zip();
-        zip.file('project.json', JSON.stringify({format: 'blockbench-edu', version: state.behavior?.pig?.loot ? 11 : state.behavior?.pig?.universal ? 10 : state.behavior?.pig?.mount?.control==='direct' ? 9 : state.behavior?.pig?.simple ? 8 : state.behavior?.pig?.locomotion ? 7 : state.behavior?.pig?.damageSources ? 6 : state.behavior?.pig?.mount ? 5 : state.behavior?.pig?.food ? 4 : state.behavior?.pig ? 3 : 2, model, state}));
+        zip.file('project.json', JSON.stringify({format: 'blockbench-edu', version: state.behavior?.pig?.loot ? 12 : state.behavior?.pig?.universal ? 10 : state.behavior?.pig?.mount?.control==='direct' ? 9 : state.behavior?.pig?.simple ? 8 : state.behavior?.pig?.locomotion ? 7 : state.behavior?.pig?.damageSources ? 6 : state.behavior?.pig?.mount ? 5 : state.behavior?.pig?.food ? 4 : state.behavior?.pig ? 3 : 2, model, state}));
         zip.file('reference.mcaddon', await reference.root.generateAsync({type:'uint8array'}));
         return zip.generateAsync({type:'uint8array', compression:'DEFLATE'});
     }
@@ -799,7 +807,7 @@
             zip = await Zip.loadAsync(content);
             data = JSON.parse(await zip.file('project.json').async('string'));
         } catch { throw new Error('Este archivo no es un proyecto de Blockbench Edu o está dañado. Elige el archivo .bbedu que guardaste.'); }
-        requireThat(data.format === 'blockbench-edu' && [1,2,3,4,5,6,7,8,9,10,11].includes(data.version), 'Este proyecto necesita otra versión de Blockbench Edu.');
+        requireThat(data.format === 'blockbench-edu' && [1,2,3,4,5,6,7,8,9,10,11,12].includes(data.version), 'Este proyecto necesita otra versión de Blockbench Edu.');
         validateCreatureProject(data.model, data.state);
         requireThat(zip.file('reference.mcaddon'), 'El proyecto no contiene su addon base.');
         const reference = await readAddon(await zip.file('reference.mcaddon').async('uint8array'), Zip);
@@ -811,7 +819,7 @@
         reference.lastVersion = data.state.lastVersion;
         return {...data, reference};
     }
-    const core = {lootItems:LOOT_ITEMS,compileLootTable,lootTablePath,validateLoot,resizePixels, smoothPixels, extractPixels, extractSurface, sampleRegion, packFaces, centeredBounds, geometryEntries, signature, syncManifests, readAddon, buildAddon, createStarter, createMobAddon, compatibleSounds, writeCreatureProject, readCreatureProject, simplePigBehavior, entityBehavior, entityComponent, supportsEntityBehavior, defaultBehavior, validateBehavior, supportsBehavior, compileBehavior, pigBehavior, adjustPigBehavior};
+    const core = {lootChances:LOOT_CHANCES,lootItems:LOOT_ITEMS,compileLootTable,lootTablePath,validateLoot,resizePixels, smoothPixels, extractPixels, extractSurface, sampleRegion, packFaces, centeredBounds, geometryEntries, signature, syncManifests, readAddon, buildAddon, createStarter, createMobAddon, compatibleSounds, writeCreatureProject, readCreatureProject, simplePigBehavior, entityBehavior, entityComponent, supportsEntityBehavior, defaultBehavior, validateBehavior, supportsBehavior, compileBehavior, pigBehavior, adjustPigBehavior};
     if (typeof module !== 'undefined' && module.exports) { module.exports = core; return; }
 
     let cameraViewTool, panel, style, projectStyle, wizardStyle, action, loader, wizard, classroom, classroomStyle, selectionTool, smoothTool, colorSelectionTool, selectionFillTool, previousTool, teacherReturn, alive = false;
@@ -1642,7 +1650,7 @@
         classroom = new Vue({el: mount,
             data: {sidebarWidth: current()?.sidebarWidth || 260, sidebarMax: 480, sidebarDragging: false, sidebarStartX: 0, sidebarStartWidth: 260, mode: 'shape', operation: 'size', position: [0,0,0], rotation: [0,0,0], axes: ['De lado', 'Arriba / abajo', 'Adelante / atrás'], turns: ['Inclinar', 'Girar', 'Ladear'], pieces: [], selectedId: '', dimensions: [0,0,0], maximum: [0,0,0], minimum: [1,1,1], busy: false, canUndo: false, canRedo: false,
                 behavior:clone(current()?.behavior || defaultBehavior()), behaviorSupported:false, categoryEditor:false, behaviorNotice:'', behaviorPage:'', behaviorCategories:[{id:'base',label:'Base',icon:'auto_awesome'},{id:'movement',label:'Movimiento',icon:'directions_walk'},{id:'reaction',label:'Reacción al jugador',icon:'visibility'},{id:'friendship',label:'Amistad',icon:'favorite'},{id:'health',label:'Vida y daño',icon:'healing'},{id:'combat',label:'Combate',icon:'sports_martial_arts'},{id:'mount',label:'Montura',icon:'airline_seat_recline_normal'},{id:'loot',label:'Botín',icon:'redeem'}], behaviorProfiles:BEHAVIOR_PROFILES,
-                lootSearch:'',lootEditingIndex:-1,lootModes:[{id:'original',label:'Original',icon:'auto_awesome'},{id:'none',label:'Nada',icon:'block'},{id:'custom',label:'Mis objetos',icon:'redeem'}],movementChoices:PIG_MOVEMENT, mobChoices:PIG_TARGETS, mobSearch:'', behaviorItems:BEHAVIOR_ITEMS, pigFoodItems:PIG_FOOD_ITEMS, damageSourceChoices:PIG_DAMAGE_SOURCES, damageSourceGroups:[{id:'combat',label:'Golpes y proyectiles'},{id:'fire',label:'Fuego y explosiones'},{id:'environment',label:'Peligros del entorno'},{id:'magic',label:'Daño mágico'}], behaviorSpeeds:BEHAVIOR_SPEEDS, behaviorCanUndo:false, behaviorCanRedo:false,
+                lootSearch:'',lootEditingIndex:-1,lootChances:LOOT_CHANCES,lootModes:[{id:'original',label:'Original',icon:'auto_awesome'},{id:'none',label:'Nada',icon:'block'},{id:'custom',label:'Mis objetos',icon:'redeem'}],movementChoices:PIG_MOVEMENT, mobChoices:PIG_TARGETS, mobSearch:'', behaviorItems:BEHAVIOR_ITEMS, pigFoodItems:PIG_FOOD_ITEMS, damageSourceChoices:PIG_DAMAGE_SOURCES, damageSourceGroups:[{id:'combat',label:'Golpes y proyectiles'},{id:'fire',label:'Fuego y explosiones'},{id:'environment',label:'Peligros del entorno'},{id:'magic',label:'Daño mágico'}], behaviorSpeeds:BEHAVIOR_SPEEDS, behaviorCanUndo:false, behaviorCanRedo:false,
                 bones: [], partsOpen: current()?.partsOpen ?? true, soloBoneId: '', selectedPixelCount: 0, paintTool: 'brush_tool', brushSize: 1, cameraControlsOpen: false, cameraIsOrtho: false,
                 teacherViewAvailable: allowsTeacherView(), driveAvailable: !!window.BlockbenchEduDrive, driveClass: !!window.BlockbenchEduDrive?.classCode,
                 cameraRotate: Keybinds.extra.preview_rotate.keybind.toString(), cameraPan: Keybinds.extra.preview_drag.keybind.toString(), cameraZoom: Keybinds.extra.preview_scroll_zoom.keybind.toString(),
@@ -1722,7 +1730,7 @@
                     const protectedSources=this.damageSourceChoices.filter(source=>!p.damageSources[source.id]);
                     lines.push(!protectedSources.length?'Daño recibido: todas las causas de la lista.':protectedSources.length===this.damageSourceChoices.length?'No le quitan vida las causas de daño de la lista.':'No le quitan vida: '+protectedSources.map(source=>source.label).join(', ')+'.');
                     lines.push(p.mount.enabled?`Montura: un pasajero adulto, ${p.mount.saddle?'necesita silla':'sin silla'}. ${p.mount.control==='direct'?'Control directo con WASD.':p.mount.control==='player'?'Se dirige con zanahoria en un palo.':'La criatura decide hacia dónde ir.'} Asiento ajustado en la vista 3D.`:'No se puede montar.');
-                    if(p.loot) {const mode=this.lootMode();if(mode==='custom')lines.push(...p.loot.entries.map(row=>'Botín: '+row.count+' × '+this.lootItemLabel(row.item)+'.'));else lines.push(mode==='none'?'No suelta objetos al morir.':'Botín: como en Minecraft.');}
+                    if(p.loot) {const mode=this.lootMode();if(mode==='custom')lines.push(...p.loot.entries.map(row=>'Botín: '+row.count+' × '+this.lootItemLabel(row.item)+' · '+lootChance(row).label+'.'));else lines.push(mode==='none'?'No suelta objetos al morir.':'Botín: como en Minecraft.');}
                     if(!p.simple) lines.push(p.breeding.enabled?`Crías: ${p.breeding.items.map(id=>this.pigFoodItems.find(i=>i.id===id).label).join(', ')}. Espera entre reproducciones: ${p.breeding.cooldown} s. Crecimiento: ${p.breeding.growth} s.`:'Reproducción desactivada.');
                     return lines;
                 },
@@ -1752,7 +1760,7 @@
             }},
             methods: {
                 showBehaviorNotice(message) { clearTimeout(this.noticeTimer);this.behaviorNotice=message;if(message)this.noticeTimer=setTimeout(()=>this.behaviorNotice='',5500); },
-                categoryHelp() { return {loot:'Elige qué objetos suelta al morir y cuántos.',base:'Cambiar de base reinicia los ajustes y sustituye las habilidades originales.',movement:'Elige cómo se desplaza y a qué velocidad.',reaction:'Elige qué hace cuando se acerca un jugador.',friendship:'Elige cómo domesticarla y qué comida la atrae.',health:'Ajusta su vida, sus daños y cómo se cura.',combat:'Elige qué criaturas ataca o evita.',mount:'Coloca al pasajero y elige cómo conducir; arrastra la vista para girarla.'}[this.behaviorPage] || ''; },
+                categoryHelp() { return {loot:'Elige qué suelta al morir, cuánto y con qué posibilidad.',base:'Cambiar de base reinicia los ajustes y sustituye las habilidades originales.',movement:'Elige cómo se desplaza y a qué velocidad.',reaction:'Elige qué hace cuando se acerca un jugador.',friendship:'Elige cómo domesticarla y qué comida la atrae.',health:'Ajusta su vida, sus daños y cómo se cura.',combat:'Elige qué criaturas ataca o evita.',mount:'Coloca al pasajero y elige cómo conducir; arrastra la vista para girarla.'}[this.behaviorPage] || ''; },
                 categoryWarnings() {
                     const p=this.behavior.pig;if(!p)return [];
                     const w=(before,option,after,page,target)=>({before,option,after,page,target});
@@ -1778,21 +1786,22 @@
                 lootItemLabel(id) {return LOOT_ITEM_LABELS.get(id)||id;},
                 chooseLootMode(mode) {
                     const entries=clone(this.behavior.pig.loot.entries);
-                    if(mode==='custom'&&!entries.length)entries.push({item:'minecraft:diamond',count:1});
+                    if(mode==='custom'&&!entries.length)entries.push({item:'minecraft:diamond',count:1,chance:'always'});
                     this.changePig('loot',{mode,entries});this.lootEditingIndex=-1;this.lootSearch='';
                 },
                 addLootItem() {
                     const entries=this.behavior.pig.loot.entries;
-                    if(entries.length>=128||entries.reduce((s,e)=>s+e.count,0)>=MAX_LOOT_TOTAL){this.showBehaviorNotice('Puedes elegir hasta 128 filas y 10 000 objetos en total.');return;}
-                    this.changePig('loot.entries',[...entries,{item:'minecraft:diamond',count:1}]);this.openLootPicker(entries.length);
+                    if(entries.length>=MAX_LOOT_ROWS){this.showBehaviorNotice('Puedes elegir hasta 5 objetos.');return;}
+                    this.changePig('loot.entries',[...entries,{item:'minecraft:diamond',count:1,chance:'always'}]);this.openLootPicker(entries.length);
                 },
                 removeLootItem(index) {this.changePig('loot.entries',this.behavior.pig.loot.entries.filter((_,i)=>i!==index));this.lootEditingIndex=-1;},
                 lootQuantity(index,raw) {
                     if(raw==='')return;
                     const count=Number(raw),entries=clone(this.behavior.pig.loot.entries);entries[index].count=count;
-                    try {validateLoot({mode:'custom',entries});}catch {if(count>MAX_LOOT_TOTAL||entries.reduce((s,e)=>s+e.count,0)>MAX_LOOT_TOTAL)this.showBehaviorNotice('El máximo es de 10 000 objetos en total.');return;}
+                    try {validateLoot({mode:'custom',entries});}catch {this.showBehaviorNotice('Elige entre 1 y 64 unidades.');return;}
                     this.changePig('loot.entries',entries);
                 },
+                changeLootChance(index,chance) {const entries=clone(this.behavior.pig.loot.entries);entries[index].chance=chance;this.changePig('loot.entries',entries);},
                 openLootPicker(index) {this.lootEditingIndex=this.lootEditingIndex===index?-1:index;this.lootSearch='';this.$nextTick(()=>this.$el.querySelector('[data-loot-search]')?.focus());},
                 lootMatches() {
                     const normalize=s=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
@@ -2030,10 +2039,11 @@
                                         <section v-for="(entry,index) in behavior.pig.loot.entries" :key="index" :data-loot-row="index" class="edu-setting edu-loot-row">
                                             <button class="edu-loot-item" @click="openLootPicker(index)" :aria-expanded="lootEditingIndex===index" :disabled="busy"><span>{{lootItemLabel(entry.item)}}</span><i class="material-icons" aria-hidden="true">expand_more</i></button>
                                             <div v-if="lootEditingIndex===index" class="edu-loot-picker"><label>Buscar objeto<input data-loot-search type="search" v-model="lootSearch" placeholder="Nombre del objeto"/></label><small>1518 objetos y bloques. Busca por nombre.</small><div class="edu-loot-results"><button v-for="item in lootMatches()" :key="item.id" @click="selectLootItem(index,item.id)">{{item.label}}</button><p v-if="!lootMatches().length">No hay coincidencias.</p></div></div>
-                                            <label>Cantidad<input type="number" min="1" max="10000" step="1" :value="entry.count" @input="lootQuantity(index,$event.target.value)" @blur="$event.target.value=entry.count" :disabled="busy"/></label>
+                                            <label>Cantidad<input type="number" min="1" max="64" step="1" :value="entry.count" @input="lootQuantity(index,$event.target.value)" @blur="$event.target.value=entry.count" :disabled="busy"/></label>
+                                            <label class="edu-loot-chance">Posibilidad<select :value="entry.chance || 'always'" @change="changeLootChance(index,$event.target.value)" :disabled="busy"><option v-for="choice in lootChances" :key="choice.id" :value="choice.id">{{choice.label}}</option></select></label>
                                             <button class="edu-loot-remove" @click="removeLootItem(index)" :disabled="busy" aria-label="Quitar objeto" title="Quitar objeto"><i class="material-icons" aria-hidden="true">delete</i></button>
                                         </section>
-                                        <button @click="addLootItem" :disabled="busy"><i class="material-icons" aria-hidden="true">add</i>Añadir objeto</button><small>Recibes todos los objetos de la lista. Máximo: 10 000 unidades en total.</small>
+                                        <button @click="addLootItem" :disabled="busy || behavior.pig.loot.entries.length>=5" :title="behavior.pig.loot.entries.length>=5 ? 'Ya has elegido 5 objetos. Quita uno para añadir otro.' : ''"><i class="material-icons" aria-hidden="true">add</i>Añadir objeto</button><small>Máximo: 5 objetos, hasta 64 unidades de cada uno. Puedes repetirlos.</small>
                                     </template>
                                 </template>
                                 <template v-if="behaviorPage==='mount'">
@@ -2264,7 +2274,7 @@
                 #edu-classroom .edu-behavior-preset{flex-direction:row!important;align-items:center}.edu-behavior-preset span{display:grid;gap:5px}.edu-behavior-preset small{font-weight:400}
                 #edu-classroom .edu-behavior-check{align-items:center!important;font-size:17px!important;gap:12px;min-height:44px}
                 #edu-classroom .edu-behavior-check input{width:22px;height:22px;align-self:center!important}
-                #edu-classroom .edu-loot-modes{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}#edu-classroom .edu-loot-modes button{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:0;min-height:66px;height:auto;padding:7px 3px;font-size:13px;line-height:1.3;white-space:normal;gap:4px}#edu-classroom .edu-loot-row{grid-template-columns:minmax(0,1fr) 42px}#edu-classroom .edu-loot-row>.edu-loot-item,#edu-classroom .edu-loot-picker{grid-column:1/-1}#edu-classroom .edu-loot-remove{align-self:end;padding:8px}#edu-classroom .edu-loot-item{grid-column:1/-1;white-space:normal;height:auto;min-height:44px;display:flex;justify-content:space-between;align-items:center;gap:8px;text-align:left}#edu-classroom .edu-loot-picker{display:grid;gap:8px}#edu-classroom .edu-loot-results{display:grid;gap:4px;max-height:210px;overflow:auto}#edu-classroom .edu-loot-results button{text-align:left;white-space:normal;height:auto;min-height:38px}#edu-classroom .edu-loot-row input{width:100%;box-sizing:border-box}
+                #edu-classroom .edu-loot-modes{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}#edu-classroom .edu-loot-modes button{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:0;min-height:66px;height:auto;padding:7px 3px;font-size:13px;line-height:1.3;white-space:normal;gap:4px}#edu-classroom .edu-loot-row{grid-template-columns:minmax(0,1fr) 42px}#edu-classroom .edu-loot-row>.edu-loot-item,#edu-classroom .edu-loot-picker{grid-column:1/-1}#edu-classroom .edu-loot-chance{grid-column:1}#edu-classroom .edu-loot-remove{align-self:end;padding:8px}#edu-classroom .edu-loot-item{grid-column:1/-1;white-space:normal;height:auto;min-height:44px;display:flex;justify-content:space-between;align-items:center;gap:8px;text-align:left}#edu-classroom .edu-loot-picker{display:grid;gap:8px}#edu-classroom .edu-loot-results{display:grid;gap:4px;max-height:210px;overflow:auto}#edu-classroom .edu-loot-results button{text-align:left;white-space:normal;height:auto;min-height:38px}#edu-classroom .edu-loot-row input{width:100%;box-sizing:border-box}
                 #edu-classroom .edu-warning-link{display:inline;background:none;border:0;color:inherit;padding:0;min-height:0;height:auto;text-decoration:underline;font-size:inherit;white-space:normal;text-align:left}#edu-classroom .edu-behavior-panel h2{font-weight:800}#edu-classroom .edu-category-help{font-size:14px;margin:0 0 12px}
                 #edu-classroom .edu-warning{background:#ffe293;color:#332700;border:2px solid #efbf40;border-radius:10px;padding:12px;font-size:15px;line-height:1.4}
                 #edu-classroom .edu-setting{border:1px solid #577663;border-radius:12px;padding:14px;display:grid;gap:12px;background:#283c32}

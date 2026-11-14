@@ -19,24 +19,24 @@ test('loot search ships the pinned item registry and Spanish labels in the stand
     assert.equal(core.lootItems.find(i=>i.id==='minecraft:diamond').label,'Diamante');
 });
 
-test('loot quantities above a stack and unstackable items are separate guaranteed rewards',()=>{
-    const loot={mode:'custom',entries:[{item:'minecraft:diamond',count:200},{item:'minecraft:diamond_sword',count:3},{item:'minecraft:diamond',count:5}]};
+test('loot rows keep repeated and unstackable items as separate guaranteed rewards',()=>{
+    const loot={mode:'custom',entries:[{item:'minecraft:diamond',count:64},{item:'minecraft:diamond_sword',count:3},{item:'minecraft:diamond',count:5}]};
     const table=core.compileLootTable(loot);
     assert.equal(table.pools.length,3);
-    assert.deepEqual(table.pools.map(p=>p.rolls),[200,3,5]);
+    assert.deepEqual(table.pools.map(p=>p.rolls),[64,3,5]);
     assert.deepEqual(table.pools.map(p=>p.entries[0].name),loot.entries.map(i=>i.item));
     assert.ok(table.pools.every(p=>p.entries.length===1&&p.entries[0].functions[0].count===1));
     assert.deepEqual(core.compileLootTable({mode:'none',entries:[]}),{pools:[]});
 });
 
-test('loot validation rejects unknown IDs, malformed quantities and oversized totals',()=>{
+test('loot validation rejects unknown IDs, malformed quantities and row limits',()=>{
     for(const loot of [null,{mode:'random',entries:[]},{mode:'custom',entries:[]},
         {mode:'custom',entries:[{item:'minecraft:fake',count:1}]},
-        ...[0,-1,1.5,NaN,Infinity,'5',10001].map(count=>({mode:'custom',entries:[{item:'minecraft:diamond',count}]})),
-        {mode:'custom',entries:[{item:'minecraft:diamond',count:9000},{item:'minecraft:apple',count:2000}]},
-        {mode:'custom',entries:Array.from({length:129},()=>({item:'minecraft:apple',count:1}))}])
+        ...[0,-1,1.5,NaN,Infinity,'5',65].map(count=>({mode:'custom',entries:[{item:'minecraft:diamond',count}]})),
+        {mode:'custom',entries:[{item:'minecraft:diamond',count:65},{item:'minecraft:apple',count:640}]},
+        {mode:'custom',entries:Array.from({length:6},()=>({item:'minecraft:apple',count:1}))}])
         assert.throws(()=>core.validateLoot(loot),/botín/);
-    assert.doesNotThrow(()=>core.validateLoot({mode:'custom',entries:[{item:'minecraft:apple',count:10000}]}));
+    assert.doesNotThrow(()=>core.validateLoot({mode:'custom',entries:Array.from({length:5},()=>({item:'minecraft:apple',count:64}))}));
 });
 
 test('loot inherits old projects and item editing survives mode changes, removal and mounting',()=>{
@@ -71,7 +71,7 @@ test('custom and empty tables stay inside the right BP in flat and nested addon 
         const ref=await core.readAddon(bytes,Zip),before=await ref.root.generateAsync({type:'uint8array'});
         let b=core.entityBehavior(ref.behavior.json);
         for(const mode of ['custom','none','original']) {
-            b=core.adjustPigBehavior(b,'loot',{mode,entries:mode==='custom'?[{item:'minecraft:diamond',count:200},{item:'minecraft:iron_sword',count:2}]:[]});
+            b=core.adjustPigBehavior(b,'loot',{mode,entries:mode==='custom'?[{item:'minecraft:diamond',count:64,chance:'low'},{item:'minecraft:iron_sword',count:2,chance:'very_high'}]:[]});
             const built=await core.buildAddon(ref,{'minecraft:geometry':[ref.geometry]},catalog.pig.textures.default.split(',')[1],Zip,{},b);
             const out=await core.readAddon(await built.zip.generateAsync({type:'uint8array'}),Zip),loot=out.behavior.json['minecraft:entity'].components['minecraft:loot'];
             if(mode==='original')assert.deepEqual(loot,core.entityComponent(ref.behavior.json,'loot'));
@@ -98,4 +98,24 @@ test('loot configuration works for every classroom entity and never mutates its 
         assert.equal(JSON.stringify(source),before,id);
     }
     assert.equal(count,70);
+});
+
+
+test('word choices compile independent chances for the whole quantity, with no numeric UI setting',()=>{
+    assert.deepEqual(core.lootChances.map(c=>[c.label,c.chance]),[
+        ['Siempre',1],['Muy alta',0.9],['Alta',0.75],['Media',0.5],['Baja',0.25],['Muy baja',0.1]
+    ]);
+    for(const choice of core.lootChances) {
+        const table=core.compileLootTable({mode:'custom',entries:Array.from({length:5},()=>({item:'minecraft:diamond_sword',count:64,chance:choice.id}))});
+        assert.equal(table.pools.length,5);
+        for(const pool of table.pools) {
+            assert.equal(pool.rolls,64);
+            assert.deepEqual(pool.conditions,choice.chance===1?undefined:[{condition:'random_chance',chance:choice.chance}]);
+            assert.equal(pool.entries[0].conditions,undefined);
+            assert.equal(pool.entries[0].functions[0].count,1);
+        }
+    }
+    for(const chance of [0,50,100,'unknown','50','']) {
+        assert.throws(()=>core.validateLoot({mode:'custom',entries:[{item:'minecraft:apple',count:1,chance}]}),/botín/);
+    }
 });
