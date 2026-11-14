@@ -180,3 +180,28 @@ mantienen para todas las entidades.
 Los avisos de la categoría abierta muestran la opción en negrita sin enlace;
 solo enlazan las opciones de otra categoría. Guardado universal en .bbedu 10;
 lectura de proyectos 1–9 conservada. Prueba real en Minecraft Education pendiente.
+
+
+### Botín al morir — test, 14/11/2026
+
+Nueva categoría Botín para las 70 entidades: Original, Nada o Mis objetos. La opción original usa la tabla de botín de la plantilla;
+la personalizada entrega todas las filas, cada una con objeto y cantidad fija.
+Permite añadir, quitar, cambiar y repetir objetos, con búsqueda en español
+entre 1518 objetos y bloques del registro oficial Bedrock 1.26.30.5. Los ajustes
+anteriores conservan su botín (Original: el de la plantilla; personalizado: ninguno).
+
+Las cantidades admiten más de un stack y objetos no apilables. Cada fila produce
+una recompensa independiente repetida la cantidad elegida; no hay sorteo entre
+las filas ni recorte a 64. Límite inicial del editor: 128 filas y 10 000 unidades
+en total. No incluye experiencia, encantamientos, variantes de pociones ni
+probabilidades. El comportamiento de recogida y los stacks los gestiona Minecraft.
+
+La tabla generada tiene una ruta privada por criatura en el BP y no modifica
+las tablas de Minecraft ni las de otras creaciones. Se mantiene al montar y
+al guardar .bbedu 11; los formatos 1–10 siguen siendo legibles. Prueba real de
+las cantidades y los drops en Minecraft Education pendiente.
+
+El catálogo reproducible está en reference/loot-items.json. Para regenerarlo:
+node scripts/embed-loot-items.js <carpeta del Vanilla RP 1.26.30>. Usa metadatos
+oficiales fijados a v1.26.30.5 y los nombres locales es_ES, y los incrusta en el
+plugin para que la búsqueda no necesite conexión a Internet.

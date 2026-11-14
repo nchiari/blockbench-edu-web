@@ -372,3 +372,13 @@ Publicación confirmada en `https://nchiari.github.io/blockbench-edu-web/`, revi
 - Avisos sin enlace si la opción está en la misma categoría; enlace y enfoque si está en otra. Asiento con encuadre por límites reales del modelo y pasajero, para tamaños distintos y sin acumulación de zoom al reabrir Montura.
 - Pruebas: 70 entidades × 5 perfiles × 4 movimientos (1400 combinaciones); exportación y restauración Original de las 70 plantillas reales del catálogo incrustado; guardado formato 10 y lectura, HP 500, defaults acuáticos/voladores, tamaños adultos e inmutabilidad del origen.
 - Navegador: categorías y vuelo inicial del loro, guardado y reapertura de Loro_Edu.bbedu, movimiento acuático inicial del bacalao y cambio a vuelo; avisos locales sin enlaces y avisos a otra categoría con enlace. No se verificó el comportamiento dentro de Minecraft Education.
+
+
+## Botín configurable por criatura — 2026-11-14 (Preview)
+
+- Categoría Botín con tres opciones, buscador localizado y filas objeto/cantidad; edición, eliminación, duplicados, resumen derecho e historial. Aviso de límite solo al superarlo: 128 filas y 10 000 unidades sumadas.
+- Registro oficial Mojang/bedrock-samples v1.26.30.5, mojang-items.json; 1518 identificadores únicos y etiquetas de es_ES de Vanilla RP 1.26.30. Snapshot con procedencia y SHA-256; generador reproducible y catálogo incrustado en el plugin independiente, sin peticiones de red al buscar.
+- Compilación: minecraft:loot con tabla privada por identificador; una pool por fila, rolls igual a cantidad y set_count 1. Evita truncar stacks y permite varias unidades de herramientas/armaduras. No añade bonus de Saqueo ni elección aleatoria entre objetos. Tabla vacía para No suelta objetos y resolución del botín adulto para Como en Minecraft. Herencia mantiene la semántica previa al abrir archivos antiguos.
+- Pruebas de catálogo, cantidades 200 + espadas no apilables, duplicados, entradas inválidas y totales; montaje y cambios de modo; archivos BP/RP planos y anidados, identidad, inmutabilidad y las 70 entidades. Guardado y reapertura con .bbedu 11, exportación exacta de las filas y migración desde formato 10.
+- Navegador local: 200 diamantes y 2 espadas de diamante, búsqueda, añadir/quitar una fila, resumen, guardado y exportación sin errores de consola. La estructura exportada se inspecciona por separado; el resultado dentro de Minecraft Education queda pendiente.
+- Se publica solo en codex/pruebas. La comprobación del juego sigue pendiente: importar el mcaddon, activar BP/RP en un mundo de prueba, generar la criatura, matarla y contar el botín; repetir con No suelta objetos.
