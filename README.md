@@ -15,7 +15,7 @@ Abre **[Blockbench Edu](https://blockbench-edu.pages.dev/)**. Edu se carga autom
 3. Elegir Cargadores → Blockbench Edu → Comenzar.
 4. En «Elige tu criatura», buscar un nombre y elegir su tarjeta. El catálogo está ordenado por el nombre en español y los botones inferiores permanecen visibles al desplazarse. Las miniaturas, estructura y medidas de las tarjetas vienen del selector del Wizard, adaptadas al verde de Edu y con nombres en español. Enter o espacio también permiten elegir una tarjeta enfocada.
 5. Avanzar hasta «Abrir editor». Se crea una criatura independiente y se prepara su textura automáticamente.
-6. En «Dale forma», elegir la parte y cambiar su tamaño, moverla o girarla con los botones. Se pueden editar todas las partes existentes de la criatura.
+6. En «Dale forma», elegir una parte o **Todo el modelo** y usar Tamaño, Mover o Girar. Con Todo el modelo, el tamaño cambia en proporción sin separar las piezas (cada + aumenta un 10 %; − revierte ese aumento), el movimiento desplaza toda la criatura y el giro la rota 15° alrededor del origen del modelo. Incluye partes ocultas y permite deshacer y rehacer. Al elegir una parte, se mantienen sus controles individuales.
 7. En «Dale color», elegir un color y pintar directamente sobre la criatura. Hay pincel, relleno y herramienta para copiar un color.
 8. Usar los botones inferiores para verla desde distintos lados o encuadrar toda la criatura con «Ver todo».
 9. En **3 · Dale vida**, conservá el comportamiento **Original** o elegí una base terrestre: **Animal tranquilo**, **Animal asustadizo**, **Compañero**, **Guardián** o **Enemigo**. Ajustá vida, velocidad y las opciones que ofrece cada base. Las bases nuevas reemplazan las habilidades especiales de la plantilla; se prueban dentro de Minecraft.
@@ -180,3 +180,5 @@ mantienen para todas las entidades.
 Los avisos de la categoría abierta muestran la opción en negrita sin enlace;
 solo enlazan las opciones de otra categoría. Guardado universal en .bbedu 10;
 lectura de proyectos 1–9 conservada. Prueba real en Minecraft Education pendiente.
+
+`tests/whole-model-probe.js` comprueba el tamaño proporcional, movimiento y giro completo en los tres ejes, partes ocultas, huesos rotados, historial, exportación y guardado/reapertura de proyectos. Los cambios afectan al modelo visual; la colisión y las animaciones deben revisarse en Minecraft Education.

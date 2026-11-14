@@ -372,3 +372,10 @@ Publicación confirmada en `https://nchiari.github.io/blockbench-edu-web/`, revi
 - Avisos sin enlace si la opción está en la misma categoría; enlace y enfoque si está en otra. Asiento con encuadre por límites reales del modelo y pasajero, para tamaños distintos y sin acumulación de zoom al reabrir Montura.
 - Pruebas: 70 entidades × 5 perfiles × 4 movimientos (1400 combinaciones); exportación y restauración Original de las 70 plantillas reales del catálogo incrustado; guardado formato 10 y lectura, HP 500, defaults acuáticos/voladores, tamaños adultos e inmutabilidad del origen.
 - Navegador: categorías y vuelo inicial del loro, guardado y reapertura de Loro_Edu.bbedu, movimiento acuático inicial del bacalao y cambio a vuelo; avisos locales sin enlaces y avisos a otra categoría con enlace. No se verificó el comportamiento dentro de Minecraft Education.
+
+## Transformación de todo el modelo — 2026-11-14
+
+- «Todo el modelo» en el selector de Dale forma, con aviso explícito e inclusión de partes ocultas. Tamaño proporcional ×1,1 o ÷1,1, movimiento de una unidad y rotación de 15° sobre el origen del modelo. Mantiene nombres y jerarquía de huesos, sin añadir huesos nuevos. La pintura se remuestrea por vecino más cercano para conservar el dibujo completo a la nueva medida.
+- El alcance completo se conserva al encuadrar la cámara. En ese alcance se ocultan los tiradores de edición individual; los botones del menú transforman toda la criatura.
+- Prueba de navegador `tests/whole-model-probe.js`: escala de posiciones y pivotes, partes ocultas, deshacer/rehacer exacto de geometría/UV/PNG, movimiento completo, giro en los tres ejes contrastado con posiciones 3D reales y huesos con rotaciones previas, exportación .mcaddon, guardado/reapertura .bbedu y regreso a controles por parte.
+- `npm run check`, `npm test` (77 pruebas) y compilación web correctos. El comportamiento, colisión y animaciones dentro de Minecraft Education quedan pendientes de prueba; este cambio modifica el modelo visual. Publicación limitada a `codex/pruebas`.

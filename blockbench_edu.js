@@ -785,6 +785,11 @@
         return Cube.all.find(c => c.uuid === session.selectedId) || Cube.all.find(c => c.uuid === session.headId);
     }
     function selectPiece(id) {
+        if (classroom) {
+            classroom.wholeModel = id === '__model__';
+            selectClassroomTool();
+            if (classroom.wholeModel) { refresh(); return; }
+        }
         const session = current(), cube = Cube.all.find(c => c.uuid === id);
         if (!session || !cube) return;
         session.selectedId = id;
@@ -1041,7 +1046,7 @@
             classroom.bones = paintBones().map((bone,index) => ({id:bone.uuid,label:pieceLabel(bone,index),
                 hidden:bone.children.filter(c => c instanceof Cube).every(c => !c.visibility)}));
             classroom.pieces = panel.vue.pieces;
-            classroom.selectedId = panel.vue.selectedId;
+            classroom.selectedId = classroom.wholeModel ? '__model__' : panel.vue.selectedId;
             classroom.dimensions = panel.vue.dimensions;
             classroom.maximum = panel.vue.maximum;
             classroom.minimum = panel.vue.minimum;
@@ -1170,9 +1175,61 @@
             updateAtlas(texture,atlas);
         });
     }
+    // Work in model coordinates so pivots, nested bones and hidden cubes stay together.
+    // Resample the painting with nearest neighbours to keep the complete pattern at the new size.
+    function transformWholeModel(kind, axis, step) {
+        validateSession();
+        requireThat(['size','move','rotate'].includes(kind) && Number.isFinite(step), 'El cambio no es válido.');
+        const cubes = Cube.all.slice(), groups = Group.all.slice();
+        requireThat(cubes.length, 'Abre una criatura para cambiarla.');
+        const factor = step > 0 ? 1.1 : 1 / 1.1;
+        requireThat(kind !== 'size' || cubes.every(c => [...c.from,...c.to,...c.origin,c.inflate].every(v => Number.isFinite(v * factor) && Math.abs(v * factor) < 100000)), 'Se alcanzó el límite de tamaño del modelo.');
+        const texture = Texture.all[0], faces = kind === 'size' ? captureFaces(texture) : null;
+        Undo.initEdit({elements:cubes, groups, ...(faces ? {textures:[texture], bitmap:true, uv_mode:true} : {})});
+        try {
+            if (kind === 'size') {
+                for (const cube of cubes) {
+                    for (const key of ['from','to','origin']) cube[key] = cube[key].map(v => v * factor);
+                    cube.inflate *= factor;
+                }
+                for (const group of groups) group.origin = group.origin.map(v => v * factor);
+                for (const face of faces) {
+                    const cube = cubes.find(c => c.uuid === face.cubeId), [a,b] = FACE_AXES[face.name];
+                    face.pixels = sampleRegion(face.pixels, [0,0,face.pixels.width,face.pixels.height],
+                        Math.max(1,Math.floor(cleanDimension(cube.to[a]-cube.from[a]))), Math.max(1,Math.floor(cleanDimension(cube.to[b]-cube.from[b]))));
+                }
+                updateAtlas(texture, packFaces(faces));
+            } else if (kind === 'move') {
+                for (const cube of cubes) for (const key of ['from','to','origin']) cube[key][axis] += step;
+                for (const group of groups) group.origin[axis] += step;
+            } else {
+                const direction = new THREE.Vector3(); direction.setComponent(axis, 1);
+                const turn = new THREE.Quaternion().setFromAxisAngle(direction, step * Math.PI / 180);
+                const roots = [...groups.filter(g => !(g.parent instanceof Group)), ...cubes.filter(c => !(c.parent instanceof Group))];
+                for (const root of roots) {
+                    const origin = new THREE.Vector3(...root.origin);
+                    const offset = origin.clone().applyQuaternion(turn).sub(origin).toArray();
+                    const belongs = node => { for (let p = node; p instanceof Group || p instanceof Cube; p = p.parent) if (p === root) return true; return false; };
+                    for (const cube of cubes.filter(belongs)) for (const key of ['from','to','origin']) cube[key] = cube[key].map((v,i) => v + offset[i]);
+                    for (const group of groups.filter(belongs)) group.origin = group.origin.map((v,i) => v + offset[i]);
+                    const order = Format.euler_order;
+                    const orientation = new THREE.Quaternion().setFromEuler(new THREE.Euler(...root.rotation.map(v => v * Math.PI / 180), order));
+                    const euler = new THREE.Euler().setFromQuaternion(turn.clone().multiply(orientation), order);
+                    root.rotation = [euler.x,euler.y,euler.z].map(v => v * 180 / Math.PI);
+                }
+            }
+            Canvas.updateAll();
+            Undo.finishEdit({size:'Cambiar tamaño de todo el modelo Edu',move:'Mover todo el modelo Edu',rotate:'Girar todo el modelo Edu'}[kind]);
+        } catch (error) { Undo.cancelEdit(true); throw error; }
+        refresh();
+    }
     let eduDrag = null, eduPointerDown = false;
     function selectClassroomTool() {
         if (!classroom || classroom.mode !== 'shape') return;
+        if (classroom.wholeModel) {
+            cameraViewTool ||= new Tool('edu_camera_view',{name:'Vista de la criatura',icon:'3d_rotation',modes:['edit'],selectElements:false,selectFace:false,transformerMode:'hidden'});
+            cameraViewTool.select(); return;
+        }
         BarItems[{size: 'resize_tool', move: 'move_tool', rotate: 'rotate_tool'}[classroom.operation]].select();
     }
     function beginEduDrag({aspects, save}) {
@@ -1550,7 +1607,7 @@
     function selectHead() { const session = current(); if (session) selectPiece(session.headId); }
     function camera(which) {
         if (which === 'frame') {
-            const selectedId = selectedPiece()?.uuid;
+            const selectedId = classroom?.wholeModel ? '__model__' : selectedPiece()?.uuid;
             const event = new MouseEvent('click', {shiftKey: true});
             BarItems.select_all.trigger(event); BarItems.focus_on_selection.trigger(event);
             if (selectedId) selectPiece(selectedId);
@@ -1600,7 +1657,7 @@
         Modes.options.edit.select();
         const mount = document.createElement('div'); document.body.append(mount);
         classroom = new Vue({el: mount,
-            data: {sidebarWidth: current()?.sidebarWidth || 260, sidebarMax: 480, sidebarDragging: false, sidebarStartX: 0, sidebarStartWidth: 260, mode: 'shape', operation: 'size', position: [0,0,0], rotation: [0,0,0], axes: ['De lado', 'Arriba / abajo', 'Adelante / atrás'], turns: ['Inclinar', 'Girar', 'Ladear'], pieces: [], selectedId: '', dimensions: [0,0,0], maximum: [0,0,0], minimum: [1,1,1], busy: false, canUndo: false, canRedo: false,
+            data: {sidebarWidth: current()?.sidebarWidth || 260, sidebarMax: 480, sidebarDragging: false, sidebarStartX: 0, sidebarStartWidth: 260, mode: 'shape', operation: 'size', wholeModel: false, position: [0,0,0], rotation: [0,0,0], axes: ['De lado', 'Arriba / abajo', 'Adelante / atrás'], turns: ['Inclinar', 'Girar', 'Ladear'], pieces: [], selectedId: '', dimensions: [0,0,0], maximum: [0,0,0], minimum: [1,1,1], busy: false, canUndo: false, canRedo: false,
                 behavior:clone(current()?.behavior || defaultBehavior()), behaviorSupported:false, categoryEditor:false, behaviorNotice:'', behaviorPage:'', behaviorCategories:[{id:'base',label:'Base',icon:'auto_awesome'},{id:'movement',label:'Movimiento',icon:'directions_walk'},{id:'reaction',label:'Reacción al jugador',icon:'visibility'},{id:'friendship',label:'Amistad',icon:'favorite'},{id:'health',label:'Vida y daño',icon:'healing'},{id:'combat',label:'Combate',icon:'sports_martial_arts'},{id:'mount',label:'Montura',icon:'airline_seat_recline_normal'}], behaviorProfiles:BEHAVIOR_PROFILES,
                 movementChoices:PIG_MOVEMENT, mobChoices:PIG_TARGETS, mobSearch:'', behaviorItems:BEHAVIOR_ITEMS, pigFoodItems:PIG_FOOD_ITEMS, damageSourceChoices:PIG_DAMAGE_SOURCES, damageSourceGroups:[{id:'combat',label:'Golpes y proyectiles'},{id:'fire',label:'Fuego y explosiones'},{id:'environment',label:'Peligros del entorno'},{id:'magic',label:'Daño mágico'}], behaviorSpeeds:BEHAVIOR_SPEEDS, behaviorCanUndo:false, behaviorCanRedo:false,
                 bones: [], partsOpen: current()?.partsOpen ?? true, soloBoneId: '', selectedPixelCount: 0, paintTool: 'brush_tool', brushSize: 1, cameraControlsOpen: false, cameraIsOrtho: false,
@@ -1813,9 +1870,9 @@
                 },
                 cameraArrow(direction) { return {left:'arrow_back',right:'arrow_forward',up:'arrow_upward',down:'arrow_downward'}[direction]; },
                 selectPiece, camera, cameraControl, exit() { if (!allowsTeacherView()) return; leaveClassroom(); panel.selectTab(); refresh(); },
-                resize: (axis, step) => attempt(() => resize(axis, step)),
-                transform: (kind, axis, step) => attempt(() => transformPiece(kind, axis, step)),
-                move: (axis, step) => attempt(() => transformPiece('move', axis, axis === 0 ? -step : step)),
+                resize: (axis, step) => attempt(() => classroom.wholeModel ? transformWholeModel('size', axis, step) : resize(axis, step)),
+                transform: (kind, axis, step) => attempt(() => classroom.wholeModel ? transformWholeModel(kind, axis, step) : transformPiece(kind, axis, step)),
+                move: (axis, step) => attempt(() => classroom.wholeModel ? transformWholeModel('move', axis, axis === 0 ? -step : step) : transformPiece('move', axis, axis === 0 ? -step : step)),
                 undo() { if(this.mode==='behavior') this.behaviorHistory(false); else Undo.undo(); },
                 redo() { if(this.mode==='behavior') this.behaviorHistory(true); else Undo.redo(); }, download: () => attempt(exportAddon),
                 deliver: () => attempt(deliverAddon), saveCreature: () => attempt(saveCreature), openCreature: importCreature,
@@ -1930,7 +1987,7 @@
                 toggleBone: togglePaintBone, showOnlyBone: showOnlyPaintBone, showAllBones: showPaintBones, duplicateBone: id => attempt(()=>duplicatePaintBone(id))
             },
             template: `<div id="edu-classroom"><div v-if="behaviorNotice" class="edu-center-notice" role="status">{{behaviorNotice}}</div><header><strong>Blockbench Edu</strong><nav aria-label="Crear tu criatura"><button @click="setMode('shape')" :class="{active:mode==='shape'}">1 · Dale forma</button><button @click="setMode('paint')" :class="{active:mode==='paint'}">2 · Dale color</button><button @click="setMode('behavior')" :class="{active:mode==='behavior'}">3 · Dale vida</button><button @click="saveOptions" :disabled="busy">4 · Guardar y exportar</button></nav><button v-if="teacherViewAvailable" @click="exit" class="edu-teacher">Para el docente</button></header>
-                <aside><div class="edu-sidebar-scroll"><template v-if="mode==='shape'"><h2>Dale forma</h2><label>¿Qué parte quieres cambiar?<select :value="selectedId" @change="selectPiece($event.target.value)"><option v-for="piece in pieces" :key="piece.id" :value="piece.id">{{piece.label}}</option></select></label><div class="edu-paint-tools edu-shape-tools" role="group" aria-label="¿Qué quieres hacer?"><button @click="operation='size'" :class="{active:operation==='size'}" :aria-pressed="operation==='size'"><i class="material-icons" aria-hidden="true">open_in_full</i>Tamaño</button><button @click="operation='move'" :class="{active:operation==='move'}" :aria-pressed="operation==='move'"><i class="material-icons" aria-hidden="true">open_with</i>Mover</button><button @click="operation='rotate'" :class="{active:operation==='rotate'}" :aria-pressed="operation==='rotate'"><i class="material-icons" aria-hidden="true">rotate_right</i>Girar</button></div><template v-if="operation==='size'"><div class="edu-size"><span>Tamaño general</span><button @click="resize('all',-1)" :disabled="busy || dimensions.some((value,axis) => value-1 &lt; minimum[axis])" aria-label="Reducir tamaño general">−</button><b></b><button @click="resize('all',1)" :disabled="busy || dimensions.some((value,axis) => value+1 &gt; maximum[axis])" aria-label="Aumentar tamaño general">+</button></div><p>Cambia el ancho, el alto y la profundidad a la vez.</p><div class="edu-size" v-for="(label,axis) in labels" :key="label"><span>{{label}}</span><button @click="resize(axis,-1)" :disabled="busy || dimensions[axis]&lt;=minimum[axis]" :aria-label="'Reducir '+label">−</button><b>{{dimensions[axis]}}</b><button @click="resize(axis,1)" :disabled="busy || dimensions[axis]&gt;=maximum[axis]" :aria-label="'Aumentar '+label">+</button></div><p>Usa − para reducir y + para aumentar.<br>Puedes deshacer si no te gusta.</p></template><template v-else-if="operation==='move'"><div class="edu-move-arrows"><strong>Mover</strong><div class="edu-size" v-for="(label,axis) in axes" :key="'move-'+axis"><span>{{label}}</span><button @click="move(axis,-1)" :disabled="busy" :aria-label="'Mover '+label+' menos'">{{axis===1?'↓':axis===2?'↙':'←'}}</button><b></b><button @click="move(axis,1)" :disabled="busy" :aria-label="'Mover '+label+' más'">{{axis===1?'↑':axis===2?'↗':'→'}}</button></div><p>Las capas de esta parte se mueven y cambian de tamaño juntas.</p></div></template><template v-else><div class="edu-size" v-for="(label,index) in turns" :key="label"><span>{{label}}</span><button :aria-label="'Girar menos: '+label" @click="transform('rotate',index,-15)" :disabled="busy">−</button><b>{{rotation[index]}}</b><button :aria-label="'Girar más: '+label" @click="transform('rotate',index,15)" :disabled="busy">+</button></div><p>Usa − y + para girar esta parte poco a poco.</p></template></template>
+                <aside><div class="edu-sidebar-scroll"><template v-if="mode==='shape'"><h2>Dale forma</h2><label>¿Qué quieres cambiar?<select :value="selectedId" @change="selectPiece($event.target.value)"><option value="__model__">Todo el modelo</option><option v-for="piece in pieces" :key="piece.id" :value="piece.id">{{piece.label}}</option></select></label><p v-if="wholeModel"><strong>Estás cambiando todo el modelo.</strong><br>Incluye todas las partes, también las ocultas.</p><div class="edu-paint-tools edu-shape-tools" role="group" aria-label="¿Qué quieres hacer?"><button @click="operation='size'" :class="{active:operation==='size'}" :aria-pressed="operation==='size'"><i class="material-icons" aria-hidden="true">open_in_full</i>Tamaño</button><button @click="operation='move'" :class="{active:operation==='move'}" :aria-pressed="operation==='move'"><i class="material-icons" aria-hidden="true">open_with</i>Mover</button><button @click="operation='rotate'" :class="{active:operation==='rotate'}" :aria-pressed="operation==='rotate'"><i class="material-icons" aria-hidden="true">rotate_right</i>Girar</button></div><template v-if="operation==='size' &amp;&amp; wholeModel"><div class="edu-size"><span>Tamaño de todo</span><button @click="resize('all',-1)" :disabled="busy" aria-label="Reducir todo el modelo">−</button><b></b><button @click="resize('all',1)" :disabled="busy" aria-label="Aumentar todo el modelo">+</button></div><p>Agranda o achica toda la criatura en proporción, sin separar las partes. Cada + aumenta un 10 %; − revierte ese aumento.</p></template><template v-else-if="operation==='size'"><div class="edu-size"><span>Tamaño general</span><button @click="resize('all',-1)" :disabled="busy || dimensions.some((value,axis) => value-1 &lt; minimum[axis])" aria-label="Reducir tamaño general">−</button><b></b><button @click="resize('all',1)" :disabled="busy || dimensions.some((value,axis) => value+1 &gt; maximum[axis])" aria-label="Aumentar tamaño general">+</button></div><p>Cambia el ancho, el alto y la profundidad a la vez.</p><div class="edu-size" v-for="(label,axis) in labels" :key="label"><span>{{label}}</span><button @click="resize(axis,-1)" :disabled="busy || dimensions[axis]&lt;=minimum[axis]" :aria-label="'Reducir '+label">−</button><b>{{dimensions[axis]}}</b><button @click="resize(axis,1)" :disabled="busy || dimensions[axis]&gt;=maximum[axis]" :aria-label="'Aumentar '+label">+</button></div><p>Usa − para reducir y + para aumentar.<br>Puedes deshacer si no te gusta.</p></template><template v-else-if="operation==='move'"><div class="edu-move-arrows"><strong>Mover</strong><div class="edu-size" v-for="(label,axis) in axes" :key="'move-'+axis"><span>{{label}}</span><button @click="move(axis,-1)" :disabled="busy" :aria-label="'Mover '+label+' menos'">{{axis===1?'↓':axis===2?'↙':'←'}}</button><b></b><button @click="move(axis,1)" :disabled="busy" :aria-label="'Mover '+label+' más'">{{axis===1?'↑':axis===2?'↗':'→'}}</button></div><p>{{wholeModel ? 'Mueve toda la criatura sin separar sus partes.' : 'Las capas de esta parte se mueven y cambian de tamaño juntas.'}}</p></div></template><template v-else><div class="edu-size" v-for="(label,index) in turns" :key="label"><span>{{label}}</span><button :aria-label="'Girar menos: '+label" @click="transform('rotate',index,-15)" :disabled="busy">−</button><b>{{wholeModel ? '' : rotation[index]}}</b><button :aria-label="'Girar más: '+label" @click="transform('rotate',index,15)" :disabled="busy">+</button></div><p>{{wholeModel ? 'Gira toda la criatura en pasos de 15°, alrededor del origen del modelo.' : 'Usa − y + para girar esta parte poco a poco.'}}</p></template></template>
                 <template v-else-if="mode==='paint'"><h2>Dale color</h2><p>Elige un color y pinta sobre tu criatura.</p><div class="edu-palette"><button v-for="swatch in colors" :key="swatch" :style="{background:swatch}" :aria-label="'Color '+swatch" @click="paintColor(swatch)"></button></div><label>Otro color<input type="color" :value="color" @input="paintColor($event.target.value)"/></label><div class="edu-paint-tools">
                     <button @click="tool('brush_tool')" :class="{active:paintTool==='brush_tool'}"><i class="material-icons" aria-hidden="true">brush</i>Pincel</button>
                     <button @click="tool('eraser')" :class="{active:paintTool==='eraser'}"><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14 14 4a2 2 0 0 1 3 0l4 4a2 2 0 0 1 0 3L11 21H7l-3-3a3 3 0 0 1 0-4Z M9 9l8 8 M11 21h10" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>Borrador</button>
@@ -2289,7 +2346,7 @@
             Blockbench.on('load_undo_save', restoreBitmap); listeners.push(['load_undo_save', restoreBitmap]);
             const followSelection = () => {
                 const session = current();
-                if (classroom && session && Cube.selected.length === 1) session.selectedId = Cube.selected[0].uuid;
+                if (classroom && !classroom.wholeModel && session && Cube.selected.length === 1) session.selectedId = Cube.selected[0].uuid;
                 refresh();
             };
             Blockbench.on('update_selection', followSelection); listeners.push(['update_selection', followSelection]);
