@@ -159,3 +159,24 @@ Nuevo control de montura Directo (WASD y ratón), sin objeto en la mano, mediant
 input_ground_controlled; se mantienen el control con zanahoria y el paseo autónomo.
 Las nuevas configuraciones eligen Directo; las monturas existentes conservan su
 control. Los proyectos con Directo usan formato 9, compatible con lectura 1–8.
+
+
+### Editor común para todas las entidades — test, 14/11/2026
+
+Las siete categorías se habilitan para las 70 criaturas disponibles en el
+asistente, incluidos NPC, voladoras y acuáticas. El comportamiento Original
+conserva la plantilla (sin reproducción); personalizar sustituye sus habilidades
+especiales por los ajustes del editor. Los archivos anteriores conservan sus
+ajustes y se adaptan al editor común al abrirlos.
+
+El movimiento y la respiración iniciales proceden de la plantilla. Tamaño y
+vida se leen también de los estados adultos; la vida admite hasta 2000 puntos
+para incluir criaturas como el Custodio. Al personalizar se normalizan gravedad
+y colisión según el movimiento elegido, y se evitan daños heredados por lluvia
+o agua que contradigan la respiración. El asiento inicial se adapta al tamaño
+y su vista incluye criatura y pasajero. Las restricciones entre opciones se
+mantienen para todas las entidades.
+
+Los avisos de la categoría abierta muestran la opción en negrita sin enlace;
+solo enlazan las opciones de otra categoría. Guardado universal en .bbedu 10;
+lectura de proyectos 1–9 conservada. Prueba real en Minecraft Education pendiente.

@@ -6,6 +6,75 @@ const Zip=require('jszip');
 const core=require('../blockbench_edu.js');
 const catalog=require('../reference/wizard-catalog.json');
 
+const classroomCatalog=JSON.parse(require('node:fs').readFileSync(require.resolve('../blockbench_edu.js'),'utf8').match(/const CATALOG = (.+);/)[1]);
+const availableEntities=Object.entries(classroomCatalog).filter(([id,m])=>m.entity&&m.behavior&&!['basic','vehicle','armor_stand'].includes(id)&&!m.disable_on_edu);
+test('all 70 classroom entities support every category, profile and movement without changing their source',()=>{
+    assert.equal(availableEntities.length,70);
+    for(const [id,mob] of availableEntities) {
+        const source=JSON.parse(mob.behavior),before=JSON.stringify(source);
+        assert.equal(core.supportsEntityBehavior(source),true,id);
+        const original=core.entityBehavior(source);
+        assert.equal(original.pig.universal,true,id);
+        const preserved=structuredClone(source);
+        for(const group of [preserved['minecraft:entity'].components,...Object.values(preserved['minecraft:entity'].component_groups||{})]) {
+            delete group['minecraft:breedable'];delete group['minecraft:behavior.breed'];
+        }
+        assert.deepEqual(core.compileBehavior(source,original),preserved,id);
+        for(const profile of ['calm','shy','companion','guardian','enemy']) for(const mode of ['walk','swim','amphibious','fly']) {
+            let b=core.entityBehavior(source,{...core.defaultBehavior(),profile});
+            b=core.adjustPigBehavior(b,'locomotion.mode',mode);
+            b=core.adjustPigBehavior(b,'heal',true);
+            const out=core.compileBehavior(source,b),e=out['minecraft:entity'],c=e.components;
+            assert.ok(c['minecraft:collision_box'].width>0&&c['minecraft:collision_box'].height>0,id);
+            assert.equal(c['minecraft:physics'].has_collision,true,id);
+            assert.equal(c['minecraft:physics'].has_gravity,mode!=='fly',id);
+            assert.equal(Object.keys(c).filter(k=>k.startsWith('minecraft:navigation.')).length,1,id);
+            assert.equal(Object.keys(c).filter(k=>k.startsWith('minecraft:movement.')).length,1,id);
+            assert.equal(e.description.runtime_identifier,undefined,id);
+            assert.equal(c['minecraft:health'].max,b.health,id);
+            assert.ok(!JSON.stringify(e).includes('minecraft:breedable'),id);
+            if(mode==='walk') {
+                const mounted=core.compileBehavior(source,core.adjustPigBehavior(b,'mount.enabled',true))['minecraft:entity'];
+                assert.equal(mounted.component_groups['blockbench_edu:ride_ready']['minecraft:rideable'].seat_count,1,id);
+            }
+        }
+        assert.equal(JSON.stringify(source),before,id);
+    }
+});
+
+test('entity defaults distinguish flight, water breathing, adult sizes and high health',()=>{
+    const b=id=>core.entityBehavior(JSON.parse(catalog[id].behavior));
+    for(const id of ['bat','parrot','blaze','happy_ghast','vex']) assert.equal(b(id).pig.locomotion.mode,'fly',id);
+    for(const id of ['cod','salmon','squid','dolphin']) assert.equal(b(id).pig.locomotion.mode,'swim',id);
+    assert.equal(b('cod').pig.respiration.medium,'water');assert.equal(b('dolphin').pig.respiration.medium,'air');
+    assert.equal(b('axolotl').pig.respiration.medium,'both');assert.equal(b('turtle').pig.locomotion.mode,'amphibious');
+    assert.equal(b('warden').health,500);assert.equal(b('zombie').pig.reaction,'enemy');
+    assert.equal(core.entityComponent(JSON.parse(catalog.turtle.behavior),'collision_box').width,1.2);
+    const waterBlaze=core.adjustPigBehavior(b('blaze'),'locomotion.mode','swim');
+    const c=core.compileBehavior(JSON.parse(catalog.blaze.behavior),waterBlaze)['minecraft:entity'].components;
+    assert.equal(c['minecraft:hurt_on_condition'],undefined);
+    const legacy=core.pigBehavior({...core.defaultBehavior(),profile:'guardian'});
+    const migrated=core.entityBehavior(JSON.parse(catalog.pig.behavior),legacy);
+    assert.equal(migrated.pig.defend,true);assert.equal(legacy.pig.universal,undefined);
+    const oldProfile=core.entityBehavior(JSON.parse(catalog.cod.behavior),{...core.defaultBehavior(),profile:'guardian',health:60,speed:0.35});
+    assert.equal(oldProfile.health,60);assert.equal(oldProfile.speed,0.35);
+});
+
+test('every available template exports custom behavior and restores Original through the addon pipeline',async()=>{
+    for(const [id,mob] of availableEntities) {
+        const starter=await core.createMobAddon(mob,{},Zip,randomUUID),ref=await core.readAddon(starter.addon,Zip);
+        let b=core.entityBehavior(ref.behavior.json,{...core.defaultBehavior(),profile:'companion'});
+        const geometry={'minecraft:geometry':[ref.geometry]},png=mob.textures.default.split(',')[1];
+        const built=await core.buildAddon(ref,geometry,png,Zip,{},b);
+        const exported=await core.readAddon(await built.zip.generateAsync({type:'uint8array'}),Zip);
+        assert.deepEqual(exported.behavior.json,core.compileBehavior(ref.behavior.json,b),id);
+        b=core.entityBehavior(ref.behavior.json);
+        const restored=await core.buildAddon(ref,geometry,png,Zip,{},b);
+        const original=await core.readAddon(await restored.zip.generateAsync({type:'uint8array'}),Zip);
+        assert.deepEqual(original.behavior.json,core.compileBehavior(ref.behavior.json,b),id);
+    }
+});
+
 test('direct ground riding accepts keyboard input without requiring a held item',()=>{
     let b=core.simplePigBehavior(core.defaultBehavior());
     assert.equal(b.pig.mount.control,'direct');

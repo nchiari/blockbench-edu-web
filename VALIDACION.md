@@ -362,3 +362,13 @@ Publicación confirmada en `https://nchiari.github.io/blockbench-edu-web/`, revi
 - Causa del bloqueo de cámara: pointer-events:none en #preview para todo comportamiento. Montura lo habilita y selecciona una herramienta de vista (selectElements:false, transformerMode:hidden). Se evita el cambio a herramientas de edición por doble clic; al salir vuelven las herramientas de forma.
 - Control directo de montura con input_ground_controlled, contrastado con caballo vanilla y documentación Creator; sin requisito de objeto y sin alterar el estado de domesticación. Se mantiene la alternativa con zanahoria para proyectos existentes y el límite de un pasajero. Nuevo modo guardado en formato 9.
 - Navegador: descripciones, aviso con foco en Se puede montar y giro real del modelo mediante arrastre. Validación estructural del control directo, salida de montura y alternativa con objeto. Pendiente prueba en Minecraft Education de WASD y orientación con ratón.
+
+
+## Editor común para las 70 entidades del asistente — 2026-11-14
+
+- Se habilitan las siete categorías mediante un adaptador explícito de plantilla; el campo portable pig se mantiene como compatibilidad interna, con marca universal y formato 10. La lectura antigua mantiene sus validaciones y ajustes. Valores iniciales de adulto (colisión, vida, asiento), vuelo/natación y respiración; HP hasta 2000 para el Custodio.
+- Compilación personalizada sin runtime_identifier, una única navegación y control de movimiento, gravedad/colisión coherentes y sin daños especiales heredados que contradigan la respiración. Se conserva la versión de formato de plantillas más recientes y se eleva solo al mínimo requerido por los componentes generados.
+- Corregida también la ruta de exportación de Original: aplica la exclusión de reproducción sin cambiar el resto de su comportamiento. Antes esa ruta no invocaba al compilador y podía conservar breedable.
+- Avisos sin enlace si la opción está en la misma categoría; enlace y enfoque si está en otra. Asiento con encuadre por límites reales del modelo y pasajero, para tamaños distintos y sin acumulación de zoom al reabrir Montura.
+- Pruebas: 70 entidades × 5 perfiles × 4 movimientos (1400 combinaciones); exportación y restauración Original de las 70 plantillas reales del catálogo incrustado; guardado formato 10 y lectura, HP 500, defaults acuáticos/voladores, tamaños adultos e inmutabilidad del origen.
+- Navegador: categorías y vuelo inicial del loro, guardado y reapertura de Loro_Edu.bbedu, movimiento acuático inicial del bacalao y cambio a vuelo; avisos locales sin enlaces y avisos a otra categoría con enlace. No se verificó el comportamiento dentro de Minecraft Education.

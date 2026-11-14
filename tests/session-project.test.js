@@ -34,6 +34,19 @@ test('portable project retains exact model, original addon, limits and export id
     const next = await buildAddon(loaded.reference,{'minecraft:geometry':[loaded.reference.geometry]},model.textures[0].source.split(',')[1],Zip);
     assert.deepEqual(next.version,[1,0,5]);
 });
+
+test('universal category settings use portable format 10 and retain high health and custom movement',async()=>{
+    const {model,state,reference}=await fixture(),core=require('../blockbench_edu.js');
+    state.behavior=core.entityBehavior(reference.behavior.json,{...core.defaultBehavior(),profile:'companion'});
+    state.behavior=core.adjustPigBehavior(state.behavior,'health',500);
+    state.behavior=core.adjustPigBehavior(state.behavior,'locomotion.mode','fly');
+    const loaded=await readCreatureProject(await writeCreatureProject(model,state,reference,Zip),Zip);
+    assert.equal(loaded.version,10);assert.deepEqual(loaded.state.behavior,state.behavior);
+    const exported=await buildAddon(loaded.reference,{'minecraft:geometry':[loaded.reference.geometry]},model.textures[0].source.split(',')[1],Zip,{},loaded.state.behavior);
+    const addon=await readAddon(await exported.zip.generateAsync({type:'uint8array'}),Zip);
+    assert.equal(addon.behavior.json['minecraft:entity'].components['minecraft:health'].max,500);
+    assert.ok(addon.behavior.json['minecraft:entity'].components['minecraft:movement.fly']);
+});
 test('rejects malformed, future and incomplete projects before importing',async()=>{
     const {model,state,reference} = await fixture();
     await assert.rejects(readCreatureProject('not a zip',Zip),/dañado/);
@@ -43,7 +56,7 @@ test('rejects malformed, future and incomplete projects before importing',async(
         change(data,zip); zip.file('project.json',JSON.stringify(data));
         return readCreatureProject(await zip.generateAsync({type:'uint8array'}),Zip);
     };
-    await assert.rejects(mutate(d=>{d.version=10;}),/otra versión/);
+    await assert.rejects(mutate(d=>{d.version=11;}),/otra versión/);
     await assert.rejects(mutate((d,z)=>z.remove('reference.mcaddon')),/addon base/);
     await assert.rejects(mutate(d=>{d.model.textures[0].source='';}),/pintura incluida/);
     await assert.rejects(mutate(d=>{d.state.originalFaces.pop();}),/pintura original/);
