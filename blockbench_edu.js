@@ -2220,7 +2220,7 @@
                         }
                     }
                 },
-                data: () => ({step: 0, busy: false, error: '', icon: EDU_ICON, creature: '', search: '', catalog: CATALOG, eggBackground: '#65d98a', eggDetail: '#245b3a',
+                data: () => ({step: 0, busy: false, error: '', icon: EDU_ICON, creature: '', search: '', catalog: CATALOG, eggBackground: '#ffffff', eggDetail: '#000000',
                     steps: ['Empezamos', 'Elige tu criatura', 'Huevo generador', 'A crear']}),
                 computed: {
                     choices() { return Object.entries(this.catalog).filter(([id,mob]) => mob.entity && mob.behavior && !['basic', 'vehicle', 'armor_stand'].includes(id) && !mob.disable_on_edu && (id + ' ' + mob.name).toLowerCase().includes(this.search.toLowerCase())).sort((a,b) => a[1].name.localeCompare(b[1].name, 'es', {sensitivity:'base'}) || a[0].localeCompare(b[0])); }
