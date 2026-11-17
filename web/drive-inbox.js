@@ -45,6 +45,7 @@
                 if (data.error) pending.reject(new Error(data.error));
                 else if (!data.result?.ok || data.result.receipt !== pending.id) pending.reject(new Error('La confirmación de entrega no es válida. Reintentá.'));
                 else if (pending.requiresModel && !data.result.modelFileName) pending.reject(new Error('El buzón guardó el addon, pero falta confirmar el proyecto editable. Tu docente debe actualizar Apps Script y luego puedes reintentar esta entrega.'));
+                else if (pending.requiresProject && !data.result.projectFileName) pending.reject(new Error('Falta confirmar el proyecto .bbedu. Tu docente debe actualizar Apps Script y luego puedes reintentar esta entrega.'));
                 else pending.resolve(data.result);
             };
             window.addEventListener('message', state.listener);
@@ -54,6 +55,15 @@
             document.body.append(iframe);
         });
         return state.ready;
+    }
+    function encodeFile(blob) {
+        if (blob.size > 10485760) throw new Error('Un archivo de la entrega supera los 10 MB. Avisale a tu docente.');
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result.split(',')[1]);
+            reader.onerror = () => reject(new Error('No pudimos preparar la entrega. Reintentá.'));
+            reader.readAsDataURL(blob);
+        });
     }
     const api = window.BlockbenchEduDrive = {
         get classCode() { return classCode; },
@@ -67,21 +77,11 @@
             const url = new URL(window.BlockbenchEduWeb?.studentUrl || location.href); url.search = ''; url.hash = new URLSearchParams({clase: classCode}).toString();
             return url.href;
         },
-        async prepare(content, alias, creature, fileName, modelContent) {
+        async prepare(content, alias, creature, fileName, modelContent, projectContent) {
             if (!classCode) throw new Error('El docente todavía no seleccionó la clase para esta entrega.');
-            if (content.size > 10485760) throw new Error('La criatura supera los 10 MB. Guardá una copia y avisale a tu docente.');
-            if (modelContent && modelContent.size > 10485760) throw new Error('El proyecto editable supera los 10 MB. Avisale a tu docente.');
-            const base64 = await new Promise((resolve, reject) => {
-                const reader = new FileReader(); reader.onload = () => resolve(reader.result.split(',')[1]);
-                reader.onerror = () => reject(new Error('No pudimos preparar la entrega. Reintentá.')); reader.readAsDataURL(content);
-            });
-            const payload = {classCode, alias, creature, fileName, submissionId: randomId(), base64};
-            if (modelContent) {
-                payload.modelBase64 = await new Promise((resolve, reject) => {
-                    const reader = new FileReader(); reader.onload = () => resolve(reader.result.split(',')[1]);
-                    reader.onerror = () => reject(new Error('No pudimos preparar el proyecto editable. Reintentá.')); reader.readAsDataURL(modelContent);
-                });
-            }
+            const payload = {classCode, alias, creature, fileName, submissionId: randomId(), base64: await encodeFile(content)};
+            if (modelContent) payload.modelBase64 = await encodeFile(modelContent);
+            if (projectContent) payload.projectBase64 = await encodeFile(projectContent);
             return payload;
         },
         async send(payload) {
@@ -92,7 +92,7 @@
                     state.pending = null; resetBridge();
                     reject(new Error('No pudimos confirmar la entrega. Reintentá desde este cuadro para comprobarla sin duplicarla.'));
                 }, 90000);
-                state.pending = {id: payload.submissionId, requiresModel: !!payload.modelBase64, resolve, reject, timer};
+                state.pending = {id: payload.submissionId, requiresModel: !!payload.modelBase64, requiresProject: !!payload.projectBase64, resolve, reject, timer};
                 try { state.peer.postMessage({type: 'edu-drive-upload', channel: state.channel, payload}, state.origin); }
                 catch (error) { clearTimeout(timer); state.pending = null; resetBridge(); reject(error); }
             });

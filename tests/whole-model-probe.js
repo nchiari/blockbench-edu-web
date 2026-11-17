@@ -80,7 +80,7 @@ async (page) => {
     await page.evaluate(() => {const click=HTMLInputElement.prototype.click; window.wholeModelPickerClick=click; HTMLInputElement.prototype.click=function(){if(this.type==='file'){this.hidden=true;document.body.append(this);}else click.call(this);};});
     const oldProjectId=await page.evaluate(()=>Project.uuid);
     await page.getByRole('button',{name:'Abrir una criatura',exact:true}).click();
-    await page.locator('input[type=file][accept=".bbedu"]').last().setInputFiles('output/whole-model.bbedu');
+    await page.locator('input[type=file][accept*=".bbedu"]').last().setInputFiles('output/whole-model.bbedu');
     await page.waitForFunction(oldId => Project.uuid!==oldId && document.getElementById('edu-classroom') && Texture.all[0].img.complete && Texture.all[0].img.naturalWidth===Project.texture_width,oldProjectId);
     check(portableBefore === await portableState(), 'Reopening preserves transformed geometry and painting');
     await page.evaluate(() => {HTMLInputElement.prototype.click=window.wholeModelPickerClick;delete window.wholeModelPickerClick;});

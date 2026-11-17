@@ -106,23 +106,23 @@ function nombreEntrega_(student, receivedAt, usedNames) {
   const date = Utilities.formatDate(new Date(receivedAt), EDU_TIME_ZONE, 'dd-MM-yy');
   const stem = nombreArchivo_(student) + '_' + date;
   let name = stem + '.mcaddon', number = 2;
-  while (usedNames.has(name) || usedNames.has(name.replace(/\.mcaddon$/, '.bbmodel'))) name = stem + '_' + number++ + '.mcaddon';
+  while (usedNames.has(name) || ['.bbmodel', '.bbedu'].some(ext => usedNames.has(name.replace(/\.mcaddon$/, ext)))) name = stem + '_' + number++ + '.mcaddon';
   return name;
 }
 
-function validarEntrega_(data, model) {
+function validarEntrega_(data, kind = 'mcaddon') {
   if (!data || typeof data !== 'object') throw new Error('No llegó el archivo. Volvé a intentar.');
   const config = comprobarClase_(data.classCode);
   const alias = texto_(data.alias, 'tu nombre o número de alumno');
   const creature = texto_(data.creature, 'el nombre de la criatura');
   if (typeof data.submissionId !== 'string' || !/^[a-f0-9]{32}$/.test(data.submissionId)) throw new Error('La entrega no tiene un identificador válido.');
   if (typeof data.fileName !== 'string' || !/\.mcaddon$/i.test(data.fileName)) throw new Error('Elegí un archivo .mcaddon.');
-  const base64 = model ? data.modelBase64 : data.base64;
+  const base64 = data[{mcaddon:'base64', bbmodel:'modelBase64', bbedu:'projectBase64'}[kind]];
   if (typeof base64 !== 'string' || !base64.length || base64.length > 4 * Math.ceil(EDU_MAX_BYTES / 3) ||
       base64.length % 4 || !/^[A-Za-z0-9+/]*={0,2}$/.test(base64)) throw new Error('El archivo no es válido o supera los 10 MB.');
   const bytes = Utilities.base64Decode(base64);
   if (bytes.length > EDU_MAX_BYTES) throw new Error('El archivo supera los 10 MB.');
-  if (model) {
+  if (kind === 'bbmodel') {
     let project;
     try { project = JSON.parse(Utilities.newBlob(bytes).getDataAsString('UTF-8')); }
     catch (_) { throw new Error('El proyecto .bbmodel no es válido.'); }
@@ -131,7 +131,7 @@ function validarEntrega_(data, model) {
       throw new Error('El .bbmodel debe incluir el modelo Bedrock y sus texturas.');
     }
   } else if (bytes.length < 22 || bytes.length > EDU_MAX_BYTES ||
-      bytes[0] !== 80 || bytes[1] !== 75 || bytes[2] !== 3 || bytes[3] !== 4) throw new Error('El archivo no parece un .mcaddon válido o supera los 10 MB.');
+      bytes[0] !== 80 || bytes[1] !== 75 || bytes[2] !== 3 || bytes[3] !== 4) throw new Error('El archivo no parece un .' + kind + ' válido o supera los 10 MB.');
   return {config: config, alias: alias, creature: creature, bytes: bytes, digest: huella_(bytes),
     submissionId: data.submissionId};
 }
@@ -144,15 +144,24 @@ function huella_(bytes) {
 // Student operation writes an upload; it never lists or returns Drive files to the caller.
 function entregarAddon(data) {
   const item = validarEntrega_(data);
-  // Validate both files before writing either one. Old clients may still send only an addon.
-  const model = data.modelBase64 === undefined ? null : validarEntrega_(data, true);
+  // Check all supplied files before writing. Older clients send fewer files.
+  const model = data.modelBase64 === undefined ? null : validarEntrega_(data, 'bbmodel');
+  const project = data.projectBase64 === undefined ? null : validarEntrega_(data, 'bbedu');
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(15000)) throw new Error('Hay otras entregas llegando. Esperá unos segundos y reintentá.');
   try {
     const addon = guardarArchivo_(item, data, 'mcaddon');
-    if (!model) return addon;
-    const editable = guardarArchivo_(model, data, 'bbmodel', addon.fileName.replace(/\.mcaddon$/, '.bbmodel'));
-    return Object.assign({}, addon, {modelFileName: editable.fileName, modelDuplicate: editable.duplicate});
+    if (model) {
+      const editable = guardarArchivo_(model, data, 'bbmodel', addon.fileName.replace(/\.mcaddon$/i, '') + '.bbmodel');
+      addon.modelFileName = editable.fileName;
+      addon.modelDuplicate = editable.duplicate;
+    }
+    if (project) {
+      const portable = guardarArchivo_(project, data, 'bbedu', addon.fileName.replace(/\.mcaddon$/i, '') + '.bbedu');
+      addon.projectFileName = portable.fileName;
+      addon.projectDuplicate = portable.duplicate;
+    }
+    return addon;
   } finally { lock.releaseLock(); }
 }
 

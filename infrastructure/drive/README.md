@@ -15,7 +15,7 @@ Receptor de entregas en Google Apps Script. Recibe `.mcaddon` en una carpeta pri
 
 ## Actualizar una implementación existente para el editor
 
-1. Reemplazar `Código.gs` por la copia configurada `output/drive-buzon/Pegar-en-Apps-Script-v6.txt` y guardar. Las propiedades del proyecto conservan la carpeta, el código de clase y las entregas existentes. La versión v6 agrega el `.bbmodel` editable, conserva los nombres cortos y autoriza Cloudflare Pages.
+1. Reemplazar `Código.gs` por la copia configurada `output/drive-buzon/Pegar-en-Apps-Script-v7.txt` y guardar. Las propiedades del proyecto conservan la carpeta, el código de clase y las entregas existentes. La versión v7 agrega el proyecto completo `.bbedu`, conserva los nombres cortos y autoriza Cloudflare Pages.
 2. **Implementar → Gestionar implementaciones → seleccionar la aplicación web → Editar (lápiz)**.
 3. En **Versión**, elegir **Nueva versión** y pulsar **Implementar**. Conservar ejecutar como **Yo** y acceso sin inicio de sesión. No crear otro proyecto ni otra implementación: la URL `/exec` debe seguir siendo la misma.
 4. Verificar una entrega real desde el editor local antes de publicar la actualización web. El modo manual anterior ya se comprobó con el cerdo de referencia.
@@ -34,12 +34,12 @@ Receptor de entregas en Google Apps Script. Recibe `.mcaddon` en una carpeta pri
 
 ## Copia editable junto a la entrega
 
-- El botón envía dos archivos por entrega: `NOMBRE_DD-MM-AA.mcaddon` y `NOMBRE_DD-MM-AA.bbmodel`. Las entregas distintas del mismo nombre y fecha conservan el mismo sufijo en ambos archivos.
+- El botón envía tres archivos por entrega: `NOMBRE_DD-MM-AA.mcaddon`, `NOMBRE_DD-MM-AA.bbmodel` y `NOMBRE_DD-MM-AA.bbedu`. Las entregas distintas del mismo nombre y fecha conservan el mismo sufijo en los tres archivos.
 - El `.bbmodel` es un proyecto estándar de Blockbench con geometría, UV, pintura PNG incrustada y animaciones. Se guarda la criatura completa, aunque se hayan ocultado partes temporalmente para pintar. No lleva rutas locales ni el código de clase.
 - El alumno sigue haciendo una sola entrega. La confirmación nueva exige que el receptor haya guardado ambos archivos. Un fallo parcial se puede completar con el mismo recibo sin duplicar los archivos que ya llegaron.
-- Para recuperar el modelo, el docente descarga el `.bbmodel` de Drive y lo abre en Blockbench con **Archivo → Abrir modelo**. Esta copia estándar recupera el modelo y la textura; no incluye el historial ni el estado completo del asistente educativo.
+- Para seguir editando, el docente descarga el `.bbedu` y elige **Abrir una criatura** en Edu. Conserva la configuración de comportamiento. Para entregas anteriores, la misma opción abre el `.bbmodel` con su forma y pintura.
 - Límite: 10 MiB por archivo. El cupo de 200 archivos corresponde a unas 100 entregas dobles, según los archivos existentes; también se aplica el límite total de 500 MiB por clase.
-- Actualizar el receptor de Google a v6 antes de usar el cliente nuevo. Un receptor anterior puede guardar el addon y omitir el modelo; el cliente detecta que falta la confirmación del `.bbmodel` y pide actualizar y reintentar.
+- Actualizar el receptor de Google a v7 antes de usar el cliente nuevo. Un receptor anterior puede guardar el addon y omitir el proyecto completo; el cliente detecta que falta la confirmación del `.bbedu` y pide actualizar y reintentar.
 
 ## Publicación en Cloudflare Pages
 

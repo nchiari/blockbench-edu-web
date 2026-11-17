@@ -406,3 +406,13 @@ Publicación confirmada en `https://nchiari.github.io/blockbench-edu-web/`, revi
 - Formato .bbedu 12 para impedir que editores antiguos ignoren las posibilidades. Las filas antiguas sin posibilidad conservan Siempre; las listas que exceden los nuevos límites se rechazan sin recortarlas silenciosamente.
 - Pruebas automáticas de los seis niveles, cantidades no apilables, cinco filas idénticas de 64 unidades, rechazo de sexta fila/cantidad 65 y posibilidades desconocidas, guardado/reapertura y tablas en BP planos/anidados. La comprobación de drops dentro de Minecraft Education sigue pendiente.
 - Navegador local: reapertura del ejemplo, selector por palabras, rechazo de 65 unidades sin perder 64, cinco filas y duplicados, bloqueo de Añadir objeto, eliminación de filas, guardado real y exportación real. Archivo .bbedu descargado con formato 12 y Siempre/Media; mcaddon descargado contrastado con 64 diamantes garantizados y dos espadas condicionadas al 50 %. 87 pruebas, sintaxis y compilación web correctas.
+
+## 2026-11-17 — Reabrir entregas y adjuntar proyecto Edu
+
+- «Abrir una criatura» admite .bbmodel Bedrock con una textura PNG incluida, tanto en docente como en alumno y enlaces de clase. Las piezas y la pintura forman la nueva referencia. El comportamiento inicial es básico porque el archivo nativo no contiene los ajustes Edu.
+- Las entregas preparan .mcaddon, .bbmodel y .bbedu. El proyecto portátil conserva la configuración de comportamiento y la versión del addon entregado.
+- El receptor acepta clientes anteriores y completa entregas parciales al reintentar. El cliente exige la confirmación del tercer archivo para indicar éxito.
+- Prueba de navegador en tests/delivery-project-probe.js con el transporte a Google simulado. Verifica tres archivos, apertura de la copia nativa en docente y alumno, guardado portátil y reapertura desde un enlace de clase con la misma pintura, piezas y ajustes de comportamiento.
+- npm run check y 89 pruebas unitarias aprobadas. Compilación web completada.
+- El receptor actualizado está en infrastructure/drive/Code.gs y la copia configurada local en output/drive-buzon/Pegar-en-Apps-Script-v7.txt. Su implementación en Google y la entrega real de tres archivos quedan pendientes del lanzamiento. Desarrollo publicado exclusivamente en codex/pruebas.
+- La importación en Minecraft Education no se probó en esta tarea.

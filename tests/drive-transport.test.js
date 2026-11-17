@@ -115,3 +115,19 @@ test('timeouts remove the bridge and allow a new connection',async()=>{
     [...env.timers.values()].find(t=>t.ms===90000).fn();
     await assert.rejects(second,/sin duplicarla/);assert.equal(env.frames[1].removed,true);
 });
+
+test('an older two-file receipt cannot confirm delivery of a bbedu', async () => {
+    const env = environment(), blob = new Blob(['project']);
+    const payload = await env.api.prepare(blob, '07', 'Cerdo', 'cerdo.mcaddon', blob, blob);
+    assert.equal(Buffer.from(payload.projectBase64,'base64').toString(), 'project');
+    const sent = env.api.send(payload), channel = env.ready();
+    await tick();
+    const result = {ok:true, receipt:payload.submissionId, modelFileName:'07.bbmodel'};
+    const message = {type:'edu-drive-result', channel, submissionId:payload.submissionId, result};
+    env.event(message);
+    await assert.rejects(sent, /bbedu/);
+    const retry = env.api.send(payload);
+    await tick();
+    env.event({...message, result:{...result, projectFileName:'07.bbedu'}});
+    assert.equal((await retry).projectFileName, '07.bbedu');
+});

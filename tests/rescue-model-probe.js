@@ -25,7 +25,7 @@ async page => {
     check(nativeDownload.suggestedFilename().endsWith('.bbmodel'), 'Existing sessions can download a native backup using Ctrl+Alt+S');
     await page.getByRole('button', {name: '4 · Guardar y exportar', exact: true}).click();
     await page.getByText('Guarda una copia de tu trabajo', {exact: true}).waitFor();
-    check(await page.getByText(/Esta copia no se abre/).isVisible(), 'Explains that the rescue file opens in Blockbench');
+    check(await page.getByText(/volver a abrirla/).isVisible(), 'Explains that the rescue file opens in Edu');
     await page.getByRole('button', {name: 'Volver', exact: true}).click();
     check(await page.evaluate(() => Project.uuid === rescueBefore.projectId && JSON.stringify(Cube.all.map(c => [c.uuid, c.from, c.to])) === rescueBefore.bounds), 'Cancelling keeps the edited project intact');
     await page.getByRole('button', {name: 'Guardar mi criatura', exact: true}).click();

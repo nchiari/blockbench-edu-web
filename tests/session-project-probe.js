@@ -16,7 +16,7 @@ async (page) => {
     });
     const choose = async file => {
         await button('Abrir una criatura').click();
-        await page.locator('input[type=file][accept=".bbedu"]').last().setInputFiles(file);
+        await page.locator('input[type=file][accept*=".bbedu"]').last().setInputFiles(file);
     };
     const state = () => page.evaluate(() => JSON.stringify({
         geometry:Codecs.bedrock.compile({raw:true}), png:Texture.all[0].canvas.toDataURL(),
