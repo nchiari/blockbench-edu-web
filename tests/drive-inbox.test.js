@@ -263,3 +263,17 @@ test('embedded receiver ignores unknown windows, origins and channels and forwar
     assert.equal(replies[1].message.type, 'edu-drive-result');
     assert.equal(replies[1].origin, origin);
 });
+
+test('three-file delivery finishes an older pair and rejects a damaged project before writing', () => {
+    const env = environment(), pair = withModel(env.data());
+    const triple = {...pair, projectBase64:pair.base64};
+    assert.throws(() => env.context.entregarAddon({...triple, projectBase64:'dGVzdA=='}), /bbedu/);
+    assert.equal(env.files.length, 0);
+    env.context.entregarAddon(pair);
+    const result = env.context.entregarAddon(triple);
+    assert.equal(result.projectFileName, result.fileName.replace('.mcaddon', '.bbedu'));
+    assert.equal(result.modelDuplicate, true);
+    assert.equal(result.projectDuplicate, false);
+    assert.equal(env.context.entregarAddon(triple).projectDuplicate, true);
+    assert.equal(env.files.length, 3);
+});
