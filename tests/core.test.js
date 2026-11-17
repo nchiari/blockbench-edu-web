@@ -263,3 +263,23 @@ test('chosen egg colors replace catalog textures and survive export', async () =
         JSON.parse(mob.entity)['minecraft:client_entity'].description.spawn_egg);
     await assert.rejects(core.createMobAddon(mob, {spawnEgg:{...colors,base_color:'invalid'}}, Zip, require('node:crypto').randomUUID), /colores/);
 });
+test('copied pieces get neutral names so vanilla render controllers do not hide them', async () => {
+    const donkey = require('../reference/wizard-catalog.json').donkey;
+    const mob = {...donkey, textures: {...donkey.textures, default: donkey.textures.donkey}};
+    const starter = await core.createMobAddon(mob, {}, Zip, require('node:crypto').randomUUID);
+    const ref = await core.readAddon(starter.addon, Zip);
+    const edited = JSON.parse(JSON.stringify(ref.geometry));
+    const bag = edited.bones.find(bone => bone.name === 'BagR');
+    edited.bones.push({...JSON.parse(JSON.stringify(bag)), name: 'BagR_copy'},
+        {...JSON.parse(JSON.stringify(bag)), name: 'BagR_copy_copy', parent: 'BagR_copy'},
+        {...JSON.parse(JSON.stringify(bag)), name: 'edu_Saddle_copy'},
+        {...JSON.parse(JSON.stringify(bag)), name: 'Saddle_copy'});
+    const input = {format_version:'1.12.0', 'minecraft:geometry':[edited]};
+    const result = await core.buildAddon(ref, input, mob.textures.default.split(',')[1], Zip);
+    const bones = JSON.parse(await result.zip.file(ref.path).async('string'))['minecraft:geometry'][0].bones;
+    const names = bones.map(bone => bone.name);
+    assert.ok(names.includes('BagR') && names.includes('Saddle'), 'original pieces keep their names');
+    assert.deepEqual(names.slice(-4), ['edu_BagR_copy', 'edu_BagR_copy_copy', 'edu_edu_Saddle_copy', 'edu_Saddle_copy_2']);
+    assert.equal(bones.find(bone => bone.name === 'edu_BagR_copy_copy').parent, 'edu_BagR_copy');
+    assert.equal(edited.bones.at(-1).name, 'Saddle_copy', 'the project geometry is not modified');
+});

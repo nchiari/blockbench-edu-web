@@ -633,10 +633,28 @@
         const useRequired=b.some((n,i)=>n>(a[i]||0)&&b.slice(0,i).every((v,j)=>v===(a[j]||0)));
         return applyLootOverride(source,settings,{format_version:useRequired?required:source.format_version,'minecraft:entity':{description,components:c,component_groups:groups,events}});
     }
+    // Vanilla render controllers hide bones by name (donkey "Bag*" only shows with a chest,
+    // "Saddle" only when saddled...). Copies made in Edu keep their source name, so every
+    // bone missing from the original model gets a neutral prefix that no controller matches.
+    function neutralizeAddedBones(geometry, original) {
+        const key = name => String(name || '').toLowerCase();
+        const known = new Set((original?.bones || []).map(bone => key(bone.name)));
+        const used = new Set((geometry.bones || []).map(bone => key(bone.name)));
+        const renamed = new Map();
+        for (const bone of geometry.bones || []) {
+            if (known.has(key(bone.name))) continue;
+            let name = 'edu_' + bone.name, n = 2;
+            while (used.has(key(name))) name = `edu_${bone.name}_${n++}`;
+            used.add(key(name)); renamed.set(key(bone.name), name); bone.name = name;
+        }
+        for (const bone of geometry.bones || []) if (renamed.has(key(bone.parent))) bone.parent = renamed.get(key(bone.parent));
+    }
     async function buildAddon(reference, compiled, pngBase64, Zip, auxiliaryTextures = {}, behaviorSettings = defaultBehavior()) {
+        compiled = clone(compiled);
         const entries = geometryEntries(compiled);
         requireThat(entries.length === 1 && entries[0].description.identifier === reference.geometryId,
             'El identificador del proyecto no corresponde al addon de referencia.');
+        neutralizeAddedBones(entries[0], reference.geometry);
         const output = await Zip.loadAsync(await reference.root.generateAsync({type: 'uint8array'}));
         const copies = new Map();
         for (const pack of [reference.bp, reference.rp]) if (!copies.has(pack.outerPath)) {
