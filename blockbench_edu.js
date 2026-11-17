@@ -281,6 +281,14 @@
     const PIG_MOVEMENT = [{id:'walk',label:'Camina',icon:'directions_walk'},{id:'swim',label:'Nada',icon:'pool'},{id:'amphibious',label:'Camina y nada',icon:'water'},{id:'fly',label:'Vuela',icon:'flight'}];
     // These families match the vanilla BP. A family includes its Minecraft variants.
     const PIG_TARGETS = [{id:'zombie',label:'Zombis'},{id:'skeleton',label:'Esqueletos'},{id:'creeper',label:'Creepers'},{id:'spider',label:'Arañas'},{id:'slime',label:'Slimes'},{id:'enderman',label:'Endermen'},{id:'cow',label:'Vacas'},{id:'sheep',label:'Ovejas'},{id:'chicken',label:'Gallinas'},{id:'pig',label:'Cerdos de Minecraft'},{id:'wolf',label:'Lobos'},{id:'villager',label:'Aldeanos'}];
+    // Vanilla projectiles that work from any shooter without block damage or teleporting the owner.
+    const PIG_PROJECTILES = [{id:'minecraft:arrow',label:'Flecha'},{id:'minecraft:snowball',label:'Bola de nieve'},
+        {id:'minecraft:small_fireball',label:'Bola de fuego'},{id:'minecraft:thrown_trident',label:'Tridente'},
+        {id:'minecraft:llama_spit',label:'Escupitajo de llama'},{id:'minecraft:breeze_wind_charge_projectile',label:'Carga de viento'},
+        {id:'minecraft:egg',label:'Huevo'}];
+    // Entity anchors of minecraft:behavior.fire_at_target: 0 = feet, 1 = eyes, 2 = body middle.
+    const PIG_PROJECTILE_ORIGINS = [{id:'feet',label:'Pies',anchor:0},{id:'body',label:'Medio del cuerpo',anchor:2},{id:'eyes',label:'Ojos',anchor:1}];
+    const PIG_ATTACK_STYLES = [{id:'melee',label:'Solo golpes',icon:'sports_mma'},{id:'both',label:'Golpes y proyectiles',icon:'call_split'},{id:'ranged',label:'Solo proyectiles',icon:'gps_fixed'}];
     const BEHAVIOR_SPEEDS = [{value:0.15,label:'Lenta'},{value:0.25,label:'Normal'},{value:0.35,label:'Rápida'},{value:0.45,label:'Muy rápida'}];
     function defaultBehavior() { return {version:1,profile:'original',health:20,speed:0.25,damage:4,range:16,item:'apple',tempt:true}; }
     function isPigBehavior(source) { return source?.['minecraft:entity']?.components?.['minecraft:type_family']?.family?.includes('pig') === true; }
@@ -294,6 +302,7 @@
             if(!b.pig.locomotion) b.pig.locomotion={mode:'walk'};
             if(!b.pig.respiration) b.pig.respiration={medium:'air',reserve:15};
             if(!b.pig.targets) b.pig.targets={attack:[],avoid:[]};
+            if(!b.pig.ranged) b.pig.ranged={mode:'melee',projectile:'minecraft:arrow',origin:'eyes',height:0};
             return b;
         }
         const tame=['companion','guardian'].includes(b.profile);
@@ -389,6 +398,12 @@
                 'Las causas de daño de la criatura no son válidas.');
         }
         if(settings.pig?.loot!==undefined)validateLoot(settings.pig.loot);
+        if(settings.pig?.ranged!==undefined) {
+            const r=settings.pig.ranged;
+            requireThat(r&&PIG_ATTACK_STYLES.some(s=>s.id===r.mode)&&PIG_PROJECTILES.some(i=>i.id===r.projectile)&&
+                PIG_PROJECTILE_ORIGINS.some(o=>o.id===r.origin)&&Number.isFinite(r.height)&&r.height>=-2&&r.height<=4,
+                'Los ajustes del ataque a distancia no son válidos.');
+        }
         if(settings.pig?.locomotion!==undefined || settings.pig?.respiration!==undefined || settings.pig?.targets!==undefined) {
             const p=settings.pig,l=p.locomotion,r=p.respiration,t=p.targets;
             const targets=a=>Array.isArray(a)&&a.length<=PIG_TARGETS.length&&new Set(a).size===a.length&&a.every(id=>PIG_TARGETS.some(m=>m.id===id));
@@ -403,7 +418,7 @@
         const next=before.pig?.simple?simplePigBehavior(before):pigBehavior(before);
                     next.profile='calm';
                     const path=key.split('.');
-                    if(path.length===2&&['damageSources','mount','food','breeding','locomotion','respiration','targets','loot'].includes(path[0])) next.pig[path[0]][path[1]]=clone(value);
+                    if(path.length===2&&['damageSources','mount','food','breeding','locomotion','respiration','targets','loot','ranged'].includes(path[0])) next.pig[path[0]][path[1]]=clone(value);
                     else if(key in next.pig) next.pig[key]=value; else next[key]=value;
                     const p=next.pig;
                     if(key==='reaction') { if(['enemy','flee','retaliate'].includes(value)) {p.tame=false;p.follow=false;p.defend=false;next.tempt=false;} if(['enemy','retaliate'].includes(value)) p.panic=false; }
@@ -518,6 +533,21 @@
             c['minecraft:follow_range'] = {value:settings.range};
             c['minecraft:behavior.melee_attack'] = {priority:3,speed_multiplier:1.2,track_target:true};
         }
+        const ranged=fighter&&p&&p.ranged.mode!=='melee'?p.ranged:null;
+        if(ranged) {
+            // fire_at_target, unlike shooter + ranged_attack, lets the creature choose where the shot starts.
+            // Height only: sideways offsets follow world axes, not the creature's facing.
+            c['minecraft:behavior.fire_at_target']={priority:2,projectile_def:ranged.projectile,attack_range:[0,settings.range],
+                attack_cooldown:1,pre_shoot_delay:0.5,post_shoot_delay:0.2,ranged_fov:90,
+                owner_anchor:PIG_PROJECTILE_ORIGINS.find(o=>o.id===ranged.origin).anchor,owner_offset:[0,ranged.height,0],
+                target_anchor:2,target_offset:[0,0,0]};
+            if(ranged.mode==='ranged') {
+                delete c['minecraft:behavior.melee_attack'];
+                // Without melee the creature keeps a shooting distance instead of walking into its target.
+                c['minecraft:behavior.move_around_target']={priority:3,destination_position_range:[4,8],movement_speed:1.2,destination_pos_spread_degrees:360,
+                    filters:{test:'target_distance',subject:'self',value:settings.range,operator:'<='}};
+            }
+        }
         if (enemy) {
             c['minecraft:behavior.nearest_attackable_target'] = {priority:1,must_see:true,
                 entity_types:[{filters:playerFilter,max_dist:settings.range}]};
@@ -628,7 +658,7 @@
         }
         const description = clone(original.description);
         delete description.runtime_identifier;
-        const required=p?.mount.enabled?'1.21.80':p?.universal?'1.16.0':source.format_version;
+        const required=p?.mount.enabled?'1.21.80':ranged?'1.21.30':p?.universal?'1.16.0':source.format_version;
         const version=v=>String(v).split('.').map(Number),a=version(source.format_version),b=version(required);
         const useRequired=b.some((n,i)=>n>(a[i]||0)&&b.slice(0,i).every((v,j)=>v===(a[j]||0)));
         return applyLootOverride(source,settings,{format_version:useRequired?required:source.format_version,'minecraft:entity':{description,components:c,component_groups:groups,events}});
@@ -823,7 +853,7 @@
     async function writeCreatureProject(model, state, reference, Zip) {
         validateCreatureProject(model, state);
         const zip = new Zip();
-        zip.file('project.json', JSON.stringify({format: 'blockbench-edu', version: state.behavior?.pig?.loot ? 12 : state.behavior?.pig?.universal ? 10 : state.behavior?.pig?.mount?.control==='direct' ? 9 : state.behavior?.pig?.simple ? 8 : state.behavior?.pig?.locomotion ? 7 : state.behavior?.pig?.damageSources ? 6 : state.behavior?.pig?.mount ? 5 : state.behavior?.pig?.food ? 4 : state.behavior?.pig ? 3 : 2, model, state}));
+        zip.file('project.json', JSON.stringify({format: 'blockbench-edu', version: state.behavior?.pig?.ranged && state.behavior.pig.ranged.mode!=='melee' ? 13 : state.behavior?.pig?.loot ? 12 : state.behavior?.pig?.universal ? 10 : state.behavior?.pig?.mount?.control==='direct' ? 9 : state.behavior?.pig?.simple ? 8 : state.behavior?.pig?.locomotion ? 7 : state.behavior?.pig?.damageSources ? 6 : state.behavior?.pig?.mount ? 5 : state.behavior?.pig?.food ? 4 : state.behavior?.pig ? 3 : 2, model, state}));
         zip.file('reference.mcaddon', await reference.root.generateAsync({type:'uint8array'}));
         return zip.generateAsync({type:'uint8array', compression:'DEFLATE'});
     }
@@ -833,7 +863,7 @@
             zip = await Zip.loadAsync(content);
             data = JSON.parse(await zip.file('project.json').async('string'));
         } catch { throw new Error('Este archivo no es un proyecto de Blockbench Edu o está dañado. Elige el archivo .bbedu que guardaste.'); }
-        requireThat(data.format === 'blockbench-edu' && [1,2,3,4,5,6,7,8,9,10,11,12].includes(data.version), 'Este proyecto necesita otra versión de Blockbench Edu.');
+        requireThat(data.format === 'blockbench-edu' && [1,2,3,4,5,6,7,8,9,10,11,12,13].includes(data.version), 'Este proyecto necesita otra versión de Blockbench Edu.');
         validateCreatureProject(data.model, data.state);
         requireThat(zip.file('reference.mcaddon'), 'El proyecto no contiene su addon base.');
         const reference = await readAddon(await zip.file('reference.mcaddon').async('uint8array'), Zip);
@@ -1760,7 +1790,7 @@
         classroom = new Vue({el: mount,
             data: {sidebarWidth: current()?.sidebarWidth || 260, sidebarMax: 480, sidebarDragging: false, sidebarStartX: 0, sidebarStartWidth: 260, mode: 'shape', operation: 'size', wholeModel: true, position: [0,0,0], rotation: [0,0,0], axes: ['De lado', 'Arriba / abajo', 'Adelante / atrás'], turns: ['Inclinar', 'Girar', 'Ladear'], pieces: [], selectedId: '', dimensions: [0,0,0], maximum: [0,0,0], minimum: [1,1,1], busy: false, canUndo: false, canRedo: false,
                 behavior:clone(current()?.behavior || defaultBehavior()), behaviorSupported:false, categoryEditor:false, behaviorNotice:'', behaviorPage:'', behaviorCategories:[{id:'base',label:'Base',icon:'auto_awesome'},{id:'movement',label:'Movimiento',icon:'directions_walk'},{id:'reaction',label:'Reacción al jugador',icon:'visibility'},{id:'friendship',label:'Amistad',icon:'favorite'},{id:'health',label:'Vida y daño',icon:'healing'},{id:'combat',label:'Combate',icon:'sports_martial_arts'},{id:'mount',label:'Montura',icon:'airline_seat_recline_normal'},{id:'loot',label:'Botín',icon:'redeem'}], behaviorProfiles:BEHAVIOR_PROFILES,
-                lootSearch:'',lootEditingIndex:-1,lootChances:LOOT_CHANCES,lootModes:[{id:'original',label:'Original',icon:'auto_awesome'},{id:'none',label:'Nada',icon:'block'},{id:'custom',label:'Mis objetos',icon:'redeem'}],movementChoices:PIG_MOVEMENT, mobChoices:PIG_TARGETS, mobSearch:'', behaviorItems:BEHAVIOR_ITEMS, pigFoodItems:PIG_FOOD_ITEMS, damageSourceChoices:PIG_DAMAGE_SOURCES, damageSourceGroups:[{id:'combat',label:'Golpes y proyectiles'},{id:'fire',label:'Fuego y explosiones'},{id:'environment',label:'Peligros del entorno'},{id:'magic',label:'Daño mágico'}], behaviorSpeeds:BEHAVIOR_SPEEDS, behaviorCanUndo:false, behaviorCanRedo:false,
+                lootSearch:'',lootEditingIndex:-1,lootChances:LOOT_CHANCES,lootModes:[{id:'original',label:'Original',icon:'auto_awesome'},{id:'none',label:'Nada',icon:'block'},{id:'custom',label:'Mis objetos',icon:'redeem'}],movementChoices:PIG_MOVEMENT,attackStyles:PIG_ATTACK_STYLES,projectileChoices:PIG_PROJECTILES,projectileOrigins:PIG_PROJECTILE_ORIGINS, mobChoices:PIG_TARGETS, mobSearch:'', behaviorItems:BEHAVIOR_ITEMS, pigFoodItems:PIG_FOOD_ITEMS, damageSourceChoices:PIG_DAMAGE_SOURCES, damageSourceGroups:[{id:'combat',label:'Golpes y proyectiles'},{id:'fire',label:'Fuego y explosiones'},{id:'environment',label:'Peligros del entorno'},{id:'magic',label:'Daño mágico'}], behaviorSpeeds:BEHAVIOR_SPEEDS, behaviorCanUndo:false, behaviorCanRedo:false,
                 bones: [], partsOpen: current()?.partsOpen ?? true, soloBoneId: '', selectedPixelCount: 0, paintTool: 'brush_tool', brushSize: 1, cameraControlsOpen: false, cameraIsOrtho: false,
                 teacherViewAvailable: allowsTeacherView(), driveAvailable: !!window.BlockbenchEduDrive, driveClass: !!window.BlockbenchEduDrive?.classCode,
                 cameraRotate: Keybinds.extra.preview_rotate.keybind.toString(), cameraPan: Keybinds.extra.preview_drag.keybind.toString(), cameraZoom: Keybinds.extra.preview_scroll_zoom.keybind.toString(),
@@ -1833,7 +1863,9 @@
                     if(p.follow) lines.push(`Te sigue desde ${p.followStart} bloques y se detiene a ${p.followStop}.`);
                     else if(p.tame) lines.push('No sigue a su dueño.');
                     if(p.defend) lines.push('Defiende a su dueño.');
-                    if(p.defend||p.targets.attack.length||['enemy','retaliate'].includes(p.reaction)) lines.push(`Daño por golpe: ${b.damage}.`);
+                    const fights=p.defend||p.targets.attack.length||['enemy','retaliate'].includes(p.reaction);
+                    if(fights&&p.ranged.mode!=='ranged') lines.push(`Daño por golpe: ${b.damage}.`);
+                    if(fights&&p.ranged.mode!=='melee') lines.push(`Dispara: ${this.projectileChoices.find(i=>i.id===p.ranged.projectile).label}, desde ${this.projectileOrigins.find(o=>o.id===p.ranged.origin).label.toLowerCase()}${p.ranged.height?` (${p.ranged.height>0?'+':''}${p.ranged.height} bloques)`:''}.`);
                     if(['enemy','flee'].includes(p.reaction)) lines.push(`Detección: ${b.range} bloques.`);
                     if(b.tempt&&!['enemy','flee'].includes(p.reaction)) lines.push(`Atracción: ${p.food.attract.map(id=>this.pigFoodItems.find(i=>i.id===id).label).join(', ')}, hasta ${p.temptRange} bloques.`);
                     if(p.heal) lines.push(...p.food.heal.map(i=>`Curación: ${this.pigFoodItems.find(x=>x.id===i.item).label}, ${i.amount} puntos.`));
@@ -1870,13 +1902,18 @@
             }},
             methods: {
                 showBehaviorNotice(message) { clearTimeout(this.noticeTimer);this.behaviorNotice=message;if(message)this.noticeTimer=setTimeout(()=>this.behaviorNotice='',5500); },
-                categoryHelp() { return {loot:'Elige qué suelta al morir, cuánto y con qué posibilidad.',base:'Cambiar de base reinicia los ajustes y sustituye las habilidades originales.',movement:'Elige cómo se desplaza y a qué velocidad.',reaction:'Elige qué hace cuando se acerca un jugador.',friendship:'Elige cómo domesticarla y qué comida la atrae.',health:'Ajusta su vida, sus daños y cómo se cura.',combat:'Elige qué criaturas ataca o evita.',mount:'Coloca al pasajero y elige cómo conducir; arrastra la vista para girarla.'}[this.behaviorPage] || ''; },
+                categoryHelp() { return {loot:'Elige qué suelta al morir, cuánto y con qué posibilidad.',base:'Cambiar de base reinicia los ajustes y sustituye las habilidades originales.',movement:'Elige cómo se desplaza y a qué velocidad.',reaction:'Elige qué hace cuando se acerca un jugador.',friendship:'Elige cómo domesticarla y qué comida la atrae.',health:'Ajusta su vida, sus daños y cómo se cura.',combat:'Elige qué criaturas ataca o evita y si lanza proyectiles.',mount:'Coloca al pasajero y elige cómo conducir; arrastra la vista para girarla.'}[this.behaviorPage] || ''; },
                 categoryWarnings() {
                     const p=this.behavior.pig;if(!p)return [];
                     const w=(before,option,after,page,target)=>({before,option,after,page,target});
                     if(this.behaviorPage==='mount')return p.locomotion.mode!=='walk'?[w('Para montar, elige','Camina','en Movimiento.','movement','walk')]:!p.mount.enabled?[w('Activa','Se puede montar','para colocar el asiento.','mount','mount')]:[];
                     if(this.behaviorPage==='friendship')return p.reaction!=='neutral'?[w('Para hacer amistad, elige','No ataca','en Reacción al jugador.','reaction','neutral')]:!p.tame?[w('Para que te siga, activa','Se puede domesticar','.','friendship','tame')]:[];
-                    if(this.behaviorPage==='combat'&&!p.tame)return [w('Para defender a su dueño, activa','Se puede domesticar','en Amistad.','friendship','tame')];
+                    if(this.behaviorPage==='combat') {
+                        const warnings=[];
+                        if(p.ranged.mode!=='melee'&&!p.defend&&!p.targets.attack.length&&!['enemy','retaliate'].includes(p.reaction))warnings.push(w('Para que dispare necesita a quién atacar: elige','Enemigo','en Reacción al jugador o marca criaturas para atacar.','reaction','enemy'));
+                        if(!p.tame)warnings.push(w('Para defender a su dueño, activa','Se puede domesticar','en Amistad.','friendship','tame'));
+                        return warnings;
+                    }
                     if(this.behaviorPage==='reaction'&&this.behaviorBlockReason('panic')) {
                         const warnings=[];
                         if(['enemy','retaliate'].includes(p.reaction))warnings.push(w('Para huir al recibir daño, elige','No ataca','.','reaction','neutral'));
@@ -2057,7 +2094,7 @@
                     return {mount:p.mount.enabled?(p.mount.saddle?'Con silla':'Sin silla'):'No se puede montar',food:'Alimentos separados',breeding:p.breeding.enabled?'Reproducción activada':'Sin reproducción',base:'Personalizada',movement:this.movementChoices.find(m=>m.id===p.locomotion.mode).label+' · '+this.behaviorSpeeds.find(s=>s.value===b.speed).label,
                         reaction:{neutral:'No ataca',flee:'Huye',enemy:'Enemigo',retaliate:'Se defiende'}[p.reaction],
                         friendship:p.tame?(p.follow?'Domesticable · Te sigue':'Domesticable'):'Sin domesticar',
-                        health:b.health+' puntos'+(p.heal?' · Se cura':''),combat:p.targets.attack.length||p.targets.avoid.length?p.targets.attack.length+' para atacar · '+p.targets.avoid.length+' para evitar':p.defend?'Defiende a su dueño':(['enemy','retaliate'].includes(p.reaction)?b.damage+' de daño':'Sin ataques')}[id];
+                        health:b.health+' puntos'+(p.heal?' · Se cura':''),combat:p.targets.attack.length||p.targets.avoid.length?p.targets.attack.length+' para atacar · '+p.targets.avoid.length+' para evitar':p.defend?'Defiende a su dueño':(['enemy','retaliate'].includes(p.reaction)?(p.ranged.mode==='ranged'?'Dispara '+this.projectileChoices.find(i=>i.id===p.ranged.projectile).label.toLowerCase():b.damage+' de daño'+(p.ranged.mode==='both'?' · Dispara':'')):'Sin ataques')}[id];
                 },
                 choosePigBase(profile) {
                     const session=current(), before=clone(session.behavior || defaultBehavior());
@@ -2174,7 +2211,7 @@
                                     <details v-for="group in damageSourceGroups" :key="group.id" class="edu-food-section"><summary>{{group.label}}</summary><fieldset class="edu-food-list"><legend>{{group.label}}</legend><label v-for="source in damageSourceChoices.filter(source=>source.group===group.id)" :key="source.id" class="edu-behavior-check" :class="{'is-disabled':busy}" :title="busy?'Espera a que termine la operación.':''"><input type="checkbox" :data-setting="source.id" :checked="behavior.pig.damageSources[source.id]" @change="changePig('damageSources.'+source.id,$event.target.checked)" :disabled="busy"/><span>{{source.label}}</span></label></fieldset></details>
 <details class="edu-food-section"><summary data-setting="respiration">Respiración</summary><label>¿Dónde puede respirar?<select :value="behavior.pig.respiration.medium" @change="changePig('respiration.medium',$event.target.value)" :disabled="busy"><option value="air">En el aire</option><option value="water">Bajo el agua</option><option value="both">En el aire y bajo el agua</option></select></label><label class="edu-mount-field" :class="{'is-disabled':!!behaviorBlockReason('reserve')}" :title="behaviorBlockReason('reserve')">Tiempo sin respirar (segundos)<input type="number" min="5" max="300" :value="behavior.pig.respiration.reserve" @input="pigNumber('respiration.reserve',$event.target.value)" @blur="$event.target.value=behavior.pig.respiration.reserve" :disabled="!!behaviorBlockReason('reserve')"/></label><small>De 5 a 300 segundos fuera del medio donde respira.</small></details>
 <section class="edu-setting"><h4>Curación con comida</h4><label class="edu-behavior-check"><input type="checkbox" :checked="behavior.pig.heal" @change="changePig('heal',$event.target.checked)"/><span>Se cura al darle comida</span></label><label v-if="behavior.pig.heal">Alimento para curar<select :value="behavior.pig.food.heal[0].item" @change="changePig('food.heal',[{item:$event.target.value,amount:4}])"><option v-for="item in pigFoodItems" :value="item.id">{{item.label}}</option></select></label><small v-if="behavior.pig.heal">Recupera 2 corazones.</small></section></template>
-<template v-if="behaviorPage==='combat'"><label>Distancia para detectar criaturas<input type="number" min="4" max="32" :value="behavior.range" @input="pigNumber('range',$event.target.value)" @blur="$event.target.value=behavior.range" :disabled="busy"/></label><small>De 4 a 32 bloques. Comparte la distancia de detección del jugador.</small><label>Buscar criatura<input type="search" v-model="mobSearch" placeholder="Por ejemplo: zombi"/></label><details v-for="action in ['attack','avoid']" :key="action" class="edu-food-section"><summary :data-setting="action">{{action==='attack'?'Criaturas para atacar':'Criaturas para evitar'}} · {{behavior.pig.targets[action].length}}</summary><fieldset class="edu-food-list"><legend>{{action==='attack'?'Criaturas para atacar':'Criaturas para evitar'}}</legend><label v-for="mob in filteredMobs()" :key="mob.id" class="edu-behavior-check" :class="{'is-disabled':!!mobReason(action,mob.id)}" :title="mobReason(action,mob.id)"><input type="checkbox" :checked="behavior.pig.targets[action].includes(mob.id)" @change="toggleMob(action,mob.id,$event.target.checked)" :disabled="!!mobReason(action,mob.id)"/><span>{{mob.label}}</span></label></fieldset></details><label class="edu-behavior-check" :class="{'is-disabled':!!behaviorBlockReason('defend')}" :title="behaviorBlockReason('defend')"><input type="checkbox" data-setting="defend" :checked="behavior.pig.defend" @change="changePig('defend',$event.target.checked)" :disabled="busy || !behavior.pig.tame"/><span>Defiende a su dueño</span></label></template>
+<template v-if="behaviorPage==='combat'"><label>Distancia para detectar criaturas<input type="number" min="4" max="32" :value="behavior.range" @input="pigNumber('range',$event.target.value)" @blur="$event.target.value=behavior.range" :disabled="busy"/></label><small>De 4 a 32 bloques. Comparte la distancia de detección del jugador.</small><label>Buscar criatura<input type="search" v-model="mobSearch" placeholder="Por ejemplo: zombi"/></label><details v-for="action in ['attack','avoid']" :key="action" class="edu-food-section"><summary :data-setting="action">{{action==='attack'?'Criaturas para atacar':'Criaturas para evitar'}} · {{behavior.pig.targets[action].length}}</summary><fieldset class="edu-food-list"><legend>{{action==='attack'?'Criaturas para atacar':'Criaturas para evitar'}}</legend><label v-for="mob in filteredMobs()" :key="mob.id" class="edu-behavior-check" :class="{'is-disabled':!!mobReason(action,mob.id)}" :title="mobReason(action,mob.id)"><input type="checkbox" :checked="behavior.pig.targets[action].includes(mob.id)" @change="toggleMob(action,mob.id,$event.target.checked)" :disabled="!!mobReason(action,mob.id)"/><span>{{mob.label}}</span></label></fieldset></details><label class="edu-behavior-check" :class="{'is-disabled':!!behaviorBlockReason('defend')}" :title="behaviorBlockReason('defend')"><input type="checkbox" data-setting="defend" :checked="behavior.pig.defend" @change="changePig('defend',$event.target.checked)" :disabled="busy || !behavior.pig.tame"/><span>Defiende a su dueño</span></label><h4>Ataque a distancia</h4><div class="edu-behavior-options"><button :data-setting="style.id" v-for="style in attackStyles" :key="style.id" :aria-pressed="behavior.pig.ranged.mode===style.id" :class="{active:behavior.pig.ranged.mode===style.id}" @click="changePig('ranged.mode',style.id)" :disabled="busy"><i class="material-icons" aria-hidden="true">{{style.icon}}</i>{{style.label}}</button></div><template v-if="behavior.pig.ranged.mode!=='melee'"><label>Proyectil<select :value="behavior.pig.ranged.projectile" @change="changePig('ranged.projectile',$event.target.value)" :disabled="busy"><option v-for="item in projectileChoices" :key="item.id" :value="item.id">{{item.label}}</option></select></label><small>El daño depende del proyectil, como en Minecraft.</small><label>Sale desde<select :value="behavior.pig.ranged.origin" @change="changePig('ranged.origin',$event.target.value)" :disabled="busy"><option v-for="origin in projectileOrigins" :key="origin.id" :value="origin.id">{{origin.label}}</option></select></label><label>Subir o bajar el punto de salida<input type="number" min="-2" max="4" step="0.25" :value="behavior.pig.ranged.height" @input="pigNumber('ranged.height',$event.target.value)" @blur="$event.target.value=behavior.pig.ranged.height" :disabled="busy"/></label><small>En bloques, de -2 a 4. Por ejemplo, 0.5 lo sube medio bloque.</small></template></template>
                                 </div>
                             </template>
                         </template>

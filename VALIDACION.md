@@ -1,5 +1,14 @@
 # Validación del prototipo
 
+## Ataque a distancia — 17 de noviembre de 2026
+
+- Combate incorpora Ataque a distancia: Solo golpes (por defecto), Golpes y proyectiles o Solo proyectiles. Proyectiles vanilla elegibles: flecha, bola de nieve, bola de fuego pequeña, tridente, escupitajo de llama, carga de viento y huevo. Se excluyen los que rompen bloques o teletransportan (bola de fuego de ghast, calavera de Wither, perla de ender).
+- Se usa minecraft:behavior.fire_at_target (formato de entidad 1.21.30) porque permite elegir el punto de salida: ancla pies/medio/ojos y desplazamiento vertical de -2 a 4 bloques. No se ofrece desplazamiento lateral o hacia adelante porque fuera del experimento Custom Projectiles se aplica en ejes del mundo y no según hacia dónde mira la criatura.
+- Solo dispara si tiene objetivo (Enemigo, Se defiende, criaturas para atacar o defensa del dueño); si no, Combate muestra un aviso. Solo proyectiles quita el golpe cuerpo a cuerpo y agrega move_around_target para mantener distancia. Al montarla, el disparo se pausa como las demás conductas. El daño depende del proyectil.
+- Proyectos con disparo activado usan formato portátil 13; los demás siguen guardándose como antes.
+- 92 pruebas automáticas aprobadas. Navegador local: esqueleto con base personalizada, Golpes y proyectiles, resumen "Dispara: Flecha, desde ojos".
+- Pendiente: prueba en Minecraft Education de cada proyectil, la altura de salida y Solo proyectiles.
+
 ## Causas de daño del cerdo — 12 de noviembre de 2026
 
 - Vida y daño incorpora 15 opciones en cuatro desplegables: golpes/proyectiles/Espinas; fuego/lava/magma/explosiones/rayos; caídas/ahogamiento/asfixia/contacto/bloques que caen/congelación; daño mágico y Wither.
