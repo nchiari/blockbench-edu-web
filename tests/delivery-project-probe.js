@@ -18,7 +18,7 @@ async page => {
     await page.waitForFunction(() => typeof Dialog !== 'undefined' && Dialog.open?.content_vue?.steps);
     await page.evaluate(async () => {
         const wizard = Dialog.open.content_vue;
-        wizard.creature='pig'; wizard.step=3; await wizard.next();
+        wizard.creature='pig'; wizard.step=wizard.steps.length - 1; await wizard.next();
     });
     await page.locator('#edu-classroom').waitFor();
     await page.evaluate(() => {
