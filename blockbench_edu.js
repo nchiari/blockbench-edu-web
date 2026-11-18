@@ -679,7 +679,54 @@
         }
         for (const bone of geometry.bones || []) if (renamed.has(key(bone.parent))) bone.parent = renamed.get(key(bone.parent));
     }
-    async function buildAddon(reference, compiled, pngBase64, Zip, auxiliaryTextures = {}, behaviorSettings = defaultBehavior()) {
+    function cleanCreatureName(name) {
+        return name.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/g, ' ').trim();
+    }
+    function creatureFileStem(name) {
+        return name.normalize('NFC').replace(/[^\p{L}\p{N}_-]+/gu, '_') || 'Mi_criatura';
+    }
+    async function applyCreatureName(reference, manifests, bpZip, rpZip, behavior, name) {
+        const identifier = reference.entity.description.identifier;
+        const script = 'scripts/blockbench_edu_name.js';
+        const bp = manifests.bp;
+        const moduleUuid = bp.header.uuid.replace(/^[\da-f]/i, digit => (parseInt(digit, 16) ^ 8).toString(16));
+        if (!bp.modules.some(module => module.type === 'script' && module.entry === script)) {
+            bp.modules.push({type:'script', language:'javascript', entry:script, uuid:moduleUuid, version:manifests.version});
+        }
+        if (!bp.dependencies.some(dep => dep.module_name === '@minecraft/server')) {
+            bp.dependencies.push({module_name:'@minecraft/server', version:'2.8.0'});
+            const [major, minor, patch] = bp.header.min_engine_version || [0, 0, 0];
+            if (major < 1 || major === 1 && (minor < 26 || minor === 26 && patch < 30)) bp.header.min_engine_version = [1,26,30];
+        }
+        bpZip.file(reference.bp.prefix + script, [
+            'import { world } from "@minecraft/server";',
+            'world.afterEvents.entitySpawn.subscribe(({ entity }) => {',
+            `    if (entity.typeId === ${JSON.stringify(identifier)} && !entity.nameTag) entity.nameTag = ${JSON.stringify(name)};`,
+            '});', ''
+        ].join('\n'));
+
+        const entity = behavior['minecraft:entity'];
+        const key = 'minecraft:nameable';
+        entity.components ||= {};
+        entity.components[key] = {...entity.components[key], always_show:true};
+        for (const group of Object.values(entity.component_groups || {})) {
+            if (group[key]) group[key].always_show = true;
+        }
+        const texts = reference.rp.prefix + 'texts/';
+        const paths = new Set([texts + 'en_US.lang', texts + 'es_ES.lang',
+            ...Object.keys(rpZip.files).filter(path => path.startsWith(texts) && path.endsWith('.lang'))]);
+        const keys = [`entity.${identifier}.name`, `item.spawn_egg.entity.${identifier}.name`];
+        for (const path of paths) {
+            const file = rpZip.file(path);
+            const original = file ? await file.async('string') : '';
+            const lines = original.replace(/^\uFEFF/, '').split(/\r?\n/).filter(line => !keys.some(key => line.startsWith(key + '=')));
+            const remaining = lines.join('\n').trimEnd();
+            rpZip.file(path, (remaining ? remaining + '\n' : '') + keys.map(key => `${key}=${name}\t\n`).join(''));
+        }
+        bp.header.name = name;
+        manifests.rp.header.name = name;
+    }
+    async function buildAddon(reference, compiled, pngBase64, Zip, auxiliaryTextures = {}, behaviorSettings = defaultBehavior(), creatureName = '') {
         compiled = clone(compiled);
         const entries = geometryEntries(compiled);
         requireThat(entries.length === 1 && entries[0].description.identifier === reference.geometryId,
@@ -697,18 +744,23 @@
                 if(v[0]<1 || v[0]===1&&(v[1]<21 || v[1]===21&&v[2]<80)) pack.header.min_engine_version=required.slice();
             }
         }
-        copies.get(reference.bp.outerPath).file(reference.bp.path, JSON.stringify(manifests.bp, null, 2));
+        const bpZip = copies.get(reference.bp.outerPath), rpZip = copies.get(reference.rp.outerPath);
+        const name = cleanCreatureName(creatureName);
         validateBehavior(behaviorSettings);
-        if (behaviorSettings.profile !== 'original' || behaviorSettings.pig?.simple || behaviorSettings.pig?.loot&&behaviorSettings.pig.loot.mode!=='inherit') {
+        const customBehavior = behaviorSettings.profile !== 'original' || behaviorSettings.pig?.simple ||
+            behaviorSettings.pig?.loot && behaviorSettings.pig.loot.mode !== 'inherit';
+        if (customBehavior || name && reference.behavior) {
             requireThat(reference.behavior, 'No se encontró un comportamiento único para esta criatura.');
-            copies.get(reference.bp.outerPath).file(reference.behavior.path, JSON.stringify(compileBehavior(reference.behavior.json, behaviorSettings), null, 2));
+            const behavior = customBehavior ? compileBehavior(reference.behavior.json, behaviorSettings) : clone(reference.behavior.json);
+            if (name) await applyCreatureName(reference, manifests, bpZip, rpZip, behavior, name);
+            bpZip.file(reference.behavior.path, JSON.stringify(behavior, null, 2));
         }
         if(['none','custom'].includes(behaviorSettings.pig?.loot?.mode)) {
             requireThat(reference.behavior,'No se ha encontrado el comportamiento para guardar el botín.');
             const root=reference.bp.path.slice(0,reference.bp.path.lastIndexOf('/')+1);
-            copies.get(reference.bp.outerPath).file(root+lootTablePath(reference.behavior.json),JSON.stringify(compileLootTable(behaviorSettings.pig.loot),null,2));
+            bpZip.file(root+lootTablePath(reference.behavior.json),JSON.stringify(compileLootTable(behaviorSettings.pig.loot),null,2));
         }
-        const rpZip = copies.get(reference.rp.outerPath);
+        bpZip.file(reference.bp.path, JSON.stringify(manifests.bp, null, 2));
         rpZip.file(reference.rp.path, JSON.stringify(manifests.rp, null, 2));
         // Preserve any additional geometries in the reference file.
         let replacement = clone(reference.json);
@@ -1463,7 +1515,7 @@
         const session = validateSession();
         requireThat(session.prepared, 'Prepara la criatura antes de guardarla.');
         const model = captureEditableModel(session);
-        const name = Project.name.replace(/[^\p{L}\p{N}_-]+/gu,'_') || 'Mi_criatura';
+        const name = creatureFileStem(Project.name);
         session.busy = true; refresh();
         try {
             const content = await portableProject(session, model, session.reference.lastVersion);
@@ -1603,55 +1655,87 @@
     }
     async function prepareExport(session, projectId, includeModel = false) {
         const compiled = getGeometry();
+        const creatureName = cleanCreatureName(Project.name) || 'Mi criatura';
         requireThat(session.prepared && Cube.all.every(c => !c.box_uv), 'Prepara la textura antes de exportar.');
         const faces = captureFaces(Texture.all[0]);
         const width = Project.texture_width, height = Project.texture_height;
         const png = Texture.all[0].canvas.toDataURL('image/png').split(',')[1];
         const model = includeModel ? captureEditableModel(session) : null;
         const auxiliary = await remapAuxiliaryTextures(session, faces, width, height);
-        const result = await buildAddon(session.reference, compiled, png, JSZip, auxiliary, session.behavior || defaultBehavior());
+        const result = await buildAddon(session.reference, compiled, png, JSZip, auxiliary, session.behavior || defaultBehavior(), creatureName);
         const content = await result.zip.generateAsync({type: 'blob'});
         requireThat(alive && Project?.uuid === projectId, 'Cambió el proyecto durante la exportación. Vuelve a exportar.');
         const modelContent = model && new Blob([JSON.stringify(model)], {type:'application/json'});
         const projectContent = model && await portableProject(session, model, result.version);
-        return {result, content, modelContent, projectContent, creatureName: Project.name,
-            fileName: `${Project.name.replace(/[^a-z0-9_-]+/gi, '_')}_${result.version.join('_')}`};
+        return {result, content, modelContent, projectContent, creatureName,
+            fileName: `${creatureFileStem(creatureName)}_${result.version.join('_')}`};
     }
     async function exportAddon() {
         const session = validateSession(), projectId = Project.uuid;
         session.busy = true; refresh();
         try {
-            const {result, content, creatureName, fileName} = await prepareExport(session, projectId);
+            const {result, content, fileName} = await prepareExport(session, projectId);
             Blockbench.export({type: 'Minecraft Addon', extensions: ['mcaddon'], savetype: 'zip',
                 name: fileName, content}, () => {
                 session.reference.lastVersion = result.version; refresh();
                 if (alive && classroom && Project?.uuid === projectId) Blockbench.showMessageBox({
                     title: '¡Tu criatura está lista para llevar!',
-                    message: `Busca el archivo **.mcaddon** en tus descargas.\n\n1. Ábrelo con **Minecraft Education**.\n2. Pide a tu docente que active la criatura en un mundo de prueba.\n3. En el inventario creativo, busca **${creatureName}** y usa su huevo para que aparezca.\n\nPuedes seguir creando. Si haces más cambios, vuelve a descargarla.`,
+                    message: 'Busca el archivo **.mcaddon** en tus descargas.\n\n1. Ábrelo con **Minecraft Education**.\n2. Pide a tu docente que active la criatura en un mundo de prueba.\n3. Busca el huevo con el nombre que elegiste en el inventario creativo y úsalo para que aparezca.\n\nPuedes seguir creando. Si haces más cambios, vuelve a descargarla.',
                     buttons: ['Seguir creando']
                 });
             });
         } finally { session.busy = false; refresh(); }
     }
-    function showSaveOptions() {
+    function showSaveOptions(directAction) {
         validateSession();
         const projectId = Project.uuid;
         let dialog;
-        const choose = work => {
+        const choose = (work, name) => {
             if (Project?.uuid !== projectId || current()?.busy) return;
+            if (Project.name !== name) { Project.name = name; Project.saved = false; }
             dialog.hide(); attempt(work);
         };
         dialog = new Dialog({id:'blockbench_edu_save_options', title:'Guardar y exportar', width:540,
             buttons:['Seguir creando'], component:{
-                data:() => ({hasClass:!!window.BlockbenchEduDrive?.classCode}),
-                methods:{save:() => choose(saveCreature), minecraft:() => choose(exportAddon), deliver:() => choose(deliverAddon)},
-                template:`<div class="edu-save-options"><p>¿Qué quieres hacer con tu criatura?</p>
-                    <button class="edu-save-choice" @click="save"><i class="material-icons" aria-hidden="true">save</i><span><strong>Guardar para seguir editando</strong><small>Guarda tu proyecto .bbedu en el ordenador. Ábrelo en Edu la próxima clase para continuar.</small></span></button>
+                data:() => ({name:cleanCreatureName(Project.name).slice(0, 80), choosing:false, hasClass:!!window.BlockbenchEduDrive?.classCode}),
+                computed:{cleanName() { return cleanCreatureName(this.name); }},
+                methods:{
+                    next() {
+                        if (!this.cleanName) return;
+                        if (directAction) choose(directAction, this.cleanName);
+                        else {
+                            this.choosing = true;
+                            this.$nextTick(() => this.$refs.firstChoice?.focus());
+                        }
+                    },
+                    back() {
+                        this.choosing = false;
+                        this.$nextTick(() => this.$refs.creatureName?.focus());
+                    },
+                    save() { choose(saveCreature, this.cleanName); },
+                    minecraft() { choose(exportAddon, this.cleanName); },
+                    deliver() { choose(deliverAddon, this.cleanName); }
+                },
+                template:`<div class="edu-save-options"><template v-if="!choosing">
+                    <label class="edu-save-name">Nombre de tu criatura
+                        <input ref="creatureName" type="text" v-model="name" maxlength="80" autocomplete="off" aria-describedby="edu-save-name-help" @keydown.enter.prevent.stop="next"/>
+                    </label>
+                    <p id="edu-save-name-help">Este nombre aparecerá encima de tu criatura en Minecraft y se usará para nombrar los archivos.</p>
+                    <button class="edu-save-next" @click="next" :disabled="!cleanName">Continuar</button>
+                    </template><template v-else>
+                    <p>¿Qué quieres hacer con <strong>{{cleanName}}</strong>?</p>
+                    <button ref="firstChoice" class="edu-save-choice" @click="save"><i class="material-icons" aria-hidden="true">save</i><span><strong>Guardar para seguir editando</strong><small>Guarda tu proyecto .bbedu en el ordenador. Ábrelo en Edu la próxima clase para continuar.</small></span></button>
                     <button class="edu-save-choice" @click="minecraft"><i class="material-icons" aria-hidden="true">sports_esports</i><span><strong>Llevar a Minecraft</strong><small>Descarga el addon .mcaddon para abrirlo con Minecraft Education y usar tu criatura en un mundo.</small></span></button>
                     <button v-if="hasClass" class="edu-save-choice" @click="deliver"><i class="material-icons" aria-hidden="true">school</i><span><strong>Entregar al profe</strong><small>Envía tu trabajo al buzón de la clase.</small></span></button>
-                </div>`
+                    <button class="edu-save-back" @click="back">Cambiar nombre</button>
+                    </template></div>`
             }});
         dialog.show();
+        dialog.content_vue.$nextTick(() => {
+            const input = dialog.content_vue.$refs.creatureName;
+            input?.focus();
+            input?.select();
+        });
     }
     function lockDeliveryUi(dialogElement) {
         const inertStates = new Map();
@@ -2056,7 +2140,7 @@
                 move: (axis, step) => attempt(() => classroom.wholeModel ? transformWholeModel('move', axis, axis === 0 ? -step : step) : transformPiece('move', axis, axis === 0 ? -step : step)),
                 undo() { if(this.mode==='behavior') this.behaviorHistory(false); else Undo.undo(); },
                 redo() { if(this.mode==='behavior') this.behaviorHistory(true); else Undo.redo(); }, download: () => attempt(exportAddon),
-                deliver: () => attempt(deliverAddon), saveCreature: () => attempt(saveCreature), openCreature: importCreature,
+                deliver: () => attempt(deliverAddon), saveCreature: () => attempt(() => showSaveOptions(saveCreature)), openCreature: importCreature,
                 saveOptions: () => attempt(showSaveOptions),
                 foodItemReason(kind,id) {
                     if(this.busy) return 'Espera a que termine el guardado.';
@@ -2385,7 +2469,7 @@
         onload() {
             alive = true;
             if (window.BlockbenchEduWeb) window.BlockbenchEduWeb.openCreature = importCreature;
-            projectStyle = Blockbench.addCSS('.edu-save-options{padding:10px 4px;display:grid;gap:12px}.edu-save-options>p{line-height:1.5;margin:0 0 4px}.edu-save-options .edu-save-choice{display:flex;align-items:center;gap:16px;width:100%;height:auto;min-height:100px;white-space:normal;text-align:left;padding:18px;border:2px solid #526f5d;border-radius:12px;background:#21302e;color:#eaf5ee}.edu-save-choice>i{font-size:30px;flex-shrink:0;color:#8beaab}.edu-save-choice span{display:grid;gap:8px;min-width:0}.edu-save-choice strong{font-size:17px;line-height:1.3;color:#8beaab}.edu-save-choice small{font-size:14px;line-height:1.5;color:#cee0d5}.edu-save-options .edu-save-choice:hover{background:#2d473b;border-color:#65d98a}.edu-save-options .edu-save-choice:focus-visible{outline:3px solid #8beaab;outline-offset:2px}.edu-project-files{flex-shrink:0;display:grid;gap:6px;padding-top:12px}.edu-project-files button{display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px}');
+            projectStyle = Blockbench.addCSS('.edu-save-options{padding:10px 4px;display:grid;gap:12px}.edu-save-options>p{line-height:1.5;margin:0 0 4px;overflow-wrap:anywhere}.edu-save-name{display:grid;gap:8px;font-weight:600}.edu-save-name input{width:100%;min-height:40px;padding:6px 10px;font-size:16px}.edu-save-options .edu-save-next{justify-self:end;min-height:36px;padding:0 18px}.edu-save-options .edu-save-next:not(:disabled){background:#65d98a;color:#102c1c}.edu-save-options .edu-save-back{justify-self:start}.edu-save-options .edu-save-choice{display:flex;align-items:center;gap:16px;width:100%;height:auto;min-height:100px;white-space:normal;text-align:left;padding:18px;border:2px solid #526f5d;border-radius:12px;background:#21302e;color:#eaf5ee}.edu-save-choice>i{font-size:30px;flex-shrink:0;color:#8beaab}.edu-save-choice span{display:grid;gap:8px;min-width:0}.edu-save-choice strong{font-size:17px;line-height:1.3;color:#8beaab}.edu-save-choice small{font-size:14px;line-height:1.5;color:#cee0d5}.edu-save-options .edu-save-choice:hover{background:#2d473b;border-color:#65d98a}.edu-save-options .edu-save-choice:focus-visible{outline:3px solid #8beaab;outline-offset:2px}.edu-project-files{flex-shrink:0;display:grid;gap:6px;padding-top:12px}.edu-project-files button{display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px}');
             colorSelectionTool = new Tool('blockbench_edu_select_color', {name:'Seleccionar un color',icon:'select_all',modes:['paint'],
                 paintTool:true,selectElements:false,cursor:'crosshair',condition:() => !!classroom,
                 onCanvasClick(data) {
@@ -2515,8 +2599,8 @@
                         driveLink: window.BlockbenchEduDrive?.classLink || '', driveMessage: ''}),
                     methods: {returnToStudents: enterClassroom, link: importAddon, prepare: () => attempt(prepare), resize: (a, s) => attempt(() => resize(a, s)),
                         select: selectHead, selectPiece, camera, paint: () => Modes.options.paint.select(), edit: () => Modes.options.edit.select(),
-                        undo: () => Undo.undo(), redo: () => Undo.redo(), exportAddon: () => attempt(exportAddon),
-                        saveCreature: () => attempt(saveCreature), openCreature: importCreature,
+                        undo: () => Undo.undo(), redo: () => Undo.redo(), exportAddon: () => attempt(() => showSaveOptions(exportAddon)),
+                        saveCreature: () => attempt(() => showSaveOptions(saveCreature)), openCreature: importCreature,
                         setDriveClass() {
                             try {
                                 window.BlockbenchEduDrive.setClassCode(this.driveCode.trim());

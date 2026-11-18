@@ -75,7 +75,7 @@ test('saves once, preserves identity on retry and uses a private friendly filena
     assert.equal(env.context.entregarAddon(data).ok, true);
     assert.equal(env.context.entregarAddon(data).duplicate, true);
     assert.equal(env.files.length, 1);
-    assert.match(env.files[0].name, /^Alumno_07_\d{2}-\d{2}-\d{2}\.mcaddon$/);
+    assert.match(env.files[0].name, /^Alumno_07_Dragon_azul_\d{2}-\d{2}-\d{2}\.mcaddon$/);
     assert.equal(JSON.parse(env.files[0].description).alias, 'Alumno 07');
     env.context.prepararBuzon_();
     assert.equal(env.files.length, 1);
@@ -134,12 +134,12 @@ test('recovers a save interrupted before its description without creating a dupl
     env.failDescription(false);
     assert.equal(env.context.entregarAddon(env.data()).duplicate, true);
     assert.equal(env.files.length, 1);
-    assert.match(env.files[0].name, /^Alumno_07_\d{2}-\d{2}-\d{2}\.mcaddon$/);
+    assert.match(env.files[0].name, /^Alumno_07_Dragon_azul_\d{2}-\d{2}-\d{2}\.mcaddon$/);
 });
 
 test('uses Madrid calendar date and appends a counter only for distinct uploads with the same name', () => {
     const env = environment();
-    assert.equal(env.context.nombreEntrega_('Nicolás', '2026-11-10T23:30:00Z', new Set()), 'Nicolas_11-11-26.mcaddon');
+    assert.equal(env.context.nombreEntrega_('Nicolás', 'Dragón azul', '2026-11-10T23:30:00Z', new Set()), 'Nicolas_Dragon_azul_11-11-26.mcaddon');
     const data=env.data();
     const first=env.context.entregarAddon(data);
     const second=env.context.entregarAddon({...data, submissionId:'b'.repeat(32)});

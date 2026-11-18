@@ -36,6 +36,7 @@ async page => {
     await page.evaluate(()=>{window.dupSaveExport=Blockbench.export;Blockbench.export=function(o,cb){window.dupProjectBlob=o.content;return dupSaveExport.call(this,o,cb);};});
     let pending=page.waitForEvent('download');
     await page.getByRole('button',{name:'Guardar mi criatura',exact:true}).click();
+    await page.getByRole('button',{name:'Continuar',exact:true}).click();
     const saved=await pending;await saved.saveAs('output/duplicated-bone.bbedu');
     await page.getByRole('button',{name:'Seguir creando',exact:true}).click();
     await page.evaluate(async()=>{Blockbench.export=dupSaveExport;window.dupProjectId=Project.uuid;const bytes=await dupProjectBlob.arrayBuffer(),original=Blockbench.import;Blockbench.import=(_options,callback)=>callback([{content:bytes}]);try{document.getElementById('edu-classroom').__vue__.openCreature();}finally{Blockbench.import=original;}});

@@ -11,6 +11,7 @@ async (page) => {
         await page.locator('#blockbench_edu_wizard .search_bar input').fill('zombi');
         await page.locator('.edu-catalog>li').filter({hasText: /^Zombi$/}).click();
         await page.getByRole('button', {name: 'Siguiente', exact: true}).click();
+        await page.getByRole('button', {name: 'Siguiente', exact: true}).click();
         await page.getByRole('button', {name: 'Abrir editor', exact: true}).click();
         await page.waitForFunction(() => !document.body.classList.contains('edu-setup'));
     };
@@ -57,6 +58,7 @@ async (page) => {
 
     await discardProbeProject(); await page.goto(classLink); await waitWizard(); await openCreature();
     await page.getByRole('button', {name: '4 · Guardar y exportar', exact: true}).click();
+    await page.getByRole('button',{name:'Continuar',exact:true}).click();
     check(await page.locator('#blockbench_edu_save_options').getByRole('button', {name: /^Entregar al profe/}).isVisible(), 'Class link enables student delivery in save options');
     await page.getByRole('button', {name:'Seguir creando',exact:true}).click();
     check(await page.locator('.edu-teacher').count() === 0, 'Class link stays in student role');

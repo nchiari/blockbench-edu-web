@@ -3,6 +3,7 @@ async (page) => {
     const results = [];
     const check = (ok,message) => { if (!ok) throw new Error(message); results.push(message); };
     const button = name => page.getByRole('button',{name,exact:true});
+    const selectHead = () => page.getByRole('combobox',{name:'¿Qué quieres cambiar?'}).selectOption({label:'2. Cabeza'});
     const waitTexture = () => page.waitForFunction(() => Texture.all[0].img.complete &&
         Texture.all[0].img.naturalWidth === Project.texture_width && Texture.all[0].img.naturalHeight === Project.texture_height);
     // Keep native import/read callbacks, but attach the input so the CLI can
@@ -31,17 +32,20 @@ async (page) => {
         if (name === 'Llevar a Minecraft' || (name === 'Guardar mi criatura' && await page.locator('#edu-classroom').count())) {
             await button('4 · Guardar y exportar').click();
             await page.locator('#blockbench_edu_save_options').waitFor();
+            await button('Continuar').click();
             if (name === 'Guardar mi criatura') name = 'Guardar para seguir editando';
         }
         const pending = page.waitForEvent('download');
         await page.getByRole('button',{name,exact:name !== 'Llevar a Minecraft' && name !== 'Guardar para seguir editando'}).click();
+        if (name === 'Guardar mi criatura') await button('Continuar').click();
         return await pending;
     };
     await button('Comenzar').click();
     await page.locator('#blockbench_edu_wizard .search_bar input').fill('zombi');
     await page.locator('.edu-catalog>li').filter({hasText:/^Zombi$/}).click();
-    await button('Siguiente').click(); await button('Abrir editor').click();
+    await button('Siguiente').click(); await button('Siguiente').click(); await button('Abrir editor').click();
     await page.locator('#edu-classroom').waitFor();
+    await selectHead();
     await button('Aumentar Ancho').click();
     await waitTexture();
     await button('Mover').click(); await button('Mover Arriba / abajo más').click();
@@ -55,10 +59,21 @@ async (page) => {
         Blockbench.export = function(options,callback) { window.probeLastExport = options; return window.probeExport(options,callback); };
     });
     await page.waitForFunction(() => Texture.all[0].img.complete);
+    await button('4 · Guardar y exportar').click();
+    const nameInput = page.getByRole('textbox',{name:'Nombre de tu criatura'});
+    await nameInput.fill('Lúa de prueba');
+    await nameInput.press('Enter');
+    await page.getByRole('button',{name:/^Guardar para seguir editando/}).click();
+    await button('Seguir creando').click();
     const before = await state();
     const limits = await page.evaluate(() => document.getElementById('edu-classroom').__vue__.maximum.slice());
     await button('4 · Guardar y exportar').click();
     const options = page.locator('#blockbench_edu_save_options');
+    check(await nameInput.inputValue()==='Lúa de prueba','The name is reused for later exports');
+    await nameInput.fill('   ');
+    check(await button('Continuar').isDisabled(),'A blank name cannot continue');
+    await nameInput.fill('Nombre descartado');
+    await button('Continuar').click();
     check(await options.getByRole('button',{name:/^Guardar para seguir editando/}).isVisible() &&
         await options.getByRole('button',{name:/^Llevar a Minecraft/}).isVisible(),
         'Third step offers both editable project and Minecraft addon downloads');
@@ -69,6 +84,7 @@ async (page) => {
     await button('Seguir creando').click();
     check(await state()===before,'Closing save options leaves the creature unchanged');
     const firstAddon = await download('Llevar a Minecraft');
+    check(/^Lúa_de_prueba_1_0_1\.mcaddon$/.test(firstAddon.suggestedFilename()),'The addon filename includes the creature name with accents');
     await firstAddon.saveAs('output/playwright/session-before.mcaddon');
     await button('Seguir creando').click();
     await button('2 · Dale color').click();
@@ -77,7 +93,7 @@ async (page) => {
         ui.toggleBone(ui.bones[0].id);
     });
     const saved = await download('Guardar mi criatura');
-    check(saved.suggestedFilename().endsWith('.bbedu'),'Downloads a portable .bbedu project');
+    check(saved.suggestedFilename()==='Lúa_de_prueba.bbedu','The portable file includes the same name');
     await saved.saveAs('output/playwright/session-roundtrip.bbedu');
     const archive = await page.evaluate(async () => {
         const zip = await JSZip.loadAsync(await window.probeLastExport.content.arrayBuffer());
@@ -101,6 +117,7 @@ async (page) => {
     check(JSON.stringify(await page.evaluate(() => document.getElementById('edu-classroom').__vue__.maximum)) === JSON.stringify(limits),
         'Reopening preserves the original size limits');
     check(await page.evaluate(() => Undo.history.length===0),'Reopened project starts with a fresh undo history');
+    await selectHead();
     await button('Aumentar Ancho').click();
     await waitTexture();
     check(await state() !== before,'Reopened creature can be resized');

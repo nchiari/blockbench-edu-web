@@ -56,6 +56,43 @@ test('Wizard catalog generation preserves cow geometry, behavior, animation and 
     assert.equal(await ref.root.file(ref.texturePath).async('base64'), catalog.cow.textures.default.split(',')[1]);
     assert.match(await ref.root.file('RP/texts/es_ES.lang').async('string'), /Mi vaca/);
 });
+test('named export labels the egg and assigns an overhead name to new creatures only', async () => {
+    const mob = require('../reference/wizard-catalog.json').cow;
+    const starter = await core.createMobAddon(mob, {name:'Vaca Edu'}, Zip, require('node:crypto').randomUUID);
+    const ref = await core.readAddon(starter.addon, Zip);
+    const name = 'Lúa "la azul"';
+    const exportNamed = (source, name) => core.buildAddon(source, starter.geometry, mob.textures.default.split(',')[1], Zip, {}, core.defaultBehavior(), name);
+    const {zip, version} = await exportNamed(ref, name);
+    const named = await core.readAddon(await zip.generateAsync({type:'uint8array'}), Zip);
+    const module = named.bp.manifest.modules.find(module => module.type === 'script');
+    assert.deepEqual(module.version, version);
+    assert.equal(named.bp.manifest.dependencies.find(dep => dep.module_name === '@minecraft/server').version, '2.8.0');
+    assert.equal(named.bp.manifest.header.name, name);
+    assert.equal(named.rp.manifest.header.name, name);
+    const components = named.behavior.json['minecraft:entity'].components;
+    assert.equal(components['minecraft:nameable'].always_show, true);
+    assert.deepEqual(components['minecraft:behavior.random_stroll'], ref.behavior.json['minecraft:entity'].components['minecraft:behavior.random_stroll']);
+    for (const locale of ['en_US', 'es_ES']) {
+        const lang = await zip.file(`RP/texts/${locale}.lang`).async('string');
+        assert.ok(lang.includes(`entity.${starter.identifier}.name=${name}\t\n`));
+        assert.ok(lang.includes(`item.spawn_egg.entity.${starter.identifier}.name=${name}\t\n`));
+        assert.ok(!lang.includes('Vaca Edu'));
+    }
+    const script = await zip.file(named.bp.prefix + module.entry).async('string');
+    let spawn;
+    require('node:vm').runInNewContext(script.replace(/^import [^\n]+\n/, ''), {
+        world:{afterEvents:{entitySpawn:{subscribe(listener) { spawn = listener; }}}}
+    });
+    const creature = {typeId:starter.identifier, nameTag:''};
+    const other = {typeId:'minecraft:cow', nameTag:''};
+    const alreadyNamed = {typeId:starter.identifier, nameTag:'Mora'};
+    for (const entity of [creature, other, alreadyNamed]) spawn({entity});
+    assert.deepEqual([creature.nameTag, other.nameTag, alreadyNamed.nameTag], [name, '', 'Mora']);
+    assert.equal(ref.bp.manifest.modules.length, 1);
+    const updated = await exportNamed(named, 'Otro nombre');
+    const manifest = JSON.parse(await updated.zip.file(named.bp.path).async('string'));
+    assert.deepEqual(manifest.modules.filter(module => module.type === 'script').map(module => module.uuid), [module.uuid]);
+});
 function image(width, height) {
     const data = new Uint8ClampedArray(width * height * 4);
     for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {

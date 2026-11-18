@@ -61,6 +61,7 @@ async (page) => {
     await page.getByRole('button',{name:'Aumentar todo el modelo',exact:true}).click();
     // Export and portable save validate the texture density and hidden geometry.
     await page.getByRole('button',{name:'4 · Guardar y exportar',exact:true}).click();
+    await page.getByRole('button',{name:'Continuar',exact:true}).click();
     const pending=page.waitForEvent('download');
     await page.getByRole('button',{name:/^Llevar a Minecraft/}).click();
     const addon=await pending; await addon.saveAs('output/whole-model.mcaddon');
@@ -68,6 +69,7 @@ async (page) => {
     await page.getByRole('button',{name:'Seguir creando',exact:true}).click();
     const saved=page.waitForEvent('download');
     await page.getByRole('button',{name:'Guardar mi criatura',exact:true}).click();
+    await page.getByRole('button',{name:'Continuar',exact:true}).click();
     const project=await saved; await project.saveAs('output/whole-model.bbedu');
     check(project.suggestedFilename().endsWith('.bbedu'), 'Whole-model edits save in a portable project');
     await page.getByRole('button',{name:'Seguir creando',exact:true}).click();
