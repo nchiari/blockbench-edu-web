@@ -1,8 +1,8 @@
 # Instrucciones del proyecto
 
-## Trabajo en paralelo con Claude
+## Trabajo en paralelo con Claude y Codex
 
-- El usuario también edita este proyecto con Claude. Revisar el estado de Git y los cambios locales antes de editar y antes de hacer commit o push.
+- El usuario edita este proyecto tanto con Claude como con Codex. Revisar el estado de Git y los cambios locales antes de editar y antes de hacer commit o push.
 - Preservar los cambios que ya estén en el directorio de trabajo e incluir en cada commit solo los de la tarea actual. Si hay cambios simultáneos en la misma parte y no se pueden integrar sin sobrescribir trabajo, avisar al usuario antes de continuar con esa parte.
 
 ## Publicación en GitHub
