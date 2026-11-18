@@ -1718,7 +1718,11 @@
                 },
                 template:`<div class="edu-save-options"><template v-if="!choosing">
                     <label class="edu-save-name">Nombre de tu criatura
-                        <input ref="creatureName" type="text" v-model="name" maxlength="80" autocomplete="off" aria-describedby="edu-save-name-help" @keydown.enter.prevent.stop="next"/>
+                        <span class="edu-save-name-field">
+                            <input ref="creatureName" type="text" v-model="name" maxlength="80" autocomplete="off"
+                                placeholder="Escribe un nombre" aria-describedby="edu-save-name-help" @keydown.enter.prevent.stop="next"/>
+                            <i class="material-icons" aria-hidden="true">edit</i>
+                        </span>
                     </label>
                     <p id="edu-save-name-help">Este nombre aparecerá encima de tu criatura en Minecraft y se usará para nombrar los archivos.</p>
                     <button class="edu-save-next" @click="next" :disabled="!cleanName">Continuar</button>
@@ -2469,7 +2473,25 @@
         onload() {
             alive = true;
             if (window.BlockbenchEduWeb) window.BlockbenchEduWeb.openCreature = importCreature;
-            projectStyle = Blockbench.addCSS('.edu-save-options{padding:10px 4px;display:grid;gap:12px}.edu-save-options>p{line-height:1.5;margin:0 0 4px;overflow-wrap:anywhere}.edu-save-name{display:grid;gap:8px;font-weight:600}.edu-save-name input{width:100%;min-height:40px;padding:6px 10px;font-size:16px}.edu-save-options .edu-save-next{justify-self:end;min-height:36px;padding:0 18px}.edu-save-options .edu-save-next:not(:disabled){background:#65d98a;color:#102c1c}.edu-save-options .edu-save-back{justify-self:start}.edu-save-options .edu-save-choice{display:flex;align-items:center;gap:16px;width:100%;height:auto;min-height:100px;white-space:normal;text-align:left;padding:18px;border:2px solid #526f5d;border-radius:12px;background:#21302e;color:#eaf5ee}.edu-save-choice>i{font-size:30px;flex-shrink:0;color:#8beaab}.edu-save-choice span{display:grid;gap:8px;min-width:0}.edu-save-choice strong{font-size:17px;line-height:1.3;color:#8beaab}.edu-save-choice small{font-size:14px;line-height:1.5;color:#cee0d5}.edu-save-options .edu-save-choice:hover{background:#2d473b;border-color:#65d98a}.edu-save-options .edu-save-choice:focus-visible{outline:3px solid #8beaab;outline-offset:2px}.edu-project-files{flex-shrink:0;display:grid;gap:6px;padding-top:12px}.edu-project-files button{display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px}');
+            projectStyle = Blockbench.addCSS(`
+                .edu-save-name { display:grid; gap:8px; font-weight:600 }
+                .edu-save-name-field { position:relative; display:block }
+                .edu-save-name-field input[type="text"] {
+                    box-sizing:border-box; width:100%; height:48px; padding:0 42px 0 12px;
+                    border:1px solid #87969d; border-radius:8px;
+                    background:#2b333b; color:#f0f5f3; font-size:16px; font-weight:400;
+                }
+                .edu-save-name-field input::placeholder { color:#aebbc1 }
+                .edu-save-name-field input:hover { border-color:#bac8ce }
+                .edu-save-name-field input[type="text"]:focus {
+                    border-color:#8beaab; outline:2px solid #8beaab; outline-offset:2px;
+                }
+                .edu-save-name-field i {
+                    position:absolute; top:50%; right:12px; transform:translateY(-50%);
+                    font-size:19px; color:#becacf; pointer-events:none;
+                }
+                .edu-save-name-field:focus-within i { color:#8beaab }
+            ` + '.edu-save-options{padding:10px 4px;display:grid;gap:12px}.edu-save-options>p{line-height:1.5;margin:0 0 4px;overflow-wrap:anywhere}.edu-save-options .edu-save-next{justify-self:end;min-height:36px;padding:0 18px}.edu-save-options .edu-save-next:not(:disabled){background:#65d98a;color:#102c1c}.edu-save-options .edu-save-back{justify-self:start}.edu-save-options .edu-save-choice{display:flex;align-items:center;gap:16px;width:100%;height:auto;min-height:100px;white-space:normal;text-align:left;padding:18px;border:2px solid #526f5d;border-radius:12px;background:#21302e;color:#eaf5ee}.edu-save-choice>i{font-size:30px;flex-shrink:0;color:#8beaab}.edu-save-choice span{display:grid;gap:8px;min-width:0}.edu-save-choice strong{font-size:17px;line-height:1.3;color:#8beaab}.edu-save-choice small{font-size:14px;line-height:1.5;color:#cee0d5}.edu-save-options .edu-save-choice:hover{background:#2d473b;border-color:#65d98a}.edu-save-options .edu-save-choice:focus-visible{outline:3px solid #8beaab;outline-offset:2px}.edu-project-files{flex-shrink:0;display:grid;gap:6px;padding-top:12px}.edu-project-files button{display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px}');
             colorSelectionTool = new Tool('blockbench_edu_select_color', {name:'Seleccionar un color',icon:'select_all',modes:['paint'],
                 paintTool:true,selectElements:false,cursor:'crosshair',condition:() => !!classroom,
                 onCanvasClick(data) {
