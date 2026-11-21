@@ -35,6 +35,32 @@ async page => {
         window.eduColorTest={target,hidden,others,before:Array.from(texture.ctx.getImageData(0,0,w,h).data),png:texture.canvas.toDataURL(),undo:Undo.index};
     },point);
     await page.mouse.click(point.x,point.y);
+    check(await page.locator('.edu-color-shortcuts').isVisible(),'Shortcut instructions are visible while selecting colors');
+    await page.keyboard.down('Shift');
+    await page.mouse.click(point.x+10,point.y);
+    await page.keyboard.up('Shift');
+    check(await page.evaluate(()=>{
+        const {target,hidden,png}=eduColorTest, texture=Texture.all[0];
+        return texture.selection.array[target] && texture.selection.array[hidden] &&
+            texture.selection.array.reduce((sum,value)=>sum+value,0)>2 && texture.canvas.toDataURL()===png;
+    }),'Shift adds another color while preserving the previous selection');
+    await page.keyboard.down('Alt');
+    await page.mouse.click(point.x+10,point.y);
+    await page.keyboard.up('Alt');
+    check(await page.evaluate(()=>{
+        const {target,hidden}=eduColorTest, selection=Texture.all[0].selection;
+        return selection.array[target] && selection.array[hidden] && selection.array.reduce((sum,value)=>sum+value,0)===2;
+    }),'Alt removes only the sampled color');
+    const phase = () => page.evaluate(()=>Cube.all.find(cube=>cube.parent.name==='head').mesh.children
+        .find(child=>child.name==='edu_color_selection_preview').material.uniforms.stripePhase.value);
+    const startingPhase = await phase();
+    await page.waitForFunction(previous=>Cube.all.find(cube=>cube.parent.name==='head').mesh.children
+        .find(child=>child.name==='edu_color_selection_preview').material.uniforms.stripePhase.value!==previous,startingPhase);
+    await page.emulateMedia({reducedMotion:'reduce'});
+    await page.waitForFunction(()=>Cube.all.find(cube=>cube.parent.name==='head').mesh.children
+        .find(child=>child.name==='edu_color_selection_preview').material.uniforms.stripePhase.value===0);
+    await page.emulateMedia({reducedMotion:'no-preference'});
+    check(true,'Rendered selection animates and respects reduced motion');
     check(await page.evaluate(()=>{
         const {target,hidden,others}=eduColorTest,selection=Texture.all[0].selection;
         return selection.is_custom&&selection.array.reduce((n,v)=>n+v,0)===2&&selection.array[target]&&selection.array[hidden]&&others.every(i=>!selection.array[i]);

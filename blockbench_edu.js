@@ -1108,9 +1108,13 @@
         delete session.soloBoneId; delete session.soloPreviousVisibility;
         Canvas.updateVisibility(); refresh();
     }
-    function selectPaintColor(texture, x, y) {
+    function selectPaintColor(texture, x, y, event) {
         const session = current();
         if (!session || session.busy || texture?.uuid !== session.textureId) return;
+        const selection = texture.selection;
+        const subtract = !!event?.altKey;
+        const add = !!event?.shiftKey && selection.is_custom;
+        if (subtract && !selection.is_custom) return;
         x = Math.max(0, Math.min(texture.canvas.width-1, Math.floor(x)));
         y = Math.max(0, Math.min(texture.canvas.height-1, Math.floor(y)));
         const {width, height, data} = texture.ctx.getImageData(0,0,texture.canvas.width,texture.canvas.height);
@@ -1119,13 +1123,15 @@
         if (Texture.selected !== texture) texture.select();
         UVEditor.vue.texture = texture;
         Undo.initSelection({texture_selection:true});
-        texture.selection.changeSize(width,height); texture.selection.clear();
+        selection.changeSize(width,height);
+        if (!add && !subtract) selection.clear();
         for (let pixel=0; pixel<width*height; pixel++) {
             const i=pixel*4;
             if (data[i]===rgba[0] && data[i+1]===rgba[1] && data[i+2]===rgba[2] && data[i+3]===rgba[3]) {
-                texture.selection.set(pixel%width,Math.floor(pixel/width),1);
+                selection.set(pixel%width,Math.floor(pixel/width),subtract ? 0 : 1);
             }
         }
+        if (!selection.hasSelection()) selection.clear();
         UVEditor.updateSelectionOutline(); Undo.finishSelection('Seleccionar un color Edu');
         refresh();
     }
@@ -1148,7 +1154,11 @@
         ctx.putImageData(mask,0,0);
         const map = new THREE.CanvasTexture(canvas); map.magFilter = THREE.NearestFilter; map.minFilter = THREE.NearestFilter; map.generateMipmaps = false;
         const material = new THREE.ShaderMaterial({
-            uniforms:{selectionMask:{value:map}, size:{value:new THREE.Vector2(canvas.width,canvas.height)}},
+            uniforms:{
+                selectionMask:{value:map},
+                size:{value:new THREE.Vector2(canvas.width,canvas.height)},
+                stripePhase:{value:0}
+            },
             extensions:{derivatives:true}, transparent:true, depthWrite:false,
             polygonOffset:true, polygonOffsetFactor:-2, polygonOffsetUnits:-2, side:THREE.DoubleSide,
             vertexShader:`
@@ -1160,6 +1170,7 @@
             fragmentShader:`
                 uniform sampler2D selectionMask;
                 uniform vec2 size;
+                uniform float stripePhase;
                 varying vec2 paintUV;
                 float selected(vec2 pixel) {
                     if (any(lessThan(pixel, vec2(0.0))) || any(greaterThanEqual(pixel, size))) return 0.0;
@@ -1177,16 +1188,24 @@
                         || (within.y > 1.0 - thickness.y && selected(pixel + vec2(0.0,1.0)) < 0.5);
                     if (!vertical && !horizontal) discard;
                     float along = vertical ? position.y : position.x;
-                    float stripe = step(0.5, fract(along));
+                    float stripe = step(0.5, fract(along - stripePhase));
                     gl_FragColor = vec4(vec3(mix(0.08, 0.94, stripe)), 0.95);
                 }`
         });
+        const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+        // Blockbench already renders each frame. Advance the dashes only when it draws the selection.
+        const advanceStripes = () => {
+            const phase = reducedMotion.matches ? 0 : (performance.now() % 900) / 900;
+            material.uniforms.stripePhase.value = phase;
+            material.uniformsNeedUpdate = true;
+        };
         const meshes = [];
         for (const cube of Cube.all) {
             if (!cube.mesh) continue;
             // Share the live geometry so the marker follows UVs and shape without editing either.
             const mesh = new THREE.Mesh(cube.mesh.geometry,material); mesh.name = 'edu_color_selection_preview';
             mesh.raycast = () => {}; mesh.renderOrder = 10;
+            mesh.onBeforeRender = advanceStripes;
             cube.mesh.add(mesh); meshes.push(mesh);
         }
         colorSelectionPreview = {meshes,material,texture:map};
@@ -2328,7 +2347,6 @@
                     <button @click="tool('fill_tool')" :class="{active:paintTool==='fill_tool'}"><i class="material-icons" aria-hidden="true">format_color_fill</i>Rellenar</button>
                     <button @click="tool('color_picker')" :class="{active:paintTool==='color_picker'}"><i class="material-icons" aria-hidden="true">colorize</i>Copiar color</button>
                     <button @click="tool('blockbench_edu_select_color')" :disabled="busy" :class="{active:paintTool==='blockbench_edu_select_color'}"><i class="material-icons" aria-hidden="true">select_all</i>Seleccionar color</button></div>
-                    <p v-if="paintTool==='blockbench_edu_select_color'">Haz clic en un color de la criatura para seleccionar todos sus píxeles iguales.</p>
                     <div v-if="selectedPixelCount" class="edu-color-selection" role="group" aria-label="Selección de color"><p role="status" aria-live="polite">{{selectedPixelCount}} píxeles seleccionados.<br>Incluye las partes ocultas.</p><p>Usa el pincel, el bote, el borrador o Suavizar sobre la selección. El bote pinta toda la selección.</p><button @click="clearColorSelection" :disabled="busy"><i class="material-icons" aria-hidden="true">deselect</i>Quitar selección</button></div>
                     <div v-if="paintTool==='brush_tool' || paintTool==='eraser' || paintTool==='blockbench_edu_smooth'" class="edu-size"><span>Tamaño</span><button @click="changeBrushSize(-1)" :disabled="brushSize===1" aria-label="Reducir pincel un píxel">−</button><b>{{brushSize}}</b><button @click="changeBrushSize(1)" :disabled="brushSize===64" aria-label="Aumentar pincel un píxel">+</button></div>
                     <p v-if="paintTool==='brush_tool' || paintTool==='eraser' || paintTool==='blockbench_edu_smooth'">Tamaño en píxeles.</p><p v-if="paintTool==='blockbench_edu_smooth'">Mezcla los colores cercanos.</p>
@@ -2418,7 +2436,13 @@
                         <div role="group" aria-label="Girar la vista"><strong>Girar la vista</strong><div><button v-for="direction in ['left','right','up','down']" :key="direction" :disabled="cameraIsOrtho" @click="cameraControl('rotate',direction)" :aria-label="'Girar la vista '+({left:'a la izquierda',right:'a la derecha',up:'hacia arriba',down:'hacia abajo'}[direction])"><i class="material-icons" aria-hidden="true">{{cameraArrow(direction)}}</i></button></div><small v-if="cameraIsOrtho">Elige Vista 3D para girar.</small></div>
                         <div role="group" aria-label="Desplazar la vista"><strong>Desplazar la vista</strong><div><button v-for="direction in ['left','right','up','down']" :key="direction" @click="cameraControl('pan',direction)" :aria-label="'Desplazar la vista '+({left:'a la izquierda',right:'a la derecha',up:'hacia arriba',down:'hacia abajo'}[direction])"><i class="material-icons" aria-hidden="true">{{cameraArrow(direction)}}</i></button></div></div>
                         <div role="group" aria-label="Acercar o alejar"><strong>Acercar / alejar</strong><div><button @click="cameraControl('zoom','in')" aria-label="Acercar la vista"><i class="material-icons" aria-hidden="true">zoom_in</i></button><button @click="cameraControl('zoom','out')" aria-label="Alejar la vista"><i class="material-icons" aria-hidden="true">zoom_out</i></button></div></div>
-                    </div><p class="edu-camera-help" v-if="mode!=='behavior'"><span>{{cameraRotate}} + arrastrar: girar la vista</span><span>{{cameraPan}} + arrastrar: desplazar la vista</span><span>{{cameraZoom}}: acercar o alejar</span></p></footer></div>`
+                    </div>
+                    <p class="edu-camera-help edu-color-shortcuts" v-if="mode==='paint' && paintTool==='blockbench_edu_select_color'">
+                        <span><kbd>Clic</kbd> Seleccionar color</span>
+                        <span><kbd>Mayús (Shift)</kbd> + clic para agregar</span>
+                        <span><kbd>Alt</kbd> + clic para quitar</span>
+                    </p>
+                    <p class="edu-camera-help" v-if="mode!=='behavior'"><span>{{cameraRotate}} + arrastrar: girar la vista</span><span>{{cameraPan}} + arrastrar: desplazar la vista</span><span>{{cameraZoom}}: acercar o alejar</span></p></footer></div>`
         });
         document.body.classList.add('edu-classroom');
         selectClassroomTool();
@@ -2573,9 +2597,9 @@
                     const texture = data.element.faces[data.face].getTexture();
                     if (!texture) return;
                     const [x,y] = Painter.getCanvasToolPixelCoords(data.intersects[0].uv,texture);
-                    attempt(() => selectPaintColor(texture,x,y));
+                    attempt(() => selectPaintColor(texture,x,y,data.event));
                 },
-                onTextureEditorClick(texture,x,y) { attempt(() => selectPaintColor(texture,x,y)); return false; }
+                onTextureEditorClick(texture,x,y,event) { attempt(() => selectPaintColor(texture,x,y,event)); return false; }
             });
             selectionFillTool = new Tool('blockbench_edu_fill_selection', {name:'Rellenar selección de color',icon:'format_color_fill',modes:['paint'],
                 paintTool:true,selectElements:false,cursor:'crosshair',condition:() => !!classroom && classroom.selectedPixelCount>0,
@@ -2632,6 +2656,8 @@
                 #edu-classroom .edu-part-eye span{overflow-wrap:anywhere;min-width:0;line-height:1.4}
                 #edu-classroom .edu-part-solo{padding:5px;min-height:34px;background:transparent}
                 #edu-classroom .edu-part-solo i{font-size:19px}
+                #edu-classroom .edu-color-shortcuts{padding:4px 8px;row-gap:6px;color:#eaf5ee}
+                #edu-classroom .edu-color-shortcuts kbd{background:#30423b;border:1px solid #526f5d;border-radius:4px;padding:1px 5px;font:inherit}
                 #edu-classroom .edu-part-hidden{background:#182823}
                 #edu-classroom .edu-part-hidden .edu-part-eye{color:#a1afa7}
                 #edu-classroom .edu-parts-help{font-size:11px;line-height:1.5;margin:0;padding:0 4px;flex-shrink:0}
