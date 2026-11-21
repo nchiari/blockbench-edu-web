@@ -1894,9 +1894,9 @@
             camera.bottom = frameCenter.y - half; camera.top = frameCenter.y + half;
             camera.updateProjectionMatrix();
 
-            const light = new THREE.DirectionalLight(0xffffff, 0.95);
+            const light = new THREE.DirectionalLight(0xffffff, 0.65);
             light.position.set(-2, 4, -3);
-            iconScene.add(new THREE.AmbientLight(0xffffff, 1.3), light);
+            iconScene.add(new THREE.AmbientLight(0xffffff, 0.55), light);
             renderer.setSize(256, 256, false);
             renderer.render(iconScene, camera);
             const canvas = document.createElement('canvas');
