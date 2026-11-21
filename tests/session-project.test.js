@@ -105,6 +105,24 @@ test('behavior settings survive saving and loading while v1 projects keep their 
     await assert.rejects(readCreatureProject(await archive.generateAsync({type:'uint8array'}),Zip),/comportamiento/);
 });
 
+test('expanded classroom foods survive reopening and export to three independent actions',async()=>{
+    const {model,state,reference}=await fixture();
+    const {defaultBehavior,entityBehavior,adjustPigBehavior}=require('../blockbench_edu.js');
+    let behavior=entityBehavior(reference.behavior.json,{...defaultBehavior(),profile:'companion'});
+    behavior=adjustPigBehavior(behavior,'food.tame',['cod']);
+    behavior=adjustPigBehavior(behavior,'food.attract',['sweet_berries']);
+    behavior=adjustPigBehavior(behavior,'heal',true);
+    state.behavior=adjustPigBehavior(behavior,'food.heal',[{item:'cooked_beef',amount:4}]);
+    const loaded=await readCreatureProject(await writeCreatureProject(model,state,reference,Zip),Zip);
+    assert.deepEqual(loaded.state.behavior.pig.food,state.behavior.pig.food);
+    const result=await buildAddon(loaded.reference,{'minecraft:geometry':[loaded.reference.geometry]},model.textures[0].source.split(',')[1],Zip,{},loaded.state.behavior);
+    const exported=await readAddon(await result.zip.generateAsync({type:'uint8array'}),Zip);
+    const entity=exported.behavior.json['minecraft:entity'];
+    assert.deepEqual(entity.components['minecraft:behavior.tempt'].items,['sweet_berries']);
+    assert.deepEqual(entity.component_groups['blockbench_edu:wild']['minecraft:tameable'].tame_items,['cod']);
+    assert.deepEqual(entity.component_groups['blockbench_edu:tamed']['minecraft:healable'].items,[{item:'cooked_beef',heal_amount:4}]);
+});
+
 test('pig category projects require format 7 and retain all detailed choices',async()=>{
     const {model,state,reference}=await fixture();
     state.behavior=require('../blockbench_edu.js').pigBehavior({...require('../blockbench_edu.js').defaultBehavior(),profile:'companion'});
