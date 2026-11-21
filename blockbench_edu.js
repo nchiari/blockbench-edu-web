@@ -2617,7 +2617,18 @@
                                                 @pointercancel="mountJumpPreview=null" @blur="mountJumpPreview=null"/>
                                         </label>
                                     </template>
-                                    <section v-if="behavior.pig.mount.enabled" class="edu-setting"><h4>Posición del pasajero</h4><div class="edu-seat-buttons"><button @click="moveSeat('height',0.1)">↑ Subir</button><button @click="moveSeat('height',-0.1)">↓ Bajar</button><button @click="moveSeat('offset',0.1)">Adelante</button><button @click="moveSeat('offset',-0.1)">Atrás</button><button @click="moveSeat('lateral',0.1)">Izquierda</button><button @click="moveSeat('lateral',-0.1)">Derecha</button></div><button @click="resetSeat">Centrar asiento</button></section>
+                                    <section v-if="behavior.pig.mount.enabled" class="edu-setting">
+                                        <h4>Posición del pasajero</h4>
+                                        <div class="edu-seat-buttons">
+                                            <button @click="moveSeat('height',0.1)">↑ Subir</button>
+                                            <button @click="moveSeat('height',-0.1)">↓ Bajar</button>
+                                            <button @click="moveSeat('offset',0.1)">↑ Adelante</button>
+                                            <button @click="moveSeat('offset',-0.1)">↓ Atrás</button>
+                                            <button @click="moveSeat('lateral',0.1)">← Izquierda</button>
+                                            <button @click="moveSeat('lateral',-0.1)">→ Derecha</button>
+                                        </div>
+                                        <button @click="resetSeat">Centrar asiento</button>
+                                    </section>
 </template>
                                 <template v-if="behaviorPage==='movement'"><div class="edu-behavior-options"><button :data-setting="choice.id" v-for="choice in movementChoices" :key="choice.id" :aria-pressed="behavior.pig.locomotion.mode===choice.id" :class="{active:behavior.pig.locomotion.mode===choice.id}" @click="changePig('locomotion.mode',choice.id)" :disabled="busy"><i class="material-icons" aria-hidden="true">{{choice.icon}}</i>{{choice.label}}</button></div><label class="edu-behavior-check" :class="{'is-disabled':!!behaviorBlockReason('wander')}" :title="behaviorBlockReason('wander')"><input type="checkbox" :checked="behavior.pig.wander" @change="changePig('wander',$event.target.checked)" :disabled="busy"/><span>Pasea por su cuenta</span></label><label>Velocidad<select v-model.number="behavior.speed" @change="changePig('speed',Number($event.target.value))" :disabled="busy"><option v-for="speed in behaviorSpeeds" :value="speed.value" :key="speed.value">{{speed.label}}</option></select></label></template>
                                 <template v-if="behaviorPage==='reaction'"><div class="edu-behavior-options"><button :data-setting="choice.id" v-for="choice in [{id:'neutral',label:'No ataca'},{id:'flee',label:'Huye'},{id:'retaliate',label:'Se defiende si lo atacan'},{id:'enemy',label:'Enemigo'}]" :key="choice.id" :aria-pressed="behavior.pig.reaction===choice.id" :class="{active:behavior.pig.reaction===choice.id}" @click="changePig('reaction',choice.id)">{{choice.label}}</button></div><label>Distancia para detectar jugadores<input type="number" min="4" max="32" step="1" :value="behavior.range" @input="pigNumber('range',$event.target.value)" @blur="$event.target.value=behavior.range" :disabled="busy"/></label><small>De 4 a 32.</small><label class="edu-behavior-check" :class="{'is-disabled':!!behaviorBlockReason('panic')}" :title="behaviorBlockReason('panic')"><input type="checkbox" :checked="behavior.pig.panic" @change="changePig('panic',$event.target.checked)" :disabled="!!behaviorBlockReason('panic')"/><span>Huye si recibe daño</span></label></template>
