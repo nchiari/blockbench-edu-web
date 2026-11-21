@@ -211,3 +211,6 @@ El catálogo reproducible está en reference/loot-items.json. Para regenerarlo:
 node scripts/embed-loot-items.js <carpeta del Vanilla RP 1.26.30>. Usa metadatos
 oficiales fijados a v1.26.30.5 y los nombres locales es_ES, y los incrusta en el
 plugin para que la búsqueda no necesite conexión a Internet.
+
+
+Los `.mcaddon` exportados por esta versión de Edu incluyen una copia editable del proyecto. Se pueden reabrir con **Abrir una criatura**, igual que un `.mcpack` extraído de uno de esos addons. Se recuperan el modelo, la pintura y **Dale vida**. Al volver a llevar la criatura a Minecraft, la descarga conserva los identificadores de los packs y aumenta su versión para actualizarla en el juego. Edu pide que el addon incluya su proyecto para abrirlo de esta manera.

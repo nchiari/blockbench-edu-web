@@ -35,7 +35,7 @@ async page => {
     const delivery = await page.evaluate(() => window.testDelivery);
     if (delivery.creature !== 'Lúa del aula' || !delivery.fileName.startsWith('Lúa_del_aula_')) throw Error('Falta el nombre elegido en la entrega');
     const expected = await page.evaluate(() => ({png:Texture.all[0].canvas.toDataURL(), ids:Cube.all.map(c=>c.uuid).join(), behavior:JSON.stringify(document.getElementById('edu-classroom').__vue__.behavior)}));
-    for (const [entry, field, ext] of [['docente/','modelBase64','bbmodel'],['','modelBase64','bbmodel'],['#clase='+'a'.repeat(32),'projectBase64','bbedu']]) {
+    for (const [entry, field, ext] of [['docente/','modelBase64','bbmodel'],['','base64','mcaddon'],['','modelBase64','bbmodel'],['#clase='+'a'.repeat(32),'projectBase64','bbedu']]) {
         page = await page.context().newPage();
         await page.goto(root + entry);
 
@@ -43,7 +43,7 @@ async page => {
         await open({name:'Entrega.'+ext,mimeType:'application/octet-stream',buffer:Buffer.from(delivery[field],'base64')});
         if (!await page.evaluate(() => Project.name === 'Lúa del aula')) throw Error('Se perdió el nombre al abrir el archivo');
         if (!await page.evaluate(e => Texture.all[0].canvas.toDataURL() === e.png && Cube.all.map(c=>c.uuid).join() === e.ids,expected)) throw Error('Cambió el modelo o la pintura');
-        if (ext==='bbedu' && !await page.evaluate(e => JSON.stringify(document.getElementById('edu-classroom').__vue__.behavior) === e.behavior,expected)) throw Error('Cambió Dale vida');
+        if (ext!=='bbmodel' && !await page.evaluate(e => JSON.stringify(document.getElementById('edu-classroom').__vue__.behavior) === e.behavior,expected)) throw Error('Cambió Dale vida');
         if (entry==='docente/') {
             const pending = page.waitForEvent('download');
             await page.getByRole('button',{name:'Guardar mi criatura',exact:true}).filter({visible:true}).click();
@@ -51,6 +51,6 @@ async page => {
             if (!(await pending).suggestedFilename().endsWith('.bbedu')) throw Error('Formato de guardado incorrecto');
         }
     }
-    return 'Entrega con tres archivos, apertura del bbmodel en docente y alumno, guardado en bbedu y reapertura del proyecto de clase.';
+    return 'Entrega con tres archivos y reapertura de bbmodel, mcaddon y bbedu en Edu.';
 }
 

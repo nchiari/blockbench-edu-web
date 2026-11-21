@@ -3,7 +3,7 @@ const {test} = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const Zip = require('jszip');
-const {readAddon,writeCreatureProject,readCreatureProject,buildAddon} = require('../blockbench_edu.js');
+const {readAddon,writeCreatureProject,readCreatureProject,buildAddon,attachAddonProject,readExportedAddon} = require('../blockbench_edu.js');
 
 async function fixture() {
     const reference = await readAddon(fs.readFileSync('reference/cerdo_edu.mcaddon'),Zip);
@@ -162,4 +162,38 @@ test('egg colors survive saving and reopening a portable project', async () => {
     reference.rp.zip.file(reference.entity.path, JSON.stringify(reference.entity.json));
     const loaded = await readCreatureProject(await writeCreatureProject(model,state,reference,Zip),Zip);
     assert.deepEqual(loaded.reference.entity.description.spawn_egg, colors);
+});
+
+test('marked Minecraft exports reopen as the same editable creature and update the same packs', async () => {
+    const {model,state,reference} = await fixture();
+    const geometry = {'minecraft:geometry':[reference.geometry]};
+    const png = model.textures[0].source.split(',')[1];
+    const addon = await buildAddon(reference,geometry,png,Zip);
+    await assert.rejects(readExportedAddon(await addon.zip.generateAsync({type:'uint8array'}),false,Zip), /exportado por Blockbench Edu/);
+    state.lastVersion = addon.version;
+    const project = await writeCreatureProject(model,state,reference,Zip);
+    await attachAddonProject(addon.zip,reference,project,Zip);
+    const loaded = await readExportedAddon(await addon.zip.generateAsync({type:'uint8array'}),false,Zip);
+    assert.deepEqual(loaded.model,model);
+    assert.deepEqual(loaded.state,state);
+
+    for (const kind of ['bp','rp']) {
+        const {prefix, outerPath, manifest} = reference[kind];
+        const pack = outerPath ? await Zip.loadAsync(await addon.zip.file(outerPath).async('uint8array')) : addon.zip;
+        const standalone = new Zip();
+        for (const [path,file] of Object.entries(pack.files)) if (!file.dir && path.startsWith(prefix)) {
+            standalone.file(path.slice(prefix.length),await file.async('uint8array'));
+        }
+        const reopened = await readExportedAddon(await standalone.generateAsync({type:'uint8array'}),true,Zip);
+        assert.deepEqual(reopened.model,model);
+        assert.deepEqual(reopened.state,state);
+        assert.equal(reopened.reference[kind].manifest.header.uuid,manifest.header.uuid);
+        standalone.file('manifest.json',JSON.stringify({...manifest, header:{...manifest.header,uuid:'another-pack'}}));
+        await assert.rejects(readExportedAddon(await standalone.generateAsync({type:'uint8array'}),true,Zip), /no corresponde/);
+    }
+    const next = await buildAddon(loaded.reference,geometry,png,Zip);
+    assert.deepEqual(next.version,[addon.version[0],addon.version[1],addon.version[2]+1]);
+    const rebuilt = await readAddon(await next.zip.generateAsync({type:'uint8array'}),Zip);
+    assert.equal(rebuilt.bp.manifest.header.uuid,reference.bp.manifest.header.uuid);
+    assert.equal(rebuilt.rp.manifest.header.uuid,reference.rp.manifest.header.uuid);
 });

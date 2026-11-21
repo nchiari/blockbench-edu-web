@@ -936,7 +936,39 @@
         reference.lastVersion = data.state.lastVersion;
         return {...data, reference};
     }
-    const core = {lootChances:LOOT_CHANCES,lootItems:LOOT_ITEMS,compileLootTable,lootTablePath,validateLoot,resizePixels, smoothPixels, extractPixels, extractSurface, sampleRegion, packFaces, centeredBounds, geometryEntries, signature, syncManifests, readAddon, buildAddon, createStarter, createMobAddon, compatibleSounds, writeCreatureProject, readCreatureProject, simplePigBehavior, entityBehavior, entityComponent, supportsEntityBehavior, defaultBehavior, validateBehavior, supportsBehavior, compileBehavior, pigBehavior, adjustPigBehavior};
+    const EDU_ADDON_PROJECT = 'blockbench_edu.project.bbedu';
+    async function attachAddonProject(output, reference, project, Zip) {
+        for (const outerPath of new Set([reference.rp.outerPath, reference.bp.outerPath])) {
+            const pack = outerPath ? await Zip.loadAsync(await output.file(outerPath).async('uint8array')) : output;
+            for (const source of [reference.rp, reference.bp].filter(source => source.outerPath === outerPath)) {
+                pack.file(source.prefix + EDU_ADDON_PROJECT, project);
+            }
+            if (outerPath) output.file(outerPath, await pack.generateAsync({type:'uint8array', compression:'DEFLATE'}));
+        }
+    }
+    async function readExportedAddon(content, standalone, Zip) {
+        const message = 'Elige un addon exportado por Blockbench Edu que incluya su proyecto editable.';
+        let packs;
+        if (standalone) {
+            const zip = await Zip.loadAsync(content);
+            requireThat(zip.file(EDU_ADDON_PROJECT) && zip.file('manifest.json'), message);
+            const manifest = JSON.parse(await zip.file('manifest.json').async('string'));
+            const kind = manifest.modules?.some(module => module.type === 'resources') ? 'rp' : 'bp';
+            packs = {[kind]:{zip, prefix:'', manifest}};
+        } else {
+            const addon = await readAddon(content, Zip);
+            packs = {rp:addon.rp, bp:addon.bp};
+        }
+        const marked = Object.values(packs).map(pack => pack.zip.file(pack.prefix + EDU_ADDON_PROJECT));
+        requireThat(marked.every(Boolean), message);
+        const data = await readCreatureProject(await marked[0].async('uint8array'), Zip);
+        requireThat(Object.entries(packs).every(([kind, pack]) =>
+            pack.manifest.header?.uuid === data.reference[kind].manifest.header.uuid &&
+            JSON.stringify(pack.manifest.header.version) === JSON.stringify(data.state.lastVersion)),
+            'El proyecto de Edu no corresponde a esta versión de los packs.');
+        return data;
+    }
+    const core = {lootChances:LOOT_CHANCES,lootItems:LOOT_ITEMS,compileLootTable,lootTablePath,validateLoot,resizePixels, smoothPixels, extractPixels, extractSurface, sampleRegion, packFaces, centeredBounds, geometryEntries, signature, syncManifests, readAddon, buildAddon, createStarter, createMobAddon, compatibleSounds, writeCreatureProject, readCreatureProject, attachAddonProject, readExportedAddon, simplePigBehavior, entityBehavior, entityComponent, supportsEntityBehavior, defaultBehavior, validateBehavior, supportsBehavior, compileBehavior, pigBehavior, adjustPigBehavior};
     if (typeof module !== 'undefined' && module.exports) { module.exports = core; return; }
 
     let cameraViewTool, panel, style, projectStyle, wizardStyle, action, loader, wizard, classroom, classroomStyle, selectionTool, smoothTool, colorSelectionTool, selectionFillTool, previousTool, teacherReturn, wholeModelTransformer, alive = false;
@@ -1589,8 +1621,7 @@
             headId:session.headId, selectedId:session.selectedId, initial:session.initial, initialSizes:session.initialSizes,
             originalFaces:session.originalFaces.filter(face=>session.cubeIds.includes(face.cubeId)), originalResolution:session.originalResolution,
             lastVersion, behavior:session.behavior || defaultBehavior()});
-        const bytes = await writeCreatureProject(model,state,session.reference,JSZip);
-        return new Blob([bytes],{type:'application/zip'});
+        return writeCreatureProject(model,state,session.reference,JSZip);
     }
     async function saveCreature() {
         const session = validateSession();
@@ -1599,7 +1630,8 @@
         const name = creatureFileStem(Project.name);
         session.busy = true; refresh();
         try {
-            const content = await portableProject(session, model, session.reference.lastVersion);
+            const bytes = await portableProject(session, model, session.reference.lastVersion);
+            const content = new Blob([bytes],{type:'application/zip'});
             Blockbench.export({type:'Proyecto de Blockbench Edu', extensions:['bbedu'], savetype:'zip',
                 name, content}, () => {
                 Blockbench.showMessageBox({title:'Tu proyecto está listo para guardar',
@@ -1641,7 +1673,10 @@
         try {
             // Validate the complete archive before changing the editor.
             const native = /\.bbmodel$/i.test(filename);
-            const data = native ? {model:readBlockbenchModel(content)} : await readCreatureProject(content,JSZip);
+            const standalone = /\.mcpack$/i.test(filename);
+            const data = native ? {model:readBlockbenchModel(content)}
+                : standalone || /\.mcaddon$/i.test(filename) ? await readExportedAddon(content,standalone,JSZip)
+                : await readCreatureProject(content,JSZip);
             requireThat(alive && Project === previous, 'Cambió el proyecto mientras se abría el archivo. Vuelve a intentarlo.');
             leaveClassroom();
             Codecs.project.load(data.model,{path:'Mi_criatura.bbmodel',no_file:true});
@@ -1678,7 +1713,7 @@
     }
     function importCreature() {
         if (openingCreature || current()?.busy) return;
-        Blockbench.import({extensions:['bbedu','bbmodel'],type:'Proyecto de Blockbench Edu',readtype:'binary'},files => {
+        Blockbench.import({extensions:['bbedu','bbmodel','mcaddon','mcpack'],type:'Proyecto de Blockbench Edu',readtype:'binary'},files => {
             if (files.length) openCreatureFile(files[0].content, files[0].name).catch(error => {
                 console.error('[Blockbench Edu]',error);
                 Blockbench.showMessageBox({title:'No pudimos abrir la criatura',message:error.message,buttons:['Volver']});
@@ -1741,13 +1776,15 @@
         const faces = captureFaces(Texture.all[0]);
         const width = Project.texture_width, height = Project.texture_height;
         const png = Texture.all[0].canvas.toDataURL('image/png').split(',')[1];
-        const model = includeModel ? captureEditableModel(session) : null;
+        const model = captureEditableModel(session);
         const auxiliary = await remapAuxiliaryTextures(session, faces, width, height);
         const result = await buildAddon(session.reference, compiled, png, JSZip, auxiliary, session.behavior || defaultBehavior(), creatureName);
-        const content = await result.zip.generateAsync({type: 'blob'});
+        const bytes = await portableProject(session, model, result.version);
+        await attachAddonProject(result.zip, session.reference, bytes, JSZip);
+        const content = await result.zip.generateAsync({type:'blob', compression:'DEFLATE'});
         requireThat(alive && Project?.uuid === projectId, 'Cambió el proyecto durante la exportación. Vuelve a exportar.');
-        const modelContent = model && new Blob([JSON.stringify(model)], {type:'application/json'});
-        const projectContent = model && await portableProject(session, model, result.version);
+        const modelContent = includeModel ? new Blob([JSON.stringify(model)], {type:'application/json'}) : null;
+        const projectContent = includeModel ? new Blob([bytes], {type:'application/zip'}) : null;
         return {result, content, modelContent, projectContent, creatureName,
             fileName: `${creatureFileStem(creatureName)}_${result.version.join('_')}`};
     }
@@ -2553,7 +2590,7 @@
                 template: `<div class="edu-wizard">
                     <nav aria-label="Pasos del asistente"><ol><li v-for="(label,index) in steps" :key="label" :class="{active:index===step,done:index&lt;step}"><span>{{index+1}}</span>{{label}}</li></ol></nav>
                     <section class="edu-wizard-content"><div class="edu-wizard-scroll">
-                        <template v-if="step===0"><img :src="icon" class="edu-wizard-icon" alt=""/><h2>Crea tu propia criatura</h2><p>Elige una criatura de Minecraft, cambia su forma, píntala y llévatela a Minecraft Education.</p><p>Te vamos a acompañar paso a paso. Necesitas teclado y ratón.</p><button @click="openCreature" :disabled="busy"><i class="material-icons" aria-hidden="true">folder_open</i> Abrir una criatura</button><p>¿Ya habías empezado? Abre tu proyecto .bbedu o un modelo Bedrock .bbmodel para continuar.</p></template>
+                        <template v-if="step===0"><img :src="icon" class="edu-wizard-icon" alt=""/><h2>Crea tu propia criatura</h2><p>Elige una criatura de Minecraft, cambia su forma, píntala y llévatela a Minecraft Education.</p><p>Te vamos a acompañar paso a paso. Necesitas teclado y ratón.</p><button @click="openCreature" :disabled="busy"><i class="material-icons" aria-hidden="true">folder_open</i> Abrir una criatura</button><p>¿Ya habías empezado? Abre un proyecto .bbedu, un modelo Bedrock .bbmodel o un addon exportado por Edu.</p></template>
                         <template v-if="step===1"><h2>Elige tu criatura</h2><search-bar v-model="search" placeholder="Buscar criatura…" aria-label="Buscar criatura"/><ul class="entity_wizard_mob_list edu-catalog" aria-label="Criaturas"><li v-for="entry in choices" :key="entry[0]" :class="{selected:creature===entry[0]}" :style="{backgroundImage:'url('+entry[1].thumbnail+')'}" role="button" tabindex="0" :aria-pressed="creature===entry[0]" @click="creature=entry[0]" @keydown.enter.stop.prevent="creature=entry[0]" @keyup.enter.stop.prevent @keydown.space.stop.prevent="creature=entry[0]" @keyup.space.stop.prevent><label>{{entry[1].name}}</label></li></ul><p v-if="!choices.length">No encontramos esa criatura. Prueba con otro nombre.</p><p v-if="creature">Has elegido: <strong>{{catalog[creature].name}}</strong></p><p v-else>Selecciona una criatura para continuar.</p></template>
                         <template v-if="step===2"><h2>Elige los colores del huevo generador</h2><p>Este huevo sirve para hacer aparecer tu criatura en Minecraft Education.</p><div class="edu-egg-colors"><edu-spawn-egg :base="eggBackground" :overlay="eggDetail"/><div class="edu-egg-inputs"><label>Color de fondo<input type="color" v-model="eggBackground" :disabled="busy"/></label><label>Color de detalle<input type="color" v-model="eggDetail" :disabled="busy"/></label></div></div></template>
                         <template v-if="step===3"><h2>¡Tu criatura está lista!</h2><ol class="edu-instructions"><li>Elige una parte y usa <strong>− y +</strong> para darle forma.</li><li>Entra en <strong>Dale color</strong> y elige tus colores.</li><li>Entra en <strong>Dale vida</strong> para elegir su comportamiento.</li><li>Guarda tu criatura para llevarla a <strong>Minecraft Education</strong>.</li></ol><p>Tu dibujo se acomoda solo. Para volver un paso atrás, usa <strong>Ctrl+Z</strong>.</p></template>
