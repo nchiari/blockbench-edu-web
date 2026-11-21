@@ -15,7 +15,7 @@ Abre **[Blockbench Edu](https://blockbench-edu.pages.dev/)**. Edu se carga autom
 3. Elegir Cargadores → Blockbench Edu → Comenzar.
 4. En «Elige tu criatura», buscar un nombre y elegir su tarjeta. El catálogo está ordenado por el nombre en español y los botones inferiores permanecen visibles al desplazarse. Las miniaturas, estructura y medidas de las tarjetas vienen del selector del Wizard, adaptadas al verde de Edu y con nombres en español. Enter o espacio también permiten elegir una tarjeta enfocada.
 5. Avanzar hasta «Abrir editor». Se crea una criatura independiente y se prepara su textura automáticamente.
-6. En «Dale forma», elegir la parte y cambiar su tamaño, moverla o girarla con los botones. Se pueden editar todas las partes existentes de la criatura.
+6. En «Dale forma», usar **Todo el modelo**, seleccionado por defecto, o elegir una parte y usar Tamaño, Mover o Girar. Con Todo el modelo, el tamaño cambia en proporción sin separar las piezas (cada + aumenta un 10 %; − revierte ese aumento), el movimiento desplaza toda la criatura y el giro la rota 15° alrededor del origen del modelo. Incluye partes ocultas y permite deshacer y rehacer. Al elegir una parte, se mantienen sus controles individuales.
 7. En «Dale color», elegir un color y pintar directamente sobre la criatura. Hay pincel, relleno y herramienta para copiar un color.
 8. Usar los botones inferiores para verla desde distintos lados o encuadrar toda la criatura con «Ver todo».
 9. En **3 · Dale vida**, conservá el comportamiento **Original** o elegí una base terrestre: **Animal tranquilo**, **Animal asustadizo**, **Compañero**, **Guardián** o **Enemigo**. Ajustá vida, velocidad y las opciones que ofrece cada base. Las bases nuevas reemplazan las habilidades especiales de la plantilla; se prueban dentro de Minecraft.
@@ -47,7 +47,9 @@ El proyecto incluye modelo, pintura, addon base, medidas originales e identidad 
 
 `.bbedu` es para **seguir editando en Edu**; `.mcaddon` es para **importar en Minecraft Education**. La entrega a Drive incluye los tres archivos. Para continuar con los ajustes de «Dale vida», el docente abre el `.bbedu`. No incluye el código de clase ni rutas locales de las texturas. No hay guardado automático: cerrar la pestaña no sustituye la descarga del proyecto. Cada acceso trabaja en su propia pestaña; abrir el acceso docente no transfiere la criatura de una pestaña de alumno.
 
-Los píxeles seleccionados se destacan sobre el modelo con un tinte celeste transparente y un borde de contraste. La marca se mantiene al cambiar de herramienta, desaparece con «Quitar selección» y solo se muestra en Pintura. Es una ayuda visual del editor: no modifica la textura ni se incluye en el addon exportado.
+Mientras «Seleccionar color» está activo, un clic reemplaza la selección con el color que tocaste. Mantén Mayús (Shift) para agregar otro color o Alt para quitarlo. Los atajos aparecen debajo de la vista 3D. Un contorno fino de rayas animadas marca la selección y deja visible el color de la criatura. Si el navegador tiene activada la opción «Reducir movimiento», las rayas quedan quietas.
+
+En «Partes», la papelera elimina la parte y sus subpartes. Puedes recuperarlas con «Deshacer». El botón está desactivado si la criatura se quedaría sin piezas.
 
 ## Tamaño, pintura e historial
 
@@ -181,6 +183,10 @@ Los avisos de la categoría abierta muestran la opción en negrita sin enlace;
 solo enlazan las opciones de otra categoría. Guardado universal en .bbedu 10;
 lectura de proyectos 1–9 conservada. Prueba real en Minecraft Education pendiente.
 
+`tests/whole-model-probe.js` comprueba el tamaño proporcional, movimiento y giro completo en los tres ejes, partes ocultas, huesos rotados, historial, exportación y guardado/reapertura de proyectos. Los cambios afectan al modelo visual; la colisión y las animaciones deben revisarse en Minecraft Education.
+
+El aviso verde **TODO EL MODELO** destaca el alcance completo. El tamaño conserva el PNG y las UV originales (la ubicación de la pintura en cada cara), sin remuestrear ni recortar píxeles. Mover y Girar ofrecen también flechas y círculos en la vista 3D para arrastrar el cuerpo completo en vivo; Tamaño oculta los tiradores. `tests/whole-model-gizmo-probe.js`, después de `whole-model-probe.js`, verifica los arrastres reales con el mouse y su deshacer.
+
 
 ### Botín al morir — test, 14/11/2026
 
@@ -205,3 +211,6 @@ El catálogo reproducible está en reference/loot-items.json. Para regenerarlo:
 node scripts/embed-loot-items.js <carpeta del Vanilla RP 1.26.30>. Usa metadatos
 oficiales fijados a v1.26.30.5 y los nombres locales es_ES, y los incrusta en el
 plugin para que la búsqueda no necesite conexión a Internet.
+
+
+Los `.mcaddon` exportados por esta versión de Edu incluyen una copia editable del proyecto. Se pueden reabrir con **Abrir una criatura**, igual que un `.mcpack` extraído de uno de esos addons. Se recuperan el modelo, la pintura y **Dale vida**. Al volver a llevar la criatura a Minecraft, la descarga conserva los identificadores de los packs y aumenta su versión para actualizarla en el juego. Edu pide que el addon incluya su proyecto para abrirlo de esta manera.

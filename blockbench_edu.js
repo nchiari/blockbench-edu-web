@@ -1,6 +1,8 @@
 /* Blockbench Edu — local educational prototype. No Wizard internals required. */
 (function () {
     'use strict';
+    // Vanilla RP 1.26.30: textures/items/spawn_egg.png and spawn_egg_overlay.png.
+    const SPAWN_EGG_TEXTURES = {"spawn_egg":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAA1UlEQVQ4y6WTzQmEMBCFbW+r8CDe7MEmbGA7sAgPmhYk+AOiXlQ85DrLGxiRdZPNuoGHePi+mTxI8HhmgeTWuQ36CNI0pSRJ6GcpQERrTUopkn9vuK5rDgTzPLOkqiq/bUSwbRtn33fq+95PcIaNMQwvy0Jd17HgqwQCTFvXlQX4juN4XMkpkNIAyPrTNB2wCKwSEQzDwDBWb5rmAiNxHJP1/m3bsgDtf5qOhGFIzhJtk5EoitwlFkVxgSR5nrsFOCgIOYNlWTL4DjvfESQC2ab+9YIlLxpxdMvXu3+1AAAAAElFTkSuQmCC","spawn_egg_overlay":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABWUlEQVQ4y62UMUvDUBSF729y0NHJIag4OPgbXJIp1EqbZMqYqWJBRUqhjSIGp1DEqEHEEBIQba1tjTWVloL/4frug0ipNK3FB4e35Hznnct7AaFUgERzrbmNswDWxG1Y3tr8O1TTNCQVm0+g3N9wkKIoOLO5XC5jtVrFIAjwPI44xDAMzGaz0yGqqmKlUkHbttHzPLwd9qHUeQHLsnBqHTpqofEIYRii7/voMrPd78FxuwG7dw5XKoQAlFYb9ODhawiXzHza7QBV0nUdUwFk3m8+w0m3DZQeRRGefbxBkZ3IcZwfwERIPp/nwzOjFsRxjDWWfvBa55VIiZm0tLH6G5DL5XjKUasOV4NPuIjfwXVdHAfQkBeElck19tjHhwximiaOdqedJEkSpg5RvrZ5UmKme5EAZFlGURTT7wINiDTaeYdpcV2AcXPqOyIIJWYyGSTzvz7E0V/AN87bB/pr+VlTAAAAAElFTkSuQmCC"};
     const FACE_ORDER = ['north', 'east', 'south', 'west', 'up', 'down'];
     const FACE_AXES = {north: [0, 1], south: [0, 1], east: [2, 1], west: [2, 1], up: [0, 2], down: [0, 2]};
     const clone = value => JSON.parse(JSON.stringify(value));
@@ -218,12 +220,25 @@
     ];
     const BEHAVIOR_ITEMS = [{id:'apple',label:'Manzana'},{id:'carrot',label:'Zanahoria'},
         {id:'wheat',label:'Trigo'},{id:'wheat_seeds',label:'Semillas de trigo'},{id:'bone',label:'Hueso'}];
-    const PIG_FOOD_ITEMS = [...BEHAVIOR_ITEMS,{id:'potato',label:'Patata'},{id:'beetroot',label:'Remolacha'}];
     // BEGIN EMBEDDED LOOT ITEMS (scripts/embed-loot-items.js)
     const LOOT_ITEMS = [{"id":"minecraft:bubble_coral_fan","label":"Abanico de coral de burbujas"},{"id":"minecraft:dead_bubble_coral_fan","label":"Abanico de coral de burbujas muerto"},{"id":"minecraft:brain_coral_fan","label":"Abanico de coral de cerebro"},{"id":"minecraft:dead_brain_coral_fan","label":"Abanico de coral de cerebro muerto"},{"id":"minecraft:horn_coral_fan","label":"Abanico de coral de cuerno"},{"id":"minecraft:dead_horn_coral_fan","label":"Abanico de coral de cuerno muerto"},{"id":"minecraft:fire_coral_fan","label":"Abanico de coral de fuego"},{"id":"minecraft:dead_fire_coral_fan","label":"Abanico de coral de fuego muerto"},{"id":"minecraft:tube_coral_fan","label":"Abanico de coral de tubo"},{"id":"minecraft:dead_tube_coral_fan","label":"Abanico de coral de tubo muerto"},{"id":"minecraft:host_armor_trim_smithing_template","label":"Acabado de armadura de anfitrión"},{"id":"minecraft:wayfinder_armor_trim_smithing_template","label":"Acabado de armadura de buscador de caminos"},{"id":"minecraft:sentry_armor_trim_smithing_template","label":"Acabado de armadura de centinela"},{"id":"minecraft:coast_armor_trim_smithing_template","label":"Acabado de armadura de costa"},{"id":"minecraft:rib_armor_trim_smithing_template","label":"Acabado de armadura de costilla"},{"id":"minecraft:ward_armor_trim_smithing_template","label":"Acabado de armadura de custodio"},{"id":"minecraft:dune_armor_trim_smithing_template","label":"Acabado de armadura de dunas"},{"id":"minecraft:flow_armor_trim_smithing_template","label":"Acabado de armadura de flujo"},{"id":"minecraft:snout_armor_trim_smithing_template","label":"Acabado de armadura de hocico"},{"id":"minecraft:tide_armor_trim_smithing_template","label":"Acabado de armadura de marea"},{"id":"minecraft:shaper_armor_trim_smithing_template","label":"Acabado de armadura de modelador"},{"id":"minecraft:eye_armor_trim_smithing_template","label":"Acabado de armadura de ojo"},{"id":"minecraft:bolt_armor_trim_smithing_template","label":"Acabado de armadura de rayo"},{"id":"minecraft:raiser_armor_trim_smithing_template","label":"Acabado de armadura de recolector"},{"id":"minecraft:silence_armor_trim_smithing_template","label":"Acabado de armadura de silencio"},{"id":"minecraft:spire_armor_trim_smithing_template","label":"Acabado de armadura de torre"},{"id":"minecraft:vex_armor_trim_smithing_template","label":"Acabado de armadura de vex"},{"id":"minecraft:wild_armor_trim_smithing_template","label":"Acabado de armadura salvaje"},{"id":"minecraft:cornflower","label":"Aciano"},{"id":"minecraft:cobblestone","label":"Adoquín"},{"id":"minecraft:infested_cobblestone","label":"Adoquín infestado"},{"id":"minecraft:mossy_cobblestone","label":"Adoquines musgosos"},{"id":"minecraft:smoker","label":"Ahumador"},{"id":"minecraft:yellow_carpet","label":"Alfombra amarilla"},{"id":"minecraft:blue_carpet","label":"Alfombra azul"},{"id":"minecraft:light_blue_carpet","label":"Alfombra azul claro"},{"id":"minecraft:white_carpet","label":"Alfombra blanca"},{"id":"minecraft:cyan_carpet","label":"Alfombra cian"},{"id":"minecraft:moss_carpet","label":"Alfombra de musgo"},{"id":"minecraft:pale_moss_carpet","label":"Alfombra de musgo pálido"},{"id":"minecraft:gray_carpet","label":"Alfombra gris"},{"id":"minecraft:light_gray_carpet","label":"Alfombra gris claro"},{"id":"minecraft:magenta_carpet","label":"Alfombra magenta"},{"id":"minecraft:brown_carpet","label":"Alfombra marrón"},{"id":"minecraft:purple_carpet","label":"Alfombra morada"},{"id":"minecraft:orange_carpet","label":"Alfombra naranja"},{"id":"minecraft:black_carpet","label":"Alfombra negra"},{"id":"minecraft:red_carpet","label":"Alfombra roja"},{"id":"minecraft:pink_carpet","label":"Alfombra rosa"},{"id":"minecraft:green_carpet","label":"Alfombra verde"},{"id":"minecraft:lime_carpet","label":"Alfombra verde lima"},{"id":"minecraft:kelp","label":"Alga marina"},{"id":"minecraft:dried_kelp","label":"Alga marina seca"},{"id":"minecraft:dragon_breath","label":"Aliento de dragón"},{"id":"minecraft:allium","label":"Allium"},{"id":"minecraft:poppy","label":"Amapola"},{"id":"minecraft:respawn_anchor","label":"Ancla de regeneración"},{"id":"minecraft:scaffolding","label":"Andamio"},{"id":"minecraft:andesite","label":"Andesita"},{"id":"minecraft:polished_andesite","label":"Andesita pulida"},{"id":"minecraft:torch","label":"Antorcha"},{"id":"minecraft:soul_torch","label":"Antorcha de alma"},{"id":"minecraft:copper_torch","label":"Antorcha de cobre"},{"id":"minecraft:redstone_torch","label":"Antorcha de redstone"},{"id":"minecraft:bush","label":"Arbusto"},{"id":"minecraft:firefly_bush","label":"Arbusto de luciérnagas"},{"id":"minecraft:deadbush","label":"Arbusto muerto"},{"id":"minecraft:clay","label":"Arcilla"},{"id":"minecraft:bow","label":"Arco"},{"id":"minecraft:sand","label":"Arena"},{"id":"minecraft:soul_sand","label":"Arena de almas"},{"id":"minecraft:red_sand","label":"Arena roja"},{"id":"minecraft:suspicious_sand","label":"Arena sospechosa"},{"id":"minecraft:sandstone","label":"Arenisca"},{"id":"minecraft:chiseled_sandstone","label":"Arenisca cincelada"},{"id":"minecraft:cut_sandstone","label":"Arenisca cortada"},{"id":"minecraft:smooth_sandstone","label":"Arenisca lisa"},{"id":"minecraft:red_sandstone","label":"Arenisca roja"},{"id":"minecraft:chiseled_red_sandstone","label":"Arenisca roja cincelada"},{"id":"minecraft:cut_red_sandstone","label":"Arenisca roja cortada"},{"id":"minecraft:smooth_red_sandstone","label":"Arenisca roja lisa"},{"id":"minecraft:copper_horse_armor","label":"Armadura de cobre para caballo"},{"id":"minecraft:leather_horse_armor","label":"Armadura de cuero para caballo"},{"id":"minecraft:diamond_horse_armor","label":"Armadura de diamante para caballo"},{"id":"minecraft:iron_horse_armor","label":"Armadura de hierro para caballo"},{"id":"minecraft:copper_nautilus_armor","label":"Armadura de nautilo de cobre"},{"id":"minecraft:diamond_nautilus_armor","label":"Armadura de nautilo de diamante"},{"id":"minecraft:iron_nautilus_armor","label":"Armadura de nautilo de hierro"},{"id":"minecraft:netherite_nautilus_armor","label":"Armadura de nautilo de netherita"},{"id":"minecraft:golden_nautilus_armor","label":"Armadura de nautilo de oro"},{"id":"minecraft:netherite_horse_armor","label":"Armadura de netherita para caballo"},{"id":"minecraft:golden_horse_armor","label":"Armadura dorada para caballo"},{"id":"minecraft:wolf_armor","label":"Armadura para lobo"},{"id":"minecraft:yellow_harness","label":"Arnés amarillo"},{"id":"minecraft:blue_harness","label":"Arnés azul"},{"id":"minecraft:light_blue_harness","label":"Arnés azul claro"},{"id":"minecraft:white_harness","label":"Arnés blanco"},{"id":"minecraft:cyan_harness","label":"Arnés cian"},{"id":"minecraft:gray_harness","label":"Arnés gris"},{"id":"minecraft:light_gray_harness","label":"Arnés gris claro"},{"id":"minecraft:magenta_harness","label":"Arnés magenta"},{"id":"minecraft:brown_harness","label":"Arnés marrón"},{"id":"minecraft:purple_harness","label":"Arnés morado"},{"id":"minecraft:orange_harness","label":"Arnés naranja"},{"id":"minecraft:black_harness","label":"Arnés negro"},{"id":"minecraft:red_harness","label":"Arnés rojo"},{"id":"minecraft:pink_harness","label":"Arnés rosa"},{"id":"minecraft:green_harness","label":"Arnés verde"},{"id":"minecraft:lime_harness","label":"Arnés verde lima"},{"id":"minecraft:lectern","label":"Atril"},{"id":"minecraft:sculk_shrieker","label":"Aullador de sculk"},{"id":"minecraft:copper_hoe","label":"Azada de cobre"},{"id":"minecraft:diamond_hoe","label":"Azada de diamante"},{"id":"minecraft:iron_hoe","label":"Azada de hierro"},{"id":"minecraft:netherite_hoe","label":"Azada de inframundita"},{"id":"minecraft:wooden_hoe","label":"Azada de madera"},{"id":"minecraft:golden_hoe","label":"Azada de oro"},{"id":"minecraft:stone_hoe","label":"Azada de piedra"},{"id":"minecraft:azalea","label":"Azalea"},{"id":"minecraft:flowering_azalea","label":"Azalea florecida"},{"id":"minecraft:sugar","label":"Azúcar"},{"id":"minecraft:sulfur","label":"Azufre"},{"id":"minecraft:chiseled_sulfur","label":"Azufre cincelado"},{"id":"minecraft:potent_sulfur","label":"Azufre potente"},{"id":"minecraft:polished_sulfur","label":"Azufre pulido"},{"id":"minecraft:cooked_cod","label":"Bacalao cocinado"},{"id":"minecraft:cod","label":"Bacalao crudo"},{"id":"minecraft:deepslate_tiles","label":"Baldosas de pizarra abismal"},{"id":"minecraft:cracked_deepslate_tiles","label":"Baldosas de pizarra abismal agrietadas"},{"id":"minecraft:crossbow","label":"Ballesta"},{"id":"minecraft:bamboo_raft","label":"Balsa de bambú"},{"id":"minecraft:bamboo_chest_raft","label":"Balsa de bambú con cofre"},{"id":"minecraft:bamboo","label":"Bambú"},{"id":"minecraft:birch_boat","label":"Barco de abedul"},{"id":"minecraft:birch_chest_boat","label":"Barco de abedul con cofre"},{"id":"minecraft:spruce_boat","label":"Barco de abeto"},{"id":"minecraft:spruce_chest_boat","label":"Barco de abeto con cofre"},{"id":"minecraft:acacia_boat","label":"Barco de acacia"},{"id":"minecraft:acacia_chest_boat","label":"Barco de acacia con cofre"},{"id":"minecraft:cherry_boat","label":"Barco de cerezo"},{"id":"minecraft:cherry_chest_boat","label":"Barco de cerezo con cofre"},{"id":"minecraft:jungle_boat","label":"Barco de jungla"},{"id":"minecraft:jungle_chest_boat","label":"Barco de jungla con cofre"},{"id":"minecraft:oak_boat","label":"Barco de roble"},{"id":"minecraft:oak_chest_boat","label":"Barco de roble con cofre"},{"id":"minecraft:dark_oak_boat","label":"Barco de roble oscuro"},{"id":"minecraft:dark_oak_chest_boat","label":"Barco de roble oscuro con cofre"},{"id":"minecraft:pale_oak_boat","label":"Barco de roble pálido"},{"id":"minecraft:pale_oak_chest_boat","label":"Barco de roble pálido con cofre"},{"id":"minecraft:mangrove_boat","label":"Barco del manglar"},{"id":"minecraft:mangrove_chest_boat","label":"Barco del manglar con cofre"},{"id":"minecraft:iron_bars","label":"Barras de hierro"},{"id":"minecraft:barrier","label":"Barrera"},{"id":"minecraft:barrel","label":"Barril"},{"id":"minecraft:packed_mud","label":"Barro compacto"},{"id":"minecraft:copper_bars","label":"Barrotes de cobre"},{"id":"minecraft:waxed_copper_bars","label":"Barrotes de cobre encerado"},{"id":"minecraft:weathered_copper_bars","label":"Barrotes de cobre erosionado"},{"id":"minecraft:waxed_weathered_copper_bars","label":"Barrotes de cobre erosionado encerado"},{"id":"minecraft:exposed_copper_bars","label":"Barrotes de cobre expuesto"},{"id":"minecraft:waxed_exposed_copper_bars","label":"Barrotes de cobre expuesto encerado"},{"id":"minecraft:oxidized_copper_bars","label":"Barrotes de cobre oxidado"},{"id":"minecraft:waxed_oxidized_copper_bars","label":"Barrotes de cobre oxidado encerado"},{"id":"minecraft:basalt","label":"Basalto"},{"id":"minecraft:smooth_basalt","label":"Basalto liso"},{"id":"minecraft:polished_basalt","label":"Basalto pulido"},{"id":"minecraft:torchflower","label":"Bastón de emperador"},{"id":"minecraft:sweet_berries","label":"Bayas dulces"},{"id":"minecraft:glow_berries","label":"Bayas resplandecientes"},{"id":"minecraft:dried_kelp_block","label":"Bloque de algas marinas secas"},{"id":"minecraft:amethyst_block","label":"Bloque de amatista"},{"id":"minecraft:bamboo_block","label":"Bloque de bambú"},{"id":"minecraft:stripped_bamboo_block","label":"Bloque de bambú sin corteza"},{"id":"minecraft:brown_mushroom_block","label":"Bloque de champiñón marrón"},{"id":"minecraft:red_mushroom_block","label":"Bloque de champiñón rojo"},{"id":"minecraft:copper_block","label":"Bloque de cobre"},{"id":"minecraft:raw_copper_block","label":"Bloque de cobre bruto"},{"id":"minecraft:waxed_copper","label":"Bloque de cobre encerado"},{"id":"minecraft:command_block","label":"Bloque de comandos"},{"id":"minecraft:chain_command_block","label":"Bloque de comandos encadenado"},{"id":"minecraft:repeating_command_block","label":"Bloque de comandos repetido"},{"id":"minecraft:bubble_coral_block","label":"Bloque de coral de burbujas"},{"id":"minecraft:dead_bubble_coral_block","label":"Bloque de coral de burbujas muerto"},{"id":"minecraft:brain_coral_block","label":"Bloque de coral de cerebro"},{"id":"minecraft:dead_brain_coral_block","label":"Bloque de coral de cerebro muerto"},{"id":"minecraft:horn_coral_block","label":"Bloque de coral de cuerno"},{"id":"minecraft:dead_horn_coral_block","label":"Bloque de coral de cuerno muerto"},{"id":"minecraft:fire_coral_block","label":"Bloque de coral de fuego"},{"id":"minecraft:dead_fire_coral_block","label":"Bloque de coral de fuego muerto"},{"id":"minecraft:tube_coral_block","label":"Bloque de coral de tubo"},{"id":"minecraft:dead_tube_coral_block","label":"Bloque de coral de tubo muerto"},{"id":"minecraft:quartz_block","label":"Bloque de cuarzo"},{"id":"minecraft:chiseled_quartz_block","label":"Bloque de cuarzo cincelado"},{"id":"minecraft:smooth_quartz","label":"Bloque de cuarzo liso"},{"id":"minecraft:diamond_block","label":"Bloque de diamante"},{"id":"minecraft:emerald_block","label":"Bloque de esmeralda"},{"id":"minecraft:dripstone_block","label":"Bloque de espeleotema"},{"id":"minecraft:structure_block","label":"Bloque de estructuras"},{"id":"minecraft:grass_block","label":"Bloque de hierba"},{"id":"minecraft:iron_block","label":"Bloque de hierro"},{"id":"minecraft:raw_iron_block","label":"Bloque de hierro bruto"},{"id":"minecraft:bone_block","label":"Bloque de hueso"},{"id":"minecraft:coal_block","label":"Bloque de hulla"},{"id":"minecraft:netherite_block","label":"Bloque de inframundita"},{"id":"minecraft:lapis_block","label":"Bloque de lapislázuli"},{"id":"minecraft:slime","label":"Bloque de limo"},{"id":"minecraft:magma","label":"Bloque de magma"},{"id":"minecraft:honey_block","label":"Bloque de miel"},{"id":"minecraft:moss_block","label":"Bloque de musgo"},{"id":"minecraft:pale_moss_block","label":"Bloque de musgo pálido"},{"id":"minecraft:snow","label":"Bloque de nieve"},{"id":"minecraft:noteblock","label":"Bloque de nota"},{"id":"minecraft:gold_block","label":"Bloque de oro"},{"id":"minecraft:raw_gold_block","label":"Bloque de oro bruto"},{"id":"minecraft:honeycomb_block","label":"Bloque de panales"},{"id":"minecraft:purpur_block","label":"Bloque de púrpura"},{"id":"minecraft:redstone_block","label":"Bloque de redstone"},{"id":"minecraft:resin_block","label":"Bloque de resina"},{"id":"minecraft:resin_brick","label":"Bloque de resina"},{"id":"minecraft:nether_wart_block","label":"Bloque de verruga de inframundo"},{"id":"minecraft:warped_wart_block","label":"Bloque de verruga deformado"},{"id":"minecraft:jigsaw","label":"Bloque rompecabezas"},{"id":"minecraft:resin_bricks","label":"Bloques de resina"},{"id":"minecraft:chiseled_resin_bricks","label":"Bloques de resina cincelados"},{"id":"minecraft:clay_ball","label":"Bola de arcilla"},{"id":"minecraft:slime_ball","label":"Bola de limo"},{"id":"minecraft:snowball","label":"Bola de nieve"},{"id":"minecraft:ink_sac","label":"Bolsa de tinta"},{"id":"minecraft:glow_ink_sac","label":"Bolsa de tinta brillante"},{"id":"minecraft:copper_bulb","label":"Bombilla de cobre"},{"id":"minecraft:waxed_copper_bulb","label":"Bombilla de cobre encerado"},{"id":"minecraft:weathered_copper_bulb","label":"Bombilla de cobre erosionado"},{"id":"minecraft:waxed_weathered_copper_bulb","label":"Bombilla de cobre erosionado encerado"},{"id":"minecraft:exposed_copper_bulb","label":"Bombilla de cobre expuesto"},{"id":"minecraft:waxed_exposed_copper_bulb","label":"Bombilla de cobre expuesto encerado"},{"id":"minecraft:oxidized_copper_bulb","label":"Bombilla de cobre oxidado"},{"id":"minecraft:waxed_oxidized_copper_bulb","label":"Bombilla de cobre oxidado encerado"},{"id":"minecraft:border_block","label":"Borde"},{"id":"minecraft:copper_boots","label":"Botas de cobre"},{"id":"minecraft:chainmail_boots","label":"Botas de cota de malla"},{"id":"minecraft:leather_boots","label":"Botas de cuero"},{"id":"minecraft:diamond_boots","label":"Botas de diamante"},{"id":"minecraft:iron_boots","label":"Botas de hierro"},{"id":"minecraft:netherite_boots","label":"Botas de inframundita"},{"id":"minecraft:golden_boots","label":"Botas de oro"},{"id":"minecraft:honey_bottle","label":"Bote de miel"},{"id":"minecraft:glass_bottle","label":"Botella de cristal"},{"id":"minecraft:experience_bottle","label":"Botella de hechizo"},{"id":"minecraft:ominous_bottle","label":"Botella ominosa"},{"id":"minecraft:crimson_button","label":"Botón carmesí"},{"id":"minecraft:birch_button","label":"Botón de abedul"},{"id":"minecraft:spruce_button","label":"Botón de abeto"},{"id":"minecraft:acacia_button","label":"Botón de acacia"},{"id":"minecraft:bamboo_button","label":"Botón de bambú"},{"id":"minecraft:cherry_button","label":"Botón de cerezo"},{"id":"minecraft:jungle_button","label":"Botón de jungla"},{"id":"minecraft:mangrove_button","label":"Botón de manglar"},{"id":"minecraft:stone_button","label":"Botón de piedra"},{"id":"minecraft:wooden_button","label":"Botón de roble"},{"id":"minecraft:dark_oak_button","label":"Botón de roble oscuro"},{"id":"minecraft:pale_oak_button","label":"Botón de roble pálido"},{"id":"minecraft:polished_blackstone_button","label":"Botón de rocanegra pulida"},{"id":"minecraft:warped_button","label":"Botón deformado"},{"id":"minecraft:birch_sapling","label":"Brote de abedul"},{"id":"minecraft:spruce_sapling","label":"Brote de abeto"},{"id":"minecraft:acacia_sapling","label":"Brote de acacia"},{"id":"minecraft:large_amethyst_bud","label":"Brote de amatista grande"},{"id":"minecraft:medium_amethyst_bud","label":"Brote de amatista mediano"},{"id":"minecraft:small_amethyst_bud","label":"Brote de amatista pequeño"},{"id":"minecraft:cherry_sapling","label":"Brote de cerezo"},{"id":"minecraft:jungle_sapling","label":"Brote de jungla"},{"id":"minecraft:oak_sapling","label":"Brote de roble"},{"id":"minecraft:dark_oak_sapling","label":"Brote de roble oscuro"},{"id":"minecraft:pale_oak_sapling","label":"Brote de roble pálido"},{"id":"minecraft:nether_sprouts","label":"Brotes del Inframundo"},{"id":"minecraft:compass","label":"Brújula"},{"id":"minecraft:lodestone_compass","label":"Brújula de magnetita"},{"id":"minecraft:recovery_compass","label":"Brújula de recuperación"},{"id":"minecraft:player_head","label":"Cabeza de %s"},{"id":"minecraft:creeper_head","label":"Cabeza de Creeper"},{"id":"minecraft:dragon_head","label":"Cabeza de dragón"},{"id":"minecraft:piglin_head","label":"Cabeza de piglin"},{"id":"minecraft:zombie_head","label":"Cabeza de zombi"},{"id":"minecraft:cactus","label":"Cactus"},{"id":"minecraft:copper_chain","label":"Cadena de cobre"},{"id":"minecraft:waxed_copper_chain","label":"Cadena de cobre encerado"},{"id":"minecraft:weathered_copper_chain","label":"Cadena de cobre erosionado"},{"id":"minecraft:waxed_weathered_copper_chain","label":"Cadena de cobre erosionado encerado"},{"id":"minecraft:exposed_copper_chain","label":"Cadena de cobre expuesto"},{"id":"minecraft:waxed_exposed_copper_chain","label":"Cadena de cobre expuesto encerado"},{"id":"minecraft:oxidized_copper_chain","label":"Cadena de cobre oxidado"},{"id":"minecraft:waxed_oxidized_copper_chain","label":"Cadena de cobre oxidado encerado"},{"id":"minecraft:iron_chain","label":"Cadena de hierro"},{"id":"minecraft:undyed_shulker_box","label":"Caja de Shulker"},{"id":"minecraft:yellow_shulker_box","label":"Caja de Shulker amarilla"},{"id":"minecraft:blue_shulker_box","label":"Caja de Shulker azul"},{"id":"minecraft:light_blue_shulker_box","label":"Caja de Shulker azul claro"},{"id":"minecraft:white_shulker_box","label":"Caja de Shulker blanca"},{"id":"minecraft:cyan_shulker_box","label":"Caja de Shulker cian"},{"id":"minecraft:gray_shulker_box","label":"Caja de Shulker gris"},{"id":"minecraft:light_gray_shulker_box","label":"Caja de Shulker gris claro"},{"id":"minecraft:magenta_shulker_box","label":"Caja de Shulker magenta"},{"id":"minecraft:brown_shulker_box","label":"Caja de Shulker marrón"},{"id":"minecraft:purple_shulker_box","label":"Caja de Shulker morada"},{"id":"minecraft:orange_shulker_box","label":"Caja de Shulker naranja"},{"id":"minecraft:black_shulker_box","label":"Caja de Shulker negra"},{"id":"minecraft:red_shulker_box","label":"Caja de Shulker roja"},{"id":"minecraft:pink_shulker_box","label":"Caja de Shulker rosa"},{"id":"minecraft:green_shulker_box","label":"Caja de Shulker verde"},{"id":"minecraft:lime_shulker_box","label":"Caja de Shulker verde lima"},{"id":"minecraft:vault","label":"Caja fuerte"},{"id":"minecraft:pumpkin","label":"Calabaza"},{"id":"minecraft:lit_pumpkin","label":"Calabaza iluminada"},{"id":"minecraft:carved_pumpkin","label":"Calabaza tallada"},{"id":"minecraft:skeleton_skull","label":"Calavera de esqueleto"},{"id":"minecraft:wither_skeleton_skull","label":"Calavera de esqueleto Wither"},{"id":"minecraft:calcite","label":"Calcita"},{"id":"minecraft:cauldron","label":"Caldero"},{"id":"minecraft:bed","label":"Cama"},{"id":"minecraft:grass_path","label":"Camino de tierra"},{"id":"minecraft:bell","label":"Campana"},{"id":"minecraft:sugar_cane","label":"Caña de azúcar"},{"id":"minecraft:fishing_rod","label":"Caña de pescar"},{"id":"minecraft:shulker_shell","label":"Caparazón de Shulker"},{"id":"minecraft:turtle_helmet","label":"Caparazón de tortuga"},{"id":"minecraft:charcoal","label":"Carbón"},{"id":"minecraft:wind_charge","label":"Carga de viento"},{"id":"minecraft:rotten_flesh","label":"Carne podrida"},{"id":"minecraft:copper_helmet","label":"Casco de cobre"},{"id":"minecraft:chainmail_helmet","label":"Casco de cota de malla"},{"id":"minecraft:diamond_helmet","label":"Casco de diamante"},{"id":"minecraft:iron_helmet","label":"Casco de hierro"},{"id":"minecraft:netherite_helmet","label":"Casco de inframundita"},{"id":"minecraft:golden_helmet","label":"Casco de oro"},{"id":"minecraft:spyglass","label":"Catalejo"},{"id":"minecraft:sculk_catalyst","label":"Catalizador sculk"},{"id":"minecraft:shroomlight","label":"Champiluz"},{"id":"minecraft:brown_mushroom","label":"Champiñón marrón"},{"id":"minecraft:red_mushroom","label":"Champiñón rojo"},{"id":"minecraft:flint_and_steel","label":"Chisquero de pedernal"},{"id":"minecraft:cooked_porkchop","label":"Chuleta de cerdo cocinada"},{"id":"minecraft:porkchop","label":"Chuleta de cerdo cruda"},{"id":"minecraft:cinnabar","label":"Cinabrio"},{"id":"minecraft:chiseled_cinnabar","label":"Cinabrio cincelado"},{"id":"minecraft:polished_cinnabar","label":"Cinabrio pulido"},{"id":"minecraft:light_block_0","label":"Claro"},{"id":"minecraft:light_block_1","label":"Claro"},{"id":"minecraft:light_block_10","label":"Claro"},{"id":"minecraft:light_block_11","label":"Claro"},{"id":"minecraft:light_block_12","label":"Claro"},{"id":"minecraft:light_block_13","label":"Claro"},{"id":"minecraft:light_block_14","label":"Claro"},{"id":"minecraft:light_block_15","label":"Claro"},{"id":"minecraft:light_block_2","label":"Claro"},{"id":"minecraft:light_block_3","label":"Claro"},{"id":"minecraft:light_block_4","label":"Claro"},{"id":"minecraft:light_block_5","label":"Claro"},{"id":"minecraft:light_block_6","label":"Claro"},{"id":"minecraft:light_block_7","label":"Claro"},{"id":"minecraft:light_block_8","label":"Claro"},{"id":"minecraft:light_block_9","label":"Claro"},{"id":"minecraft:raw_copper","label":"Cobre bruto"},{"id":"minecraft:chiseled_copper","label":"Cobre cincelado"},{"id":"minecraft:waxed_chiseled_copper","label":"Cobre cincelado encerado"},{"id":"minecraft:weathered_chiseled_copper","label":"Cobre cincelado erosionado"},{"id":"minecraft:exposed_chiseled_copper","label":"Cobre cincelado expuesto"},{"id":"minecraft:oxidized_chiseled_copper","label":"Cobre cincelado oxidado"},{"id":"minecraft:waxed_weathered_chiseled_copper","label":"Cobre cincelado, erosionado y encerado"},{"id":"minecraft:waxed_exposed_chiseled_copper","label":"Cobre cincelado, expuesto y encerado"},{"id":"minecraft:waxed_oxidized_chiseled_copper","label":"Cobre cincelado, oxidado y encerado"},{"id":"minecraft:cut_copper","label":"Cobre cortado"},{"id":"minecraft:waxed_cut_copper","label":"Cobre cortado encerado"},{"id":"minecraft:weathered_cut_copper","label":"Cobre cortado erosionado"},{"id":"minecraft:exposed_cut_copper","label":"Cobre cortado expuesto"},{"id":"minecraft:oxidized_cut_copper","label":"Cobre cortado oxidado"},{"id":"minecraft:waxed_weathered_cut_copper","label":"Cobre cortado, erosionado y encerado"},{"id":"minecraft:waxed_exposed_cut_copper","label":"Cobre cortado, expuesto y encerado"},{"id":"minecraft:waxed_oxidized_cut_copper","label":"Cobre cortado, oxidado y encerado"},{"id":"minecraft:weathered_copper","label":"Cobre erosionado"},{"id":"minecraft:waxed_weathered_copper","label":"Cobre erosionado encerado"},{"id":"minecraft:exposed_copper","label":"Cobre expuesto"},{"id":"minecraft:waxed_exposed_copper","label":"Cobre expuesto encerado"},{"id":"minecraft:oxidized_copper","label":"Cobre oxidado"},{"id":"minecraft:waxed_oxidized_copper","label":"Cobre oxidado encerado"},{"id":"minecraft:chest","label":"Cofre"},{"id":"minecraft:copper_chest","label":"Cofre de cobre"},{"id":"minecraft:weathered_copper_chest","label":"Cofre de cobre degradado"},{"id":"minecraft:waxed_weathered_copper_chest","label":"Cofre de cobre degradado encerado"},{"id":"minecraft:waxed_copper_chest","label":"Cofre de cobre encerado"},{"id":"minecraft:exposed_copper_chest","label":"Cofre de cobre expuesto"},{"id":"minecraft:waxed_exposed_copper_chest","label":"Cofre de cobre expuesto encerado"},{"id":"minecraft:oxidized_copper_chest","label":"Cofre de cobre oxidado"},{"id":"minecraft:waxed_oxidized_copper_chest","label":"Cofre de cobre oxidado encerado"},{"id":"minecraft:ender_chest","label":"Cofre de Ender"},{"id":"minecraft:trapped_chest","label":"Cofre trampa"},{"id":"minecraft:firework_rocket","label":"Cohete de fuegos artificiales"},{"id":"minecraft:beehive","label":"Colmena"},{"id":"minecraft:comparator","label":"Comparador de redstone"},{"id":"minecraft:composter","label":"Compostador"},{"id":"minecraft:nautilus_shell","label":"Concha de nautilo"},{"id":"minecraft:conduit","label":"Conducto"},{"id":"minecraft:cooked_rabbit","label":"Conejo cocinado"},{"id":"minecraft:rabbit","label":"Conejo crudo"},{"id":"minecraft:bubble_coral","label":"Coral de burbujas"},{"id":"minecraft:dead_bubble_coral","label":"Coral de burbujas muerto"},{"id":"minecraft:brain_coral","label":"Coral de cerebro"},{"id":"minecraft:dead_brain_coral","label":"Coral de cerebro muerto"},{"id":"minecraft:horn_coral","label":"Coral de cuerno"},{"id":"minecraft:dead_horn_coral","label":"Coral de cuerno muerto"},{"id":"minecraft:fire_coral","label":"Coral de fuego"},{"id":"minecraft:dead_fire_coral","label":"Coral de fuego muerto"},{"id":"minecraft:tube_coral","label":"Coral de tubo"},{"id":"minecraft:dead_tube_coral","label":"Coral de tubo muerto"},{"id":"minecraft:chainmail_chestplate","label":"Coraza de cota de malla"},{"id":"minecraft:diamond_chestplate","label":"Coraza de diamante"},{"id":"minecraft:iron_chestplate","label":"Coraza de hierro"},{"id":"minecraft:netherite_chestplate","label":"Coraza de inframundita"},{"id":"minecraft:golden_chestplate","label":"Coraza de oro"},{"id":"minecraft:creaking_heart","label":"Corazón de crepitante"},{"id":"minecraft:heart_of_the_sea","label":"Corazón del mar"},{"id":"minecraft:cooked_mutton","label":"Cordero cocinado"},{"id":"minecraft:mutton","label":"Cordero crudo"},{"id":"minecraft:stonecutter_block","label":"Cortapiedras"},{"id":"minecraft:magma_cream","label":"Crema de magma"},{"id":"minecraft:glass","label":"Cristal"},{"id":"minecraft:end_crystal","label":"Cristal de End"},{"id":"minecraft:tinted_glass","label":"Cristal pigmentado"},{"id":"minecraft:yellow_stained_glass","label":"Cristal tintado de amarillo"},{"id":"minecraft:blue_stained_glass","label":"Cristal tintado de azul"},{"id":"minecraft:light_blue_stained_glass","label":"Cristal tintado de azul claro"},{"id":"minecraft:white_stained_glass","label":"Cristal tintado de blanco"},{"id":"minecraft:cyan_stained_glass","label":"Cristal tintado de cian"},{"id":"minecraft:gray_stained_glass","label":"Cristal tintado de gris"},{"id":"minecraft:light_gray_stained_glass","label":"Cristal tintado de gris claro"},{"id":"minecraft:magenta_stained_glass","label":"Cristal tintado de magenta"},{"id":"minecraft:brown_stained_glass","label":"Cristal tintado de marrón"},{"id":"minecraft:purple_stained_glass","label":"Cristal tintado de morado"},{"id":"minecraft:orange_stained_glass","label":"Cristal tintado de naranja"},{"id":"minecraft:black_stained_glass","label":"Cristal tintado de negro"},{"id":"minecraft:red_stained_glass","label":"Cristal tintado de rojo"},{"id":"minecraft:pink_stained_glass","label":"Cristal tintado de rosa"},{"id":"minecraft:green_stained_glass","label":"Cristal tintado de verde"},{"id":"minecraft:lime_stained_glass","label":"Cristal tintado de verde lima"},{"id":"minecraft:prismarine_crystals","label":"Cristales de prismarina"},{"id":"minecraft:painting","label":"Cuadro"},{"id":"minecraft:quartz","label":"Cuarzo de inframundo"},{"id":"minecraft:bucket","label":"Cubo"},{"id":"minecraft:sulfur_cube_bucket","label":"Cubo con cubo de azufre"},{"id":"minecraft:water_bucket","label":"Cubo de agua"},{"id":"minecraft:axolotl_bucket","label":"Cubo de ajolote"},{"id":"minecraft:cod_bucket","label":"Cubo de bacalao"},{"id":"minecraft:lava_bucket","label":"Cubo de lava"},{"id":"minecraft:milk_bucket","label":"Cubo de leche"},{"id":"minecraft:powder_snow_bucket","label":"Cubo de nieve en polvo"},{"id":"minecraft:pufferfish_bucket","label":"Cubo de peces globo"},{"id":"minecraft:tropical_fish_bucket","label":"Cubo de peces tropicales"},{"id":"minecraft:tadpole_bucket","label":"Cubo de renacuajos"},{"id":"minecraft:salmon_bucket","label":"Cubo de salmón"},{"id":"minecraft:bowl","label":"Cuenco"},{"id":"minecraft:string","label":"Cuerda"},{"id":"minecraft:goat_horn","label":"Cuerno de cabra"},{"id":"minecraft:leather","label":"Cuero"},{"id":"minecraft:amethyst_cluster","label":"Cúmulo de amatista"},{"id":"minecraft:fire_charge","label":"Descarga de fuego"},{"id":"minecraft:daylight_detector","label":"Detector de luz diurna"},{"id":"minecraft:diamond","label":"Diamante"},{"id":"minecraft:dandelion","label":"Diente de león"},{"id":"minecraft:golden_dandelion","label":"Diente de león dorado"},{"id":"minecraft:tnt","label":"Dinamita"},{"id":"minecraft:diorite","label":"Diorita"},{"id":"minecraft:polished_diorite","label":"Diorita pulida"},{"id":"minecraft:music_disc_relic","label":"Disco de música: Aaron Cherof - Relic"},{"id":"minecraft:music_disc_precipice","label":"Disco de música: Aaron Cherof: precipicio"},{"id":"minecraft:music_disc_tears","label":"Disco de música: Amos Roddy: Tears"},{"id":"minecraft:music_disc_11","label":"Disco de música: C418 - 11"},{"id":"minecraft:music_disc_13","label":"Disco de música: C418 - 13"},{"id":"minecraft:music_disc_blocks","label":"Disco de música: C418 - bloques"},{"id":"minecraft:music_disc_wait","label":"Disco de música: C418 - esperar"},{"id":"minecraft:music_disc_mall","label":"Disco de música: C418 - explanada"},{"id":"minecraft:music_disc_cat","label":"Disco de música: C418 - gato"},{"id":"minecraft:music_disc_chirp","label":"Disco de música: C418 - gorjeo"},{"id":"minecraft:music_disc_far","label":"Disco de música: C418 - lejos"},{"id":"minecraft:music_disc_mellohi","label":"Disco de música: C418 - mellohi"},{"id":"minecraft:music_disc_ward","label":"Disco de música: C418 - sala"},{"id":"minecraft:music_disc_stal","label":"Disco de música: C418 - stal"},{"id":"minecraft:music_disc_strad","label":"Disco de música: C418 - strad"},{"id":"minecraft:music_disc_bounce","label":"Disco de música: fingerspit - Rebote"},{"id":"minecraft:music_disc_lava_chicken","label":"Disco de música: Hiperpociones: pollo de lava"},{"id":"minecraft:music_disc_otherside","label":"Disco de música: Lena Raine - Otherside"},{"id":"minecraft:music_disc_pigstep","label":"Disco de música: Lena Raine - Pigstep"},{"id":"minecraft:music_disc_creator","label":"Disco de música: Lena Raine: creadora"},{"id":"minecraft:music_disc_creator_music_box","label":"Disco de música: Lena Raine: creadora (caja de música)"},{"id":"minecraft:music_disc_5","label":"Disco de música: Samuel Åberg - 5"},{"id":"minecraft:dispenser","label":"Dispensador"},{"id":"minecraft:elytra","label":"Elytra"},{"id":"minecraft:hopper","label":"Embudo"},{"id":"minecraft:vine","label":"Enredadera"},{"id":"minecraft:twisting_vines","label":"Enredaderas enroscadas"},{"id":"minecraft:weeping_vines","label":"Enredaderas lloronas"},{"id":"minecraft:sea_pickle","label":"Escabeche marino"},{"id":"minecraft:ladder","label":"Escalera de mano"},{"id":"minecraft:crimson_stairs","label":"Escaleras carmesíes"},{"id":"minecraft:birch_stairs","label":"Escaleras de abedul"},{"id":"minecraft:spruce_stairs","label":"Escaleras de abeto"},{"id":"minecraft:acacia_stairs","label":"Escaleras de acacia"},{"id":"minecraft:stone_stairs","label":"Escaleras de adoquines"},{"id":"minecraft:mossy_cobblestone_stairs","label":"Escaleras de adoquines musgosos"},{"id":"minecraft:andesite_stairs","label":"Escaleras de andesita"},{"id":"minecraft:polished_andesite_stairs","label":"Escaleras de andesita pulida"},{"id":"minecraft:sandstone_stairs","label":"Escaleras de arenisca"},{"id":"minecraft:smooth_sandstone_stairs","label":"Escaleras de arenisca lisa"},{"id":"minecraft:red_sandstone_stairs","label":"Escaleras de arenisca roja"},{"id":"minecraft:smooth_red_sandstone_stairs","label":"Escaleras de arenisca roja lisa"},{"id":"minecraft:sulfur_stairs","label":"Escaleras de azufre"},{"id":"minecraft:polished_sulfur_stairs","label":"Escaleras de azufre pulido"},{"id":"minecraft:deepslate_tile_stairs","label":"Escaleras de baldosas de pizarra abismal"},{"id":"minecraft:bamboo_stairs","label":"Escaleras de bambú"},{"id":"minecraft:resin_brick_stairs","label":"Escaleras de bloques de resina"},{"id":"minecraft:cherry_stairs","label":"Escaleras de cerezo"},{"id":"minecraft:cinnabar_stairs","label":"Escaleras de cinabrio"},{"id":"minecraft:polished_cinnabar_stairs","label":"Escaleras de cinabrio pulido"},{"id":"minecraft:cut_copper_stairs","label":"Escaleras de cobre cortado"},{"id":"minecraft:waxed_cut_copper_stairs","label":"Escaleras de cobre cortado encerado"},{"id":"minecraft:weathered_cut_copper_stairs","label":"Escaleras de cobre cortado erosionado"},{"id":"minecraft:exposed_cut_copper_stairs","label":"Escaleras de cobre cortado expuesto"},{"id":"minecraft:oxidized_cut_copper_stairs","label":"Escaleras de cobre cortado oxidado"},{"id":"minecraft:waxed_weathered_cut_copper_stairs","label":"Escaleras de cobre cortado, erosionado y encerado"},{"id":"minecraft:waxed_exposed_cut_copper_stairs","label":"Escaleras de cobre cortado, expuesto y encerado"},{"id":"minecraft:waxed_oxidized_cut_copper_stairs","label":"Escaleras de cobre cortado, oxidado y encerado"},{"id":"minecraft:quartz_stairs","label":"Escaleras de cuarzo"},{"id":"minecraft:smooth_quartz_stairs","label":"Escaleras de cuarzo liso"},{"id":"minecraft:diorite_stairs","label":"Escaleras de diorita"},{"id":"minecraft:polished_diorite_stairs","label":"Escaleras de diorita pulida"},{"id":"minecraft:granite_stairs","label":"Escaleras de granito"},{"id":"minecraft:polished_granite_stairs","label":"Escaleras de granito pulido"},{"id":"minecraft:nether_brick_stairs","label":"Escaleras de inframundo"},{"id":"minecraft:red_nether_brick_stairs","label":"Escaleras de Inframundo rojas"},{"id":"minecraft:jungle_stairs","label":"Escaleras de jungla"},{"id":"minecraft:polished_blackstone_brick_stairs","label":"Escaleras de ladrillo de rocanegra pulida"},{"id":"minecraft:brick_stairs","label":"Escaleras de ladrillos"},{"id":"minecraft:sulfur_brick_stairs","label":"Escaleras de ladrillos de azufre"},{"id":"minecraft:mud_brick_stairs","label":"Escaleras de ladrillos de barro"},{"id":"minecraft:cinnabar_brick_stairs","label":"Escaleras de ladrillos de cinabrio"},{"id":"minecraft:stone_brick_stairs","label":"Escaleras de ladrillos de piedra"},{"id":"minecraft:end_brick_stairs","label":"Escaleras de ladrillos de piedra de End"},{"id":"minecraft:mossy_stone_brick_stairs","label":"Escaleras de ladrillos de piedra musgosa"},{"id":"minecraft:deepslate_brick_stairs","label":"Escaleras de ladrillos de pizarra abismal"},{"id":"minecraft:prismarine_bricks_stairs","label":"Escaleras de ladrillos de prismarina"},{"id":"minecraft:tuff_brick_stairs","label":"Escaleras de ladrillos de toba volcánica"},{"id":"minecraft:mangrove_stairs","label":"Escaleras de manglar"},{"id":"minecraft:bamboo_mosaic_stairs","label":"Escaleras de mosaico de bambú"},{"id":"minecraft:normal_stone_stairs","label":"Escaleras de piedra"},{"id":"minecraft:cobbled_deepslate_stairs","label":"Escaleras de pizarra abismal empedrada"},{"id":"minecraft:polished_deepslate_stairs","label":"Escaleras de pizarra abismal pulida"},{"id":"minecraft:prismarine_stairs","label":"Escaleras de prismarina"},{"id":"minecraft:dark_prismarine_stairs","label":"Escaleras de prismarina oscura"},{"id":"minecraft:purpur_stairs","label":"Escaleras de púrpura"},{"id":"minecraft:oak_stairs","label":"Escaleras de roble"},{"id":"minecraft:dark_oak_stairs","label":"Escaleras de roble oscuro"},{"id":"minecraft:pale_oak_stairs","label":"Escaleras de roble pálido"},{"id":"minecraft:blackstone_stairs","label":"Escaleras de rocanegra"},{"id":"minecraft:polished_blackstone_stairs","label":"Escaleras de rocanegra pulida"},{"id":"minecraft:tuff_stairs","label":"Escaleras de toba volcánica"},{"id":"minecraft:polished_tuff_stairs","label":"Escaleras de toba volcánica pulida"},{"id":"minecraft:warped_stairs","label":"Escaleras deformadas"},{"id":"minecraft:armadillo_scute","label":"Escama de armadillo"},{"id":"minecraft:turtle_scute","label":"Escama de tortuga"},{"id":"minecraft:crimson_trapdoor","label":"Escotilla carmesí"},{"id":"minecraft:birch_trapdoor","label":"Escotilla de abedul"},{"id":"minecraft:spruce_trapdoor","label":"Escotilla de abeto"},{"id":"minecraft:acacia_trapdoor","label":"Escotilla de acacia"},{"id":"minecraft:bamboo_trapdoor","label":"Escotilla de bambú"},{"id":"minecraft:cherry_trapdoor","label":"Escotilla de cerezo"},{"id":"minecraft:copper_trapdoor","label":"Escotilla de cobre"},{"id":"minecraft:waxed_copper_trapdoor","label":"Escotilla de cobre encerado"},{"id":"minecraft:weathered_copper_trapdoor","label":"Escotilla de cobre erosionado"},{"id":"minecraft:waxed_weathered_copper_trapdoor","label":"Escotilla de cobre erosionado encerado"},{"id":"minecraft:exposed_copper_trapdoor","label":"Escotilla de cobre expuesto"},{"id":"minecraft:waxed_exposed_copper_trapdoor","label":"Escotilla de cobre expuesto encerado"},{"id":"minecraft:oxidized_copper_trapdoor","label":"Escotilla de cobre oxidado"},{"id":"minecraft:waxed_oxidized_copper_trapdoor","label":"Escotilla de cobre oxidado encerado"},{"id":"minecraft:iron_trapdoor","label":"Escotilla de hierro"},{"id":"minecraft:jungle_trapdoor","label":"Escotilla de jungla"},{"id":"minecraft:mangrove_trapdoor","label":"Escotilla de manglar"},{"id":"minecraft:trapdoor","label":"Escotilla de roble"},{"id":"minecraft:dark_oak_trapdoor","label":"Escotilla de roble oscuro"},{"id":"minecraft:pale_oak_trapdoor","label":"Escotilla de roble pálido"},{"id":"minecraft:warped_trapdoor","label":"Escotilla deformada"},{"id":"minecraft:shield","label":"Escudo"},{"id":"minecraft:emerald","label":"Esmeralda"},{"id":"minecraft:copper_sword","label":"Espada de cobre"},{"id":"minecraft:diamond_sword","label":"Espada de diamante"},{"id":"minecraft:iron_sword","label":"Espada de hierro"},{"id":"minecraft:netherite_sword","label":"Espada de inframundita"},{"id":"minecraft:wooden_sword","label":"Espada de madera"},{"id":"minecraft:golden_sword","label":"Espada de oro"},{"id":"minecraft:stone_sword","label":"Espada de piedra"},{"id":"minecraft:pointed_dripstone","label":"Espeleotema en punta"},{"id":"minecraft:sponge","label":"Esponja"},{"id":"minecraft:wet_sponge","label":"Esponja húmeda"},{"id":"minecraft:banner","label":"Estandarte blanco"},{"id":"minecraft:bookshelf","label":"Estantería"},{"id":"minecraft:crimson_shelf","label":"Estantería carmesí"},{"id":"minecraft:chiseled_bookshelf","label":"Estantería cincelada"},{"id":"minecraft:birch_shelf","label":"Estantería de abedul"},{"id":"minecraft:spruce_shelf","label":"Estantería de abeto"},{"id":"minecraft:acacia_shelf","label":"Estantería de acacia"},{"id":"minecraft:bamboo_shelf","label":"Estantería de bambú"},{"id":"minecraft:cherry_shelf","label":"Estantería de cerezo"},{"id":"minecraft:jungle_shelf","label":"Estantería de jungla"},{"id":"minecraft:mangrove_shelf","label":"Estantería de manglar"},{"id":"minecraft:oak_shelf","label":"Estantería de roble"},{"id":"minecraft:dark_oak_shelf","label":"Estantería de roble oscuro"},{"id":"minecraft:pale_oak_shelf","label":"Estantería de roble pálido"},{"id":"minecraft:warped_shelf","label":"Estantería deformada"},{"id":"minecraft:copper_golem_statue","label":"Estatua de gólem de cobre"},{"id":"minecraft:waxed_copper_golem_statue","label":"Estatua de gólem de cobre encerado"},{"id":"minecraft:weathered_copper_golem_statue","label":"Estatua de gólem de cobre erosionado"},{"id":"minecraft:waxed_weathered_copper_golem_statue","label":"Estatua de gólem de cobre erosionado encerado"},{"id":"minecraft:exposed_copper_golem_statue","label":"Estatua de gólem de cobre expuesto"},{"id":"minecraft:waxed_exposed_copper_golem_statue","label":"Estatua de gólem de cobre expuesto encerado"},{"id":"minecraft:oxidized_copper_golem_statue","label":"Estatua de gólem de cobre oxidado"},{"id":"minecraft:waxed_oxidized_copper_golem_statue","label":"Estatua de gólem de cobre oxidado encerado"},{"id":"minecraft:mushroom_stew","label":"Estofado de champiñones"},{"id":"minecraft:rabbit_stew","label":"Estofado de conejo"},{"id":"minecraft:suspicious_stew","label":"Estofado sospechoso"},{"id":"minecraft:firework_star","label":"Estrella de fuegos artificiales"},{"id":"minecraft:nether_star","label":"Estrella de inframundo"},{"id":"minecraft:end_portal_frame","label":"Estructura de portal de End"},{"id":"minecraft:name_tag","label":"Etiqueta de nombre"},{"id":"minecraft:crafter","label":"Fabricante"},{"id":"minecraft:hay_block","label":"Fardo de heno"},{"id":"minecraft:beacon","label":"Faro"},{"id":"minecraft:copper_lantern","label":"Farol de cobre"},{"id":"minecraft:waxed_copper_lantern","label":"Farol de cobre encerado"},{"id":"minecraft:weathered_copper_lantern","label":"Farol de cobre erosionado"},{"id":"minecraft:waxed_weathered_copper_lantern","label":"Farol de cobre erosionado encerado"},{"id":"minecraft:exposed_copper_lantern","label":"Farol de cobre expuesto"},{"id":"minecraft:waxed_exposed_copper_lantern","label":"Farol de cobre expuesto encerado"},{"id":"minecraft:oxidized_copper_lantern","label":"Farol de cobre oxidado"},{"id":"minecraft:waxed_oxidized_copper_lantern","label":"Farol de cobre oxidado encerado"},{"id":"minecraft:cooked_beef","label":"Filete"},{"id":"minecraft:arrow","label":"Flecha"},{"id":"minecraft:chorus_flower","label":"Flor coral"},{"id":"minecraft:cactus_flower","label":"Flor de cactus"},{"id":"minecraft:spore_blossom","label":"Flor de espora"},{"id":"minecraft:wildflowers","label":"Flores silvestres"},{"id":"minecraft:campfire","label":"Fogata"},{"id":"minecraft:soul_campfire","label":"Fogata de alma"},{"id":"minecraft:seagrass","label":"Fondo marino"},{"id":"minecraft:amethyst_shard","label":"Fragmento de amatista"},{"id":"minecraft:friend_pottery_sherd","label":"Fragmento de cerámica con amigo"},{"id":"minecraft:scrape_pottery_sherd","label":"Fragmento de cerámica con arañazos"},{"id":"minecraft:archer_pottery_sherd","label":"Fragmento de cerámica con arquero"},{"id":"minecraft:howl_pottery_sherd","label":"Fragmento de cerámica con aullido"},{"id":"minecraft:arms_up_pottery_sherd","label":"Fragmento de cerámica con brazos hacia arriba"},{"id":"minecraft:snort_pottery_sherd","label":"Fragmento de cerámica con bufido"},{"id":"minecraft:skull_pottery_sherd","label":"Fragmento de cerámica con calavera"},{"id":"minecraft:heart_pottery_sherd","label":"Fragmento de cerámica con corazón"},{"id":"minecraft:heartbreak_pottery_sherd","label":"Fragmento de cerámica con corazón roto"},{"id":"minecraft:brewer_pottery_sherd","label":"Fragmento de cerámica con destilería"},{"id":"minecraft:mourner_pottery_sherd","label":"Fragmento de cerámica con doliente"},{"id":"minecraft:explorer_pottery_sherd","label":"Fragmento de cerámica con explorador"},{"id":"minecraft:flow_pottery_sherd","label":"Fragmento de cerámica con flujo"},{"id":"minecraft:sheaf_pottery_sherd","label":"Fragmento de cerámica con gavilla"},{"id":"minecraft:guster_pottery_sherd","label":"Fragmento de cerámica con Guster"},{"id":"minecraft:blade_pottery_sherd","label":"Fragmento de cerámica con hoja"},{"id":"minecraft:miner_pottery_sherd","label":"Fragmento de cerámica con minero"},{"id":"minecraft:danger_pottery_sherd","label":"Fragmento de cerámica con peligro"},{"id":"minecraft:angler_pottery_sherd","label":"Fragmento de cerámica con pescador"},{"id":"minecraft:burn_pottery_sherd","label":"Fragmento de cerámica con quemadura"},{"id":"minecraft:shelter_pottery_sherd","label":"Fragmento de cerámica con refugio"},{"id":"minecraft:plenty_pottery_sherd","label":"Fragmento de cerámica con riquezas"},{"id":"minecraft:prize_pottery_sherd","label":"Fragmento de cerámica con tesoro"},{"id":"minecraft:disc_fragment_5","label":"Fragmento de disco"},{"id":"minecraft:echo_shard","label":"Fragmento de eco"},{"id":"minecraft:netherite_scrap","label":"Fragmento de inframundita"},{"id":"minecraft:prismarine_shard","label":"Fragmento de prismarina"},{"id":"minecraft:chorus_fruit","label":"Fruta coral"},{"id":"minecraft:popped_chorus_fruit","label":"Fruta coral horneada"},{"id":"minecraft:cookie","label":"Galleta"},{"id":"minecraft:tripwire_hook","label":"Gancho de cable trampa"},{"id":"minecraft:mob_spawner","label":"Generador de monstruos"},{"id":"minecraft:trial_spawner","label":"Generador de prueba"},{"id":"minecraft:frog_spawn","label":"Generador de rana"},{"id":"minecraft:budding_amethyst","label":"Germinador de amatista"},{"id":"minecraft:dried_ghast","label":"Ghast seco"},{"id":"minecraft:sunflower","label":"Girasol"},{"id":"minecraft:leather_helmet","label":"Gorra de cuero"},{"id":"minecraft:big_dripleaf","label":"Goteoja grande"},{"id":"minecraft:small_dripleaf_block","label":"Goteoja pequeña"},{"id":"minecraft:granite","label":"Granito"},{"id":"minecraft:polished_granite","label":"Granito pulido"},{"id":"minecraft:farmland","label":"Granja"},{"id":"minecraft:cocoa_beans","label":"Granos de cacao"},{"id":"minecraft:gravel","label":"Grava"},{"id":"minecraft:suspicious_gravel","label":"Grava sospechosa"},{"id":"minecraft:copper_leggings","label":"Grebas de cobre"},{"id":"minecraft:copper_axe","label":"Hacha de cobre"},{"id":"minecraft:diamond_axe","label":"Hacha de diamante"},{"id":"minecraft:iron_axe","label":"Hacha de hierro"},{"id":"minecraft:netherite_axe","label":"Hacha de inframundita"},{"id":"minecraft:wooden_axe","label":"Hacha de madera"},{"id":"minecraft:golden_axe","label":"Hacha de oro"},{"id":"minecraft:stone_axe","label":"Hacha de piedra"},{"id":"minecraft:fern","label":"Helecho"},{"id":"minecraft:large_fern","label":"Helecho grande"},{"id":"minecraft:ice","label":"Hielo"},{"id":"minecraft:blue_ice","label":"Hielo azul"},{"id":"minecraft:packed_ice","label":"Hielo compacto"},{"id":"minecraft:frosted_ice","label":"Hielo helado"},{"id":"minecraft:tall_grass","label":"Hierba alta"},{"id":"minecraft:tall_dry_grass","label":"Hierba alta seca"},{"id":"minecraft:short_grass","label":"Hierba corta"},{"id":"minecraft:short_dry_grass","label":"Hierba corta seca"},{"id":"minecraft:raw_iron","label":"Hierro en bruto"},{"id":"minecraft:crimson_hyphae","label":"Hifas carmesíes"},{"id":"minecraft:stripped_crimson_hyphae","label":"Hifas carmesíes sin corteza"},{"id":"minecraft:warped_hyphae","label":"Hifas deformadas"},{"id":"minecraft:stripped_warped_hyphae","label":"Hifas deformadas sin corteza"},{"id":"minecraft:leaf_litter","label":"Hojarasca"},{"id":"minecraft:birch_leaves","label":"Hojas de abedul"},{"id":"minecraft:spruce_leaves","label":"Hojas de abeto"},{"id":"minecraft:acacia_leaves","label":"Hojas de acacia"},{"id":"minecraft:azalea_leaves","label":"Hojas de azalea"},{"id":"minecraft:azalea_leaves_flowered","label":"Hojas de azalea florecida"},{"id":"minecraft:cherry_leaves","label":"Hojas de cerezo"},{"id":"minecraft:jungle_leaves","label":"Hojas de jungla"},{"id":"minecraft:mangrove_leaves","label":"Hojas de manglar"},{"id":"minecraft:oak_leaves","label":"Hojas de roble"},{"id":"minecraft:dark_oak_leaves","label":"Hojas de roble oscuro"},{"id":"minecraft:pale_oak_leaves","label":"Hojas de roble pálido"},{"id":"minecraft:crimson_fungus","label":"Hongos carmesíes"},{"id":"minecraft:warped_fungus","label":"Hongos deformados"},{"id":"minecraft:warped_fungus_on_a_stick","label":"Hongos deformados en un palo"},{"id":"minecraft:yellow_concrete","label":"Hormigón amarillo"},{"id":"minecraft:blue_concrete","label":"Hormigón azul"},{"id":"minecraft:light_blue_concrete","label":"Hormigón azul claro"},{"id":"minecraft:white_concrete","label":"Hormigón blanco"},{"id":"minecraft:cyan_concrete","label":"Hormigón cian"},{"id":"minecraft:gray_concrete","label":"Hormigón gris"},{"id":"minecraft:light_gray_concrete","label":"Hormigón gris claro"},{"id":"minecraft:magenta_concrete","label":"Hormigón magenta"},{"id":"minecraft:brown_concrete","label":"Hormigón marrón"},{"id":"minecraft:purple_concrete","label":"Hormigón morado"},{"id":"minecraft:orange_concrete","label":"Hormigón naranja"},{"id":"minecraft:black_concrete","label":"Hormigón negro"},{"id":"minecraft:red_concrete","label":"Hormigón rojo"},{"id":"minecraft:pink_concrete","label":"Hormigón rosa"},{"id":"minecraft:green_concrete","label":"Hormigón verde"},{"id":"minecraft:lime_concrete","label":"Hormigón verde lima"},{"id":"minecraft:furnace","label":"Horno"},{"id":"minecraft:blast_furnace","label":"Horno de fusión"},{"id":"minecraft:bone","label":"Hueso"},{"id":"minecraft:egg","label":"Huevo"},{"id":"minecraft:blue_egg","label":"Huevo azul"},{"id":"minecraft:dragon_egg","label":"Huevo de dragón"},{"id":"minecraft:creaking_spawn_egg","label":"Huevo de generador de crepitante"},{"id":"minecraft:sniffer_egg","label":"Huevo de rastreador"},{"id":"minecraft:turtle_egg","label":"Huevo de tortuga"},{"id":"minecraft:bee_spawn_egg","label":"Huevo generador de abeja"},{"id":"minecraft:drowned_spawn_egg","label":"Huevo generador de ahogado"},{"id":"minecraft:axolotl_spawn_egg","label":"Huevo generador de ajolote"},{"id":"minecraft:villager_spawn_egg","label":"Huevo generador de aldeano"},{"id":"minecraft:zombie_villager_spawn_egg","label":"Huevo generador de aldeano zombi"},{"id":"minecraft:spider_spawn_egg","label":"Huevo generador de araña"},{"id":"minecraft:cave_spider_spawn_egg","label":"Huevo generador de araña de las cuevas"},{"id":"minecraft:armadillo_spawn_egg","label":"Huevo generador de armadillo"},{"id":"minecraft:allay_spawn_egg","label":"Huevo generador de ayudante"},{"id":"minecraft:cod_spawn_egg","label":"Huevo generador de bacalao"},{"id":"minecraft:blaze_spawn_egg","label":"Huevo generador de Blaze"},{"id":"minecraft:breeze_spawn_egg","label":"Huevo generador de brisa"},{"id":"minecraft:witch_spawn_egg","label":"Huevo generador de bruja"},{"id":"minecraft:donkey_spawn_egg","label":"Huevo generador de burro"},{"id":"minecraft:horse_spawn_egg","label":"Huevo generador de caballo"},{"id":"minecraft:skeleton_horse_spawn_egg","label":"Huevo generador de caballo esqueleto"},{"id":"minecraft:zombie_horse_spawn_egg","label":"Huevo generador de caballo zombi"},{"id":"minecraft:goat_spawn_egg","label":"Huevo generador de cabra"},{"id":"minecraft:squid_spawn_egg","label":"Huevo generador de calamar"},{"id":"minecraft:glow_squid_spawn_egg","label":"Huevo generador de calamar brillante"},{"id":"minecraft:camel_spawn_egg","label":"Huevo generador de camello"},{"id":"minecraft:camel_husk_spawn_egg","label":"Huevo generador de camello disecado"},{"id":"minecraft:pig_spawn_egg","label":"Huevo generador de cerdo"},{"id":"minecraft:mooshroom_spawn_egg","label":"Huevo generador de champiñaca"},{"id":"minecraft:rabbit_spawn_egg","label":"Huevo generador de conejo"},{"id":"minecraft:creeper_spawn_egg","label":"Huevo generador de Creeper"},{"id":"minecraft:sulfur_cube_spawn_egg","label":"Huevo generador de cubo de azufre"},{"id":"minecraft:magma_cube_spawn_egg","label":"Huevo generador de cubo de magma"},{"id":"minecraft:warden_spawn_egg","label":"Huevo generador de custodio"},{"id":"minecraft:dolphin_spawn_egg","label":"Huevo generador de delfín"},{"id":"minecraft:ravager_spawn_egg","label":"Huevo generador de devastador"},{"id":"minecraft:husk_spawn_egg","label":"Huevo generador de disecado"},{"id":"minecraft:ender_dragon_spawn_egg","label":"Huevo generador de dragona de Ender"},{"id":"minecraft:bogged_spawn_egg","label":"Huevo generador de empantanado"},{"id":"minecraft:enderman_spawn_egg","label":"Huevo generador de Enderman"},{"id":"minecraft:endermite_spawn_egg","label":"Huevo generador de Endermite"},{"id":"minecraft:stray_spawn_egg","label":"Huevo generador de errante"},{"id":"minecraft:skeleton_spawn_egg","label":"Huevo generador de esqueleto"},{"id":"minecraft:wither_skeleton_spawn_egg","label":"Huevo generador de esqueleto de Wither"},{"id":"minecraft:evoker_spawn_egg","label":"Huevo generador de evocador"},{"id":"minecraft:phantom_spawn_egg","label":"Huevo generador de fantasma"},{"id":"minecraft:chicken_spawn_egg","label":"Huevo generador de gallina"},{"id":"minecraft:cat_spawn_egg","label":"Huevo generador de gato"},{"id":"minecraft:ghast_spawn_egg","label":"Huevo generador de Ghast"},{"id":"minecraft:happy_ghast_spawn_egg","label":"Huevo generador de ghast feliz"},{"id":"minecraft:copper_golem_spawn_egg","label":"Huevo generador de gólem de cobre"},{"id":"minecraft:iron_golem_spawn_egg","label":"Huevo generador de gólem de hierro"},{"id":"minecraft:snow_golem_spawn_egg","label":"Huevo generador de gólem de nieve"},{"id":"minecraft:guardian_spawn_egg","label":"Huevo generador de guardián"},{"id":"minecraft:elder_guardian_spawn_egg","label":"Huevo generador de guardián anciano"},{"id":"minecraft:hoglin_spawn_egg","label":"Huevo generador de hoglin"},{"id":"minecraft:strider_spawn_egg","label":"Huevo generador de lavagante"},{"id":"minecraft:slime_spawn_egg","label":"Huevo generador de limo"},{"id":"minecraft:llama_spawn_egg","label":"Huevo generador de llama"},{"id":"minecraft:trader_llama_spawn_egg","label":"Huevo generador de llama comerciante"},{"id":"minecraft:wolf_spawn_egg","label":"Huevo generador de lobo"},{"id":"minecraft:parrot_spawn_egg","label":"Huevo generador de loro"},{"id":"minecraft:mule_spawn_egg","label":"Huevo generador de mula"},{"id":"minecraft:bat_spawn_egg","label":"Huevo generador de murciélago"},{"id":"minecraft:nautilus_spawn_egg","label":"Huevo generador de nautilo"},{"id":"minecraft:zombie_nautilus_spawn_egg","label":"Huevo generador de nautilo zombi"},{"id":"minecraft:ocelot_spawn_egg","label":"Huevo generador de ocelote"},{"id":"minecraft:polar_bear_spawn_egg","label":"Huevo generador de oso polar"},{"id":"minecraft:sheep_spawn_egg","label":"Huevo generador de oveja"},{"id":"minecraft:panda_spawn_egg","label":"Huevo generador de panda"},{"id":"minecraft:pufferfish_spawn_egg","label":"Huevo generador de pez globo"},{"id":"minecraft:silverfish_spawn_egg","label":"Huevo generador de pez plateado"},{"id":"minecraft:tropical_fish_spawn_egg","label":"Huevo generador de pez tropical"},{"id":"minecraft:piglin_spawn_egg","label":"Huevo generador de piglin"},{"id":"minecraft:piglin_brute_spawn_egg","label":"Huevo generador de piglin bruto"},{"id":"minecraft:zombie_pigman_spawn_egg","label":"Huevo generador de piglin zombi"},{"id":"minecraft:frog_spawn_egg","label":"Huevo generador de rana"},{"id":"minecraft:sniffer_spawn_egg","label":"Huevo generador de rastreador"},{"id":"minecraft:tadpole_spawn_egg","label":"Huevo generador de renacuajo"},{"id":"minecraft:parched_spawn_egg","label":"Huevo generador de reseco"},{"id":"minecraft:salmon_spawn_egg","label":"Huevo generador de salmón"},{"id":"minecraft:pillager_spawn_egg","label":"Huevo generador de saqueador"},{"id":"minecraft:shulker_spawn_egg","label":"Huevo generador de Shulker"},{"id":"minecraft:turtle_spawn_egg","label":"Huevo generador de tortuga"},{"id":"minecraft:cow_spawn_egg","label":"Huevo generador de vaca"},{"id":"minecraft:wandering_trader_spawn_egg","label":"Huevo generador de vendedor errante"},{"id":"minecraft:vex_spawn_egg","label":"Huevo generador de Vex"},{"id":"minecraft:vindicator_spawn_egg","label":"Huevo generador de vindicador"},{"id":"minecraft:wither_spawn_egg","label":"Huevo generador de Wither"},{"id":"minecraft:zoglin_spawn_egg","label":"Huevo generador de zoglin"},{"id":"minecraft:zombie_spawn_egg","label":"Huevo generador de zombi"},{"id":"minecraft:fox_spawn_egg","label":"Huevo generador de zorro"},{"id":"minecraft:brown_egg","label":"Huevo marrón"},{"id":"minecraft:coal","label":"Hulla"},{"id":"minecraft:netherrack","label":"Infiedra"},{"id":"minecraft:brick","label":"Ladrillo"},{"id":"minecraft:netherbrick","label":"Ladrillo de inframundo"},{"id":"minecraft:infested_cracked_stone_bricks","label":"Ladrillo de piedra agrietada infestada"},{"id":"minecraft:infested_chiseled_stone_bricks","label":"Ladrillo de piedra cincelada infestada"},{"id":"minecraft:infested_mossy_stone_bricks","label":"Ladrillo de piedra musgosa infestada"},{"id":"minecraft:brick_block","label":"Ladrillos"},{"id":"minecraft:sulfur_bricks","label":"Ladrillos de azufre"},{"id":"minecraft:mud_bricks","label":"Ladrillos de barro"},{"id":"minecraft:cinnabar_bricks","label":"Ladrillos de cinabrio"},{"id":"minecraft:quartz_bricks","label":"Ladrillos de cuarzo"},{"id":"minecraft:nether_brick","label":"Ladrillos de Inframundo"},{"id":"minecraft:red_nether_brick","label":"Ladrillos de Inframundo rojos"},{"id":"minecraft:stone_bricks","label":"Ladrillos de piedra"},{"id":"minecraft:cracked_stone_bricks","label":"Ladrillos de piedra agrietados"},{"id":"minecraft:chiseled_stone_bricks","label":"Ladrillos de piedra cincelados"},{"id":"minecraft:end_bricks","label":"Ladrillos de piedra de End"},{"id":"minecraft:infested_stone_bricks","label":"Ladrillos de piedra infestada"},{"id":"minecraft:mossy_stone_bricks","label":"Ladrillos de piedra musgosa"},{"id":"minecraft:deepslate_bricks","label":"Ladrillos de pizarra abismal"},{"id":"minecraft:cracked_deepslate_bricks","label":"Ladrillos de pizarra abismal agrietados"},{"id":"minecraft:prismarine_bricks","label":"Ladrillos de prismarina"},{"id":"minecraft:cracked_polished_blackstone_bricks","label":"Ladrillos de rocanegra agrietada pulida"},{"id":"minecraft:polished_blackstone_bricks","label":"Ladrillos de rocanegra pulida"},{"id":"minecraft:tuff_bricks","label":"Ladrillos de toba volcánica"},{"id":"minecraft:chiseled_tuff_bricks","label":"Ladrillos de toba volcánica cincelada"},{"id":"minecraft:cracked_nether_bricks","label":"Ladrillos del Inframundo agrietados"},{"id":"minecraft:chiseled_nether_bricks","label":"Ladrillos del Inframundo cincelados"},{"id":"minecraft:ghast_tear","label":"Lágrima de Ghast"},{"id":"minecraft:redstone_lamp","label":"Lámpara de redstone"},{"id":"minecraft:yellow_wool","label":"Lana amarilla"},{"id":"minecraft:blue_wool","label":"Lana azul"},{"id":"minecraft:light_blue_wool","label":"Lana azul claro"},{"id":"minecraft:white_wool","label":"Lana blanca"},{"id":"minecraft:cyan_wool","label":"Lana cian"},{"id":"minecraft:gray_wool","label":"Lana gris"},{"id":"minecraft:light_gray_wool","label":"Lana gris claro"},{"id":"minecraft:magenta_wool","label":"Lana magenta"},{"id":"minecraft:brown_wool","label":"Lana marrón"},{"id":"minecraft:purple_wool","label":"Lana morada"},{"id":"minecraft:orange_wool","label":"Lana naranja"},{"id":"minecraft:black_wool","label":"Lana negra"},{"id":"minecraft:red_wool","label":"Lana roja"},{"id":"minecraft:pink_wool","label":"Lana rosa"},{"id":"minecraft:green_wool","label":"Lana verde"},{"id":"minecraft:lime_wool","label":"Lana verde lima"},{"id":"minecraft:copper_spear","label":"Lanza de cobre"},{"id":"minecraft:diamond_spear","label":"Lanza de diamante"},{"id":"minecraft:iron_spear","label":"Lanza de hierro"},{"id":"minecraft:wooden_spear","label":"Lanza de madera"},{"id":"minecraft:netherite_spear","label":"Lanza de netherita"},{"id":"minecraft:golden_spear","label":"Lanza de oro"},{"id":"minecraft:stone_spear","label":"Lanza de piedra"},{"id":"minecraft:lapis_lazuli","label":"Lapislázuli"},{"id":"minecraft:bedrock","label":"Lecho de roca"},{"id":"minecraft:book","label":"Libro"},{"id":"minecraft:enchanted_book","label":"Libro encantado"},{"id":"minecraft:writable_book","label":"Libro y pluma"},{"id":"minecraft:lilac","label":"Lila"},{"id":"minecraft:copper_ingot","label":"Lingote de cobre"},{"id":"minecraft:iron_ingot","label":"Lingote de hierro"},{"id":"minecraft:netherite_ingot","label":"Lingote de inframundita"},{"id":"minecraft:gold_ingot","label":"Lingote de oro"},{"id":"minecraft:lantern","label":"Linterna"},{"id":"minecraft:soul_lantern","label":"Linterna de alma"},{"id":"minecraft:sea_lantern","label":"Linterna del mar"},{"id":"minecraft:glow_lichen","label":"Liquen resplandeciente"},{"id":"minecraft:lily_of_the_valley","label":"Lirio del valle"},{"id":"minecraft:trial_key","label":"Llave de prueba"},{"id":"minecraft:ominous_trial_key","label":"Llave de prueba ominosa"},{"id":"minecraft:mud","label":"Lodo"},{"id":"minecraft:crimson_slab","label":"Losa carmesí"},{"id":"minecraft:birch_slab","label":"Losa de abedul"},{"id":"minecraft:spruce_slab","label":"Losa de abeto"},{"id":"minecraft:acacia_slab","label":"Losa de acacia"},{"id":"minecraft:cobblestone_slab","label":"Losa de adoquines"},{"id":"minecraft:mossy_cobblestone_slab","label":"Losa de adoquines musgosos"},{"id":"minecraft:andesite_slab","label":"Losa de andesita"},{"id":"minecraft:polished_andesite_slab","label":"Losa de andesita pulida"},{"id":"minecraft:sandstone_slab","label":"Losa de arenisca"},{"id":"minecraft:cut_sandstone_slab","label":"Losa de arenisca cortada"},{"id":"minecraft:smooth_sandstone_slab","label":"Losa de arenisca lisa"},{"id":"minecraft:red_sandstone_slab","label":"Losa de arenisca roja"},{"id":"minecraft:cut_red_sandstone_slab","label":"Losa de arenisca roja cortada"},{"id":"minecraft:smooth_red_sandstone_slab","label":"Losa de arenisca roja lisa"},{"id":"minecraft:sulfur_slab","label":"Losa de azufre"},{"id":"minecraft:polished_sulfur_slab","label":"Losa de azufre pulido"},{"id":"minecraft:deepslate_tile_slab","label":"Losa de baldosas de pizarra abismal"},{"id":"minecraft:bamboo_slab","label":"Losa de bambú"},{"id":"minecraft:resin_brick_slab","label":"Losa de bloques de resina"},{"id":"minecraft:cherry_slab","label":"Losa de cerezo"},{"id":"minecraft:cinnabar_slab","label":"Losa de cinabrio"},{"id":"minecraft:polished_cinnabar_slab","label":"Losa de cinabrio pulido"},{"id":"minecraft:cut_copper_slab","label":"Losa de cobre cortado"},{"id":"minecraft:waxed_cut_copper_slab","label":"Losa de cobre cortado encerado"},{"id":"minecraft:weathered_cut_copper_slab","label":"Losa de cobre cortado erosionado"},{"id":"minecraft:exposed_cut_copper_slab","label":"Losa de cobre cortado expuesto"},{"id":"minecraft:oxidized_cut_copper_slab","label":"Losa de cobre cortado oxidado"},{"id":"minecraft:waxed_weathered_cut_copper_slab","label":"Losa de cobre cortado, erosionado y encerado"},{"id":"minecraft:waxed_exposed_cut_copper_slab","label":"Losa de cobre cortado, expuesto y encerado"},{"id":"minecraft:waxed_oxidized_cut_copper_slab","label":"Losa de cobre cortado, oxidado y encerado"},{"id":"minecraft:quartz_slab","label":"Losa de cuarzo"},{"id":"minecraft:smooth_quartz_slab","label":"Losa de cuarzo liso"},{"id":"minecraft:diorite_slab","label":"Losa de diorita"},{"id":"minecraft:polished_diorite_slab","label":"Losa de diorita pulida"},{"id":"minecraft:granite_slab","label":"Losa de granito"},{"id":"minecraft:polished_granite_slab","label":"Losa de granito pulido"},{"id":"minecraft:jungle_slab","label":"Losa de jungla"},{"id":"minecraft:nether_brick_slab","label":"Losa de ladrillo de inframundo"},{"id":"minecraft:polished_blackstone_brick_slab","label":"Losa de ladrillo de rocanegra pulida"},{"id":"minecraft:brick_slab","label":"Losa de ladrillos"},{"id":"minecraft:sulfur_brick_slab","label":"Losa de ladrillos de azufre"},{"id":"minecraft:mud_brick_slab","label":"Losa de ladrillos de barro"},{"id":"minecraft:cinnabar_brick_slab","label":"Losa de ladrillos de cinabrio"},{"id":"minecraft:red_nether_brick_slab","label":"Losa de ladrillos de Inframundo rojo"},{"id":"minecraft:stone_brick_slab","label":"Losa de ladrillos de piedra"},{"id":"minecraft:end_stone_brick_slab","label":"Losa de ladrillos de piedra de End"},{"id":"minecraft:mossy_stone_brick_slab","label":"Losa de ladrillos de piedra musgosa"},{"id":"minecraft:deepslate_brick_slab","label":"Losa de ladrillos de pizarra abismal"},{"id":"minecraft:prismarine_brick_slab","label":"Losa de ladrillos de prismarina"},{"id":"minecraft:tuff_brick_slab","label":"Losa de ladrillos de toba volcánica"},{"id":"minecraft:petrified_oak_slab","label":"Losa de madera"},{"id":"minecraft:mangrove_slab","label":"Losa de manglar"},{"id":"minecraft:bamboo_mosaic_slab","label":"Losa de mosaico de bambú"},{"id":"minecraft:normal_stone_slab","label":"Losa de piedra"},{"id":"minecraft:smooth_stone_slab","label":"Losa de piedra lisa"},{"id":"minecraft:cobbled_deepslate_slab","label":"Losa de pizarra abismal empedrada"},{"id":"minecraft:polished_deepslate_slab","label":"Losa de pizarra abismal pulida"},{"id":"minecraft:prismarine_slab","label":"Losa de prismarina"},{"id":"minecraft:dark_prismarine_slab","label":"Losa de prismarina oscura"},{"id":"minecraft:oak_slab","label":"Losa de roble"},{"id":"minecraft:dark_oak_slab","label":"Losa de roble oscuro"},{"id":"minecraft:pale_oak_slab","label":"Losa de roble pálido"},{"id":"minecraft:blackstone_slab","label":"Losa de rocanegra"},{"id":"minecraft:polished_blackstone_slab","label":"Losa de rocanegra pulida"},{"id":"minecraft:tuff_slab","label":"Losa de toba volcánica"},{"id":"minecraft:polished_tuff_slab","label":"Losa de toba volcánica pulida"},{"id":"minecraft:warped_slab","label":"Losa deformada"},{"id":"minecraft:bundle","label":"Lote"},{"id":"minecraft:yellow_bundle","label":"Lote amarillo"},{"id":"minecraft:blue_bundle","label":"Lote azul"},{"id":"minecraft:light_blue_bundle","label":"Lote azul claro"},{"id":"minecraft:white_bundle","label":"Lote blanco"},{"id":"minecraft:cyan_bundle","label":"Lote cian"},{"id":"minecraft:gray_bundle","label":"Lote gris"},{"id":"minecraft:light_gray_bundle","label":"Lote gris claro"},{"id":"minecraft:magenta_bundle","label":"Lote magenta"},{"id":"minecraft:brown_bundle","label":"Lote marrón"},{"id":"minecraft:purple_bundle","label":"Lote morado"},{"id":"minecraft:orange_bundle","label":"Lote naranja"},{"id":"minecraft:black_bundle","label":"Lote negro"},{"id":"minecraft:red_bundle","label":"Lote rojo"},{"id":"minecraft:pink_bundle","label":"Lote rosa"},{"id":"minecraft:green_bundle","label":"Lote verde"},{"id":"minecraft:lime_bundle","label":"Lote verde lima"},{"id":"minecraft:flower_pot","label":"Maceta"},{"id":"minecraft:decorated_pot","label":"Maceta decorada"},{"id":"minecraft:birch_wood","label":"Madera de abedul"},{"id":"minecraft:stripped_birch_wood","label":"Madera de abedul sin corteza"},{"id":"minecraft:spruce_wood","label":"Madera de abeto"},{"id":"minecraft:stripped_spruce_wood","label":"Madera de abeto sin corteza"},{"id":"minecraft:acacia_wood","label":"Madera de acacia"},{"id":"minecraft:stripped_acacia_wood","label":"Madera de acacia sin corteza"},{"id":"minecraft:cherry_wood","label":"Madera de cerezo"},{"id":"minecraft:stripped_cherry_wood","label":"Madera de cerezo sin corteza"},{"id":"minecraft:jungle_wood","label":"Madera de jungla"},{"id":"minecraft:stripped_jungle_wood","label":"Madera de jungla sin corteza"},{"id":"minecraft:mangrove_wood","label":"Madera de manglar"},{"id":"minecraft:stripped_mangrove_wood","label":"Madera de manglar sin corteza"},{"id":"minecraft:oak_wood","label":"Madera de roble"},{"id":"minecraft:dark_oak_wood","label":"Madera de roble oscuro"},{"id":"minecraft:stripped_dark_oak_wood","label":"Madera de roble oscuro sin corteza"},{"id":"minecraft:pale_oak_wood","label":"Madera de roble pálido"},{"id":"minecraft:stripped_pale_oak_wood","label":"Madera de roble pálido sin corteza"},{"id":"minecraft:stripped_oak_wood","label":"Madera de roble sin corteza"},{"id":"minecraft:lodestone","label":"Magnetita"},{"id":"minecraft:chainmail_leggings","label":"Mallas de cota de malla"},{"id":"minecraft:diamond_leggings","label":"Mallas de diamante"},{"id":"minecraft:iron_leggings","label":"Mallas de hierro"},{"id":"minecraft:netherite_leggings","label":"Mallas de inframundita"},{"id":"minecraft:golden_leggings","label":"Mallas de oro"},{"id":"minecraft:apple","label":"Manzana"},{"id":"minecraft:golden_apple","label":"Manzana de oro"},{"id":"minecraft:enchanted_golden_apple","label":"Manzana dorada encantada"},{"id":"minecraft:filled_map","label":"Mapa"},{"id":"minecraft:empty_map","label":"Mapa vacío"},{"id":"minecraft:frame","label":"Marco"},{"id":"minecraft:glow_frame","label":"Marco brillante"},{"id":"minecraft:oxeye_daisy","label":"Margarita"},{"id":"minecraft:mace","label":"Maza"},{"id":"minecraft:netherite_upgrade_smithing_template","label":"Mejora de inframundita"},{"id":"minecraft:phantom_membrane","label":"Membrana de fantasma"},{"id":"minecraft:cartography_table","label":"Mesa de cartografía"},{"id":"minecraft:fletching_table","label":"Mesa de emplumado"},{"id":"minecraft:enchanting_table","label":"Mesa de encantamientos"},{"id":"minecraft:smithing_table","label":"Mesa de herrería"},{"id":"minecraft:crafting_table","label":"Mesa de trabajo"},{"id":"minecraft:mycelium","label":"Micelio"},{"id":"minecraft:deepslate_copper_ore","label":"Mineral de cobre de pizarra abismal"},{"id":"minecraft:quartz_ore","label":"Mineral de cuarzo de inframundo"},{"id":"minecraft:diamond_ore","label":"Mineral de diamante"},{"id":"minecraft:deepslate_diamond_ore","label":"Mineral de diamante de pizarra abismal"},{"id":"minecraft:emerald_ore","label":"Mineral de esmeralda"},{"id":"minecraft:deepslate_emerald_ore","label":"Mineral de esmeralda de pizarra abismal"},{"id":"minecraft:iron_ore","label":"Mineral de hierro"},{"id":"minecraft:deepslate_iron_ore","label":"Mineral de hierro de pizarra abismal"},{"id":"minecraft:coal_ore","label":"Mineral de hulla"},{"id":"minecraft:deepslate_coal_ore","label":"Mineral de hulla de pizarra abismal"},{"id":"minecraft:lapis_ore","label":"Mineral de lapislázuli"},{"id":"minecraft:deepslate_lapis_ore","label":"Mineral de lapislázuli de pizarra abismal"},{"id":"minecraft:gold_ore","label":"Mineral de oro"},{"id":"minecraft:deepslate_gold_ore","label":"Mineral de oro de pizarra abismal"},{"id":"minecraft:nether_gold_ore","label":"Mineral de oro del Inframundo"},{"id":"minecraft:redstone_ore","label":"Mineral de redstone"},{"id":"minecraft:deepslate_redstone_ore","label":"Mineral de redstone de pizarra abismal"},{"id":"minecraft:copper_ore","label":"Minerales de cobre"},{"id":"minecraft:saddle","label":"Montura"},{"id":"minecraft:bamboo_mosaic","label":"Mosaico de bambú"},{"id":"minecraft:sulfur_wall","label":"Muro de azufre"},{"id":"minecraft:polished_sulfur_wall","label":"Muro de azufre pulido"},{"id":"minecraft:cinnabar_wall","label":"Muro de cinabrio"},{"id":"minecraft:polished_cinnabar_wall","label":"Muro de cinabrio pulido"},{"id":"minecraft:sulfur_brick_wall","label":"Muro de ladrillos de azufre"},{"id":"minecraft:cinnabar_brick_wall","label":"Muro de ladrillos de cinabrio"},{"id":"minecraft:pale_hanging_moss","label":"Musgo colgante pálido"},{"id":"minecraft:waterlily","label":"Nenúfar"},{"id":"minecraft:bee_nest","label":"Nido de abejas"},{"id":"minecraft:snow_layer","label":"Nieve"},{"id":"minecraft:heavy_core","label":"Núcleo pesado"},{"id":"minecraft:crimson_nylium","label":"Nylium carmesí"},{"id":"minecraft:warped_nylium","label":"Nylium deformado"},{"id":"minecraft:target","label":"Objetivo"},{"id":"minecraft:observer","label":"Observador"},{"id":"minecraft:obsidian","label":"Obsidiana"},{"id":"minecraft:crying_obsidian","label":"Obsidiana llorosa"},{"id":"minecraft:spider_eye","label":"Ojo de araña"},{"id":"minecraft:fermented_spider_eye","label":"Ojo de araña fermentado"},{"id":"minecraft:ender_eye","label":"Ojo de Ender"},{"id":"minecraft:open_eyeblossom","label":"Ojo florido abierto"},{"id":"minecraft:closed_eyeblossom","label":"Ojo florido cerrado"},{"id":"minecraft:raw_gold","label":"Oro bruto"},{"id":"minecraft:blue_orchid","label":"Orquídea azul"},{"id":"minecraft:copper_shovel","label":"Pala de cobre"},{"id":"minecraft:diamond_shovel","label":"Pala de diamante"},{"id":"minecraft:iron_shovel","label":"Pala de hierro"},{"id":"minecraft:netherite_shovel","label":"Pala de inframundita"},{"id":"minecraft:wooden_shovel","label":"Pala de madera"},{"id":"minecraft:golden_shovel","label":"Pala de oro"},{"id":"minecraft:stone_shovel","label":"Pala de piedra"},{"id":"minecraft:lever","label":"Palanca"},{"id":"minecraft:stick","label":"Palo"},{"id":"minecraft:carrot_on_a_stick","label":"Palo y zanahoria"},{"id":"minecraft:bread","label":"Pan"},{"id":"minecraft:honeycomb","label":"Panal"},{"id":"minecraft:glass_pane","label":"Panel de cristal"},{"id":"minecraft:yellow_stained_glass_pane","label":"Panel de cristal tintado de amarillo"},{"id":"minecraft:blue_stained_glass_pane","label":"Panel de cristal tintado de azul"},{"id":"minecraft:light_blue_stained_glass_pane","label":"Panel de cristal tintado de azul claro"},{"id":"minecraft:white_stained_glass_pane","label":"Panel de cristal tintado de blanco"},{"id":"minecraft:cyan_stained_glass_pane","label":"Panel de cristal tintado de cian"},{"id":"minecraft:gray_stained_glass_pane","label":"Panel de cristal tintado de gris"},{"id":"minecraft:light_gray_stained_glass_pane","label":"Panel de cristal tintado de gris claro"},{"id":"minecraft:magenta_stained_glass_pane","label":"Panel de cristal tintado de magenta"},{"id":"minecraft:brown_stained_glass_pane","label":"Panel de cristal tintado de marrón"},{"id":"minecraft:purple_stained_glass_pane","label":"Panel de cristal tintado de morado"},{"id":"minecraft:orange_stained_glass_pane","label":"Panel de cristal tintado de naranja"},{"id":"minecraft:black_stained_glass_pane","label":"Panel de cristal tintado de negro"},{"id":"minecraft:red_stained_glass_pane","label":"Panel de cristal tintado de rojo"},{"id":"minecraft:pink_stained_glass_pane","label":"Panel de cristal tintado de rosa"},{"id":"minecraft:green_stained_glass_pane","label":"Panel de cristal tintado de verde"},{"id":"minecraft:lime_stained_glass_pane","label":"Panel de cristal tintado de verde lima"},{"id":"minecraft:leather_leggings","label":"Pantalones de cuero"},{"id":"minecraft:paper","label":"Papel"},{"id":"minecraft:lightning_rod","label":"Pararrayos"},{"id":"minecraft:waxed_lightning_rod","label":"Pararrayos encerado"},{"id":"minecraft:weathered_lightning_rod","label":"Pararrayos erosionado"},{"id":"minecraft:waxed_weathered_lightning_rod","label":"Pararrayos erosionado y encerado"},{"id":"minecraft:exposed_lightning_rod","label":"Pararrayos expuesto"},{"id":"minecraft:waxed_exposed_lightning_rod","label":"Pararrayos expuesto y encerado"},{"id":"minecraft:oxidized_lightning_rod","label":"Pararrayos oxidado"},{"id":"minecraft:waxed_oxidized_lightning_rod","label":"Pararrayos oxidado y encerado"},{"id":"minecraft:cobblestone_wall","label":"Pared de adoquines"},{"id":"minecraft:mossy_cobblestone_wall","label":"Pared de adoquines musgosa"},{"id":"minecraft:andesite_wall","label":"Pared de andesita"},{"id":"minecraft:sandstone_wall","label":"Pared de arenisca"},{"id":"minecraft:red_sandstone_wall","label":"Pared de arenisca roja"},{"id":"minecraft:deepslate_tile_wall","label":"Pared de baldosas de pizarra abismal"},{"id":"minecraft:resin_brick_wall","label":"Pared de bloques de resina"},{"id":"minecraft:diorite_wall","label":"Pared de diorita"},{"id":"minecraft:granite_wall","label":"Pared de granito"},{"id":"minecraft:brick_wall","label":"Pared de ladrillos"},{"id":"minecraft:mud_brick_wall","label":"Pared de ladrillos de barro"},{"id":"minecraft:nether_brick_wall","label":"Pared de ladrillos de Inframundo"},{"id":"minecraft:red_nether_brick_wall","label":"Pared de ladrillos de Inframundo rojo"},{"id":"minecraft:stone_brick_wall","label":"Pared de ladrillos de piedra"},{"id":"minecraft:end_stone_brick_wall","label":"Pared de ladrillos de piedra de End"},{"id":"minecraft:mossy_stone_brick_wall","label":"Pared de ladrillos de piedra musgosa"},{"id":"minecraft:deepslate_brick_wall","label":"Pared de ladrillos de pizarra abismal"},{"id":"minecraft:polished_blackstone_brick_wall","label":"Pared de ladrillos de rocanegra pulida"},{"id":"minecraft:tuff_brick_wall","label":"Pared de ladrillos de toba volcánica"},{"id":"minecraft:cobbled_deepslate_wall","label":"Pared de pizarra abismal empedrada"},{"id":"minecraft:polished_deepslate_wall","label":"Pared de pizarra abismal pulida"},{"id":"minecraft:prismarine_wall","label":"Pared de prismarina"},{"id":"minecraft:blackstone_wall","label":"Pared de rocanegra"},{"id":"minecraft:polished_blackstone_wall","label":"Pared de rocanegra pulida"},{"id":"minecraft:tuff_wall","label":"Pared de toba volcánica"},{"id":"minecraft:polished_tuff_wall","label":"Pared de toba volcánica pulida"},{"id":"minecraft:cake","label":"Pastel"},{"id":"minecraft:rabbit_foot","label":"Pata de conejo"},{"id":"minecraft:potato","label":"Patata"},{"id":"minecraft:baked_potato","label":"Patata asada"},{"id":"minecraft:poisonous_potato","label":"Patata venenosa"},{"id":"minecraft:bordure_indented_banner_pattern","label":"Patrón de estandarte de bordura dentada"},{"id":"minecraft:skull_banner_pattern","label":"Patrón de estandarte de carga de calaveras"},{"id":"minecraft:creeper_banner_pattern","label":"Patrón de estandarte de carga de Creeper"},{"id":"minecraft:flower_banner_pattern","label":"Patrón de estandarte de carga de flores"},{"id":"minecraft:mojang_banner_pattern","label":"Patrón de estandarte de cosas"},{"id":"minecraft:flow_banner_pattern","label":"Patrón de estandarte de flujo"},{"id":"minecraft:globe_banner_pattern","label":"Patrón de estandarte de globos"},{"id":"minecraft:guster_banner_pattern","label":"Patrón de estandarte de Guster"},{"id":"minecraft:piglin_banner_pattern","label":"Patrón de estandarte de hocico"},{"id":"minecraft:field_masoned_banner_pattern","label":"Patrón de estandarte mazonado"},{"id":"minecraft:flint","label":"Pedernal"},{"id":"minecraft:peony","label":"Peonía"},{"id":"minecraft:copper_nugget","label":"Pepita de cobre"},{"id":"minecraft:iron_nugget","label":"Pepita de hierro"},{"id":"minecraft:gold_nugget","label":"Pepita de oro"},{"id":"minecraft:ender_pearl","label":"Perla de Ender"},{"id":"minecraft:allow","label":"Permitir"},{"id":"minecraft:pink_petals","label":"Pétalos rosas"},{"id":"minecraft:copper_chestplate","label":"Peto de cobre"},{"id":"minecraft:pufferfish","label":"Pez globo"},{"id":"minecraft:tropical_fish","label":"Pez tropical"},{"id":"minecraft:copper_pickaxe","label":"Pico de cobre"},{"id":"minecraft:diamond_pickaxe","label":"Pico de diamante"},{"id":"minecraft:iron_pickaxe","label":"Pico de hierro"},{"id":"minecraft:netherite_pickaxe","label":"Pico de inframundita"},{"id":"minecraft:wooden_pickaxe","label":"Pico de madera"},{"id":"minecraft:golden_pickaxe","label":"Pico de oro"},{"id":"minecraft:stone_pickaxe","label":"Pico de piedra"},{"id":"minecraft:stone","label":"Piedra"},{"id":"minecraft:glowstone","label":"Piedra brillante"},{"id":"minecraft:grindstone","label":"Piedra de afilar"},{"id":"minecraft:end_stone","label":"Piedra de End"},{"id":"minecraft:infested_stone","label":"Piedra infestada"},{"id":"minecraft:smooth_stone","label":"Piedra lisa"},{"id":"minecraft:rabbit_hide","label":"Piel de conejo"},{"id":"minecraft:quartz_pillar","label":"Pilar de cuarzo"},{"id":"minecraft:purpur_pillar","label":"Pilar de púrpura"},{"id":"minecraft:purpur_slab","label":"Pilar de púrpura"},{"id":"minecraft:brush","label":"Pincel"},{"id":"minecraft:piston","label":"Pistón"},{"id":"minecraft:sticky_piston","label":"Pistón adhesivo"},{"id":"minecraft:deepslate","label":"Pizarra abismal"},{"id":"minecraft:chiseled_deepslate","label":"Pizarra abismal cincelada"},{"id":"minecraft:cobbled_deepslate","label":"Pizarra abismal empedrada"},{"id":"minecraft:infested_deepslate","label":"Pizarra abismal infestada"},{"id":"minecraft:polished_deepslate","label":"Pizarra abismal pulida"},{"id":"minecraft:reinforced_deepslate","label":"Pizarra abismal reforzada"},{"id":"minecraft:stone_pressure_plate","label":"Placa de presión de piedra"},{"id":"minecraft:light_weighted_pressure_plate","label":"Placa de presión por peso ligero"},{"id":"minecraft:heavy_weighted_pressure_plate","label":"Placa de presión por peso pesado"},{"id":"minecraft:chorus_plant","label":"Planta coral"},{"id":"minecraft:pitcher_plant","label":"Planta jarra"},{"id":"minecraft:crimson_pressure_plate","label":"Plato de presión carmesí"},{"id":"minecraft:birch_pressure_plate","label":"Plato de presión de abedul"},{"id":"minecraft:spruce_pressure_plate","label":"Plato de presión de abeto"},{"id":"minecraft:acacia_pressure_plate","label":"Plato de presión de acacia"},{"id":"minecraft:bamboo_pressure_plate","label":"Plato de presión de bambú"},{"id":"minecraft:cherry_pressure_plate","label":"Plato de presión de cerezo"},{"id":"minecraft:jungle_pressure_plate","label":"Plato de presión de jungla"},{"id":"minecraft:mangrove_pressure_plate","label":"Plato de presión de manglar"},{"id":"minecraft:wooden_pressure_plate","label":"Plato de presión de roble"},{"id":"minecraft:dark_oak_pressure_plate","label":"Plato de presión de roble oscuro"},{"id":"minecraft:pale_oak_pressure_plate","label":"Plato de presión de roble pálido"},{"id":"minecraft:polished_blackstone_pressure_plate","label":"Plato de presión de rocanegra pulida"},{"id":"minecraft:warped_pressure_plate","label":"Plato de presión deformado"},{"id":"minecraft:feather","label":"Pluma"},{"id":"minecraft:potion","label":"Poción"},{"id":"minecraft:splash_potion","label":"Poción"},{"id":"minecraft:lingering_potion","label":"Poción persistente"},{"id":"minecraft:podzol","label":"Podsol"},{"id":"minecraft:cooked_chicken","label":"Pollo cocinado"},{"id":"minecraft:chicken","label":"Pollo crudo"},{"id":"minecraft:yellow_concrete_powder","label":"Polvo de hormigón amarillo"},{"id":"minecraft:blue_concrete_powder","label":"Polvo de hormigón azul"},{"id":"minecraft:light_blue_concrete_powder","label":"Polvo de hormigón azul claro"},{"id":"minecraft:white_concrete_powder","label":"Polvo de hormigón blanco"},{"id":"minecraft:cyan_concrete_powder","label":"Polvo de hormigón cian"},{"id":"minecraft:gray_concrete_powder","label":"Polvo de hormigón gris"},{"id":"minecraft:light_gray_concrete_powder","label":"Polvo de hormigón gris claro"},{"id":"minecraft:magenta_concrete_powder","label":"Polvo de hormigón magenta"},{"id":"minecraft:brown_concrete_powder","label":"Polvo de hormigón marrón"},{"id":"minecraft:purple_concrete_powder","label":"Polvo de hormigón morado"},{"id":"minecraft:orange_concrete_powder","label":"Polvo de hormigón naranja"},{"id":"minecraft:black_concrete_powder","label":"Polvo de hormigón negro"},{"id":"minecraft:red_concrete_powder","label":"Polvo de hormigón rojo"},{"id":"minecraft:pink_concrete_powder","label":"Polvo de hormigón rosa"},{"id":"minecraft:green_concrete_powder","label":"Polvo de hormigón verde"},{"id":"minecraft:lime_concrete_powder","label":"Polvo de hormigón verde lima"},{"id":"minecraft:bone_meal","label":"Polvo de hueso"},{"id":"minecraft:blaze_powder","label":"Polvo de llama"},{"id":"minecraft:glowstone_dust","label":"Polvo de piedra brillante"},{"id":"minecraft:redstone","label":"Polvo de redstone"},{"id":"minecraft:gunpowder","label":"Pólvora"},{"id":"minecraft:prismarine","label":"Prismarina"},{"id":"minecraft:dark_prismarine","label":"Prismarina oscura"},{"id":"minecraft:mangrove_propagule","label":"Propágulo de manglar"},{"id":"minecraft:sulfur_spike","label":"Púa de azufre"},{"id":"minecraft:crimson_door","label":"Puerta carmesí"},{"id":"minecraft:birch_door","label":"Puerta de abedul"},{"id":"minecraft:spruce_door","label":"Puerta de abeto"},{"id":"minecraft:acacia_door","label":"Puerta de acacia"},{"id":"minecraft:bamboo_door","label":"Puerta de bambú"},{"id":"minecraft:cherry_door","label":"Puerta de cerezo"},{"id":"minecraft:copper_door","label":"Puerta de cobre"},{"id":"minecraft:waxed_copper_door","label":"Puerta de cobre encerado"},{"id":"minecraft:weathered_copper_door","label":"Puerta de cobre erosionado"},{"id":"minecraft:waxed_weathered_copper_door","label":"Puerta de cobre erosionado encerado"},{"id":"minecraft:exposed_copper_door","label":"Puerta de cobre expuesto"},{"id":"minecraft:waxed_exposed_copper_door","label":"Puerta de cobre expuesto encerado"},{"id":"minecraft:oxidized_copper_door","label":"Puerta de cobre oxidado"},{"id":"minecraft:waxed_oxidized_copper_door","label":"Puerta de cobre oxidado encerado"},{"id":"minecraft:iron_door","label":"Puerta de hierro"},{"id":"minecraft:jungle_door","label":"Puerta de jungla"},{"id":"minecraft:mangrove_door","label":"Puerta de manglar"},{"id":"minecraft:wooden_door","label":"Puerta de roble"},{"id":"minecraft:dark_oak_door","label":"Puerta de roble oscuro"},{"id":"minecraft:pale_oak_door","label":"Puerta de roble pálido"},{"id":"minecraft:crimson_fence_gate","label":"Puerta de valla carmesí"},{"id":"minecraft:birch_fence_gate","label":"Puerta de valla de abedul"},{"id":"minecraft:spruce_fence_gate","label":"Puerta de valla de abeto"},{"id":"minecraft:acacia_fence_gate","label":"Puerta de valla de acacia"},{"id":"minecraft:bamboo_fence_gate","label":"Puerta de valla de bambú"},{"id":"minecraft:cherry_fence_gate","label":"Puerta de valla de cerezo"},{"id":"minecraft:jungle_fence_gate","label":"Puerta de valla de jungla"},{"id":"minecraft:mangrove_fence_gate","label":"Puerta de valla de manglar"},{"id":"minecraft:fence_gate","label":"Puerta de valla de roble"},{"id":"minecraft:dark_oak_fence_gate","label":"Puerta de valla de roble oscuro"},{"id":"minecraft:pale_oak_fence_gate","label":"Puerta de valla de roble pálido"},{"id":"minecraft:warped_fence_gate","label":"Puerta de valla deformada"},{"id":"minecraft:warped_door","label":"Puerta deformada"},{"id":"minecraft:crimson_roots","label":"Raíces carmesíes"},{"id":"minecraft:hanging_roots","label":"Raíces colgantes"},{"id":"minecraft:mangrove_roots","label":"Raíces de manglar"},{"id":"minecraft:muddy_mangrove_roots","label":"Raíces de manglar lodosas"},{"id":"minecraft:warped_roots","label":"Raíces deformadas"},{"id":"minecraft:rail","label":"Raíl"},{"id":"minecraft:activator_rail","label":"Raíl activador"},{"id":"minecraft:detector_rail","label":"Raíl detector"},{"id":"minecraft:golden_rail","label":"Raíl propulsado"},{"id":"minecraft:ochre_froglight","label":"Ranaluz ocre"},{"id":"minecraft:pearlescent_froglight","label":"Ranaluz purpúrea"},{"id":"minecraft:verdant_froglight","label":"Ranaluz verdeante"},{"id":"minecraft:deny","label":"Rechazar"},{"id":"minecraft:copper_grate","label":"Rejilla de cobre"},{"id":"minecraft:waxed_copper_grate","label":"Rejilla de cobre encerado"},{"id":"minecraft:weathered_copper_grate","label":"Rejilla de cobre erosionado"},{"id":"minecraft:waxed_weathered_copper_grate","label":"Rejilla de cobre erosionado encerado"},{"id":"minecraft:exposed_copper_grate","label":"Rejilla de cobre expuesto"},{"id":"minecraft:waxed_exposed_copper_grate","label":"Rejilla de cobre expuesto encerado"},{"id":"minecraft:oxidized_copper_grate","label":"Rejilla de cobre oxidado"},{"id":"minecraft:waxed_oxidized_copper_grate","label":"Rejilla de cobre oxidado encerado"},{"id":"minecraft:clock","label":"Reloj"},{"id":"minecraft:beetroot","label":"Remolacha"},{"id":"minecraft:repeater","label":"Repetidor de redstone"},{"id":"minecraft:ancient_debris","label":"Restos ancestrales"},{"id":"minecraft:lead","label":"Rienda"},{"id":"minecraft:blackstone","label":"Rocanegra"},{"id":"minecraft:chiseled_polished_blackstone","label":"Rocanegra cincelada y pulida"},{"id":"minecraft:gilded_blackstone","label":"Rocanegra dorada"},{"id":"minecraft:polished_blackstone","label":"Rocanegra pulida"},{"id":"minecraft:melon_slice","label":"Rodaja de sandía"},{"id":"minecraft:glistering_melon_slice","label":"Rodaja de sandía resplandeciente"},{"id":"minecraft:wither_rose","label":"Rosa del Wither"},{"id":"minecraft:rose_bush","label":"Rosal"},{"id":"minecraft:cooked_salmon","label":"Salmón cocinado"},{"id":"minecraft:salmon","label":"Salmón crudo"},{"id":"minecraft:melon_block","label":"Sandía"},{"id":"minecraft:sculk","label":"Sculk"},{"id":"minecraft:pitcher_pod","label":"Semilla jarra"},{"id":"minecraft:torchflower_seeds","label":"Semillas de bastón de emperador"},{"id":"minecraft:pumpkin_seeds","label":"Semillas de calabaza"},{"id":"minecraft:beetroot_seeds","label":"Semillas de remolacha"},{"id":"minecraft:melon_seeds","label":"Semillas de sandía"},{"id":"minecraft:wheat_seeds","label":"Semillas de trigo"},{"id":"minecraft:sculk_sensor","label":"Sensor sculk"},{"id":"minecraft:calibrated_sculk_sensor","label":"Sensor sculk calibrado"},{"id":"minecraft:crimson_sign","label":"Señal carmesí"},{"id":"minecraft:crimson_hanging_sign","label":"Señal colgante carmesí"},{"id":"minecraft:birch_hanging_sign","label":"Señal colgante de abedul"},{"id":"minecraft:spruce_hanging_sign","label":"Señal colgante de abeto"},{"id":"minecraft:acacia_hanging_sign","label":"Señal colgante de acacia"},{"id":"minecraft:bamboo_hanging_sign","label":"Señal colgante de bambú"},{"id":"minecraft:cherry_hanging_sign","label":"Señal colgante de cerezo"},{"id":"minecraft:jungle_hanging_sign","label":"Señal colgante de jungla"},{"id":"minecraft:mangrove_hanging_sign","label":"Señal colgante de manglar"},{"id":"minecraft:oak_hanging_sign","label":"Señal colgante de roble"},{"id":"minecraft:dark_oak_hanging_sign","label":"Señal colgante de roble oscuro"},{"id":"minecraft:pale_oak_hanging_sign","label":"Señal colgante de roble pálido"},{"id":"minecraft:warped_hanging_sign","label":"Señal colgante deformada"},{"id":"minecraft:birch_sign","label":"Señal de abedul"},{"id":"minecraft:spruce_sign","label":"Señal de abeto"},{"id":"minecraft:acacia_sign","label":"Señal de acacia"},{"id":"minecraft:bamboo_sign","label":"Señal de bambú"},{"id":"minecraft:cherry_sign","label":"Señal de cerezo"},{"id":"minecraft:jungle_sign","label":"Señal de jungla"},{"id":"minecraft:mangrove_sign","label":"Señal de manglar"},{"id":"minecraft:oak_sign","label":"Señal de roble"},{"id":"minecraft:dark_oak_sign","label":"Señal de roble oscuro"},{"id":"minecraft:pale_oak_sign","label":"Señal de roble pálido"},{"id":"minecraft:warped_sign","label":"Señal deformada"},{"id":"minecraft:dropper","label":"Soltador"},{"id":"minecraft:beetroot_soup","label":"Sopa de remolacha"},{"id":"minecraft:armor_stand","label":"Soporte para armaduras"},{"id":"minecraft:brewing_stand","label":"Soporte para pociones"},{"id":"minecraft:azure_bluet","label":"Sosa"},{"id":"minecraft:crimson_planks","label":"Tablones carmesíes"},{"id":"minecraft:birch_planks","label":"Tablones de abedul"},{"id":"minecraft:spruce_planks","label":"Tablones de abeto"},{"id":"minecraft:acacia_planks","label":"Tablones de acacia"},{"id":"minecraft:bamboo_planks","label":"Tablones de bambú"},{"id":"minecraft:cherry_planks","label":"Tablones de cerezo"},{"id":"minecraft:jungle_planks","label":"Tablones de jungla"},{"id":"minecraft:mangrove_planks","label":"Tablones de manglar"},{"id":"minecraft:oak_planks","label":"Tablones de roble"},{"id":"minecraft:dark_oak_planks","label":"Tablones de roble oscuro"},{"id":"minecraft:pale_oak_planks","label":"Tablones de roble pálido"},{"id":"minecraft:warped_planks","label":"Tablones deformados"},{"id":"minecraft:crimson_stem","label":"Tallo carmesí"},{"id":"minecraft:stripped_crimson_stem","label":"Tallo carmesí sin corteza"},{"id":"minecraft:mushroom_stem","label":"Tallo de champiñón"},{"id":"minecraft:warped_stem","label":"Tallo deformado"},{"id":"minecraft:stripped_warped_stem","label":"Tallo deformado sin corteza"},{"id":"minecraft:pumpkin_pie","label":"Tarta de calabaza"},{"id":"minecraft:loom","label":"Telar"},{"id":"minecraft:web","label":"Telaraña"},{"id":"minecraft:beef","label":"Ternera cruda"},{"id":"minecraft:hardened_clay","label":"Terracota"},{"id":"minecraft:yellow_glazed_terracotta","label":"Terracota acristalada amarilla"},{"id":"minecraft:blue_glazed_terracotta","label":"Terracota acristalada azul"},{"id":"minecraft:light_blue_glazed_terracotta","label":"Terracota acristalada azul claro"},{"id":"minecraft:white_glazed_terracotta","label":"Terracota acristalada blanca"},{"id":"minecraft:cyan_glazed_terracotta","label":"Terracota acristalada cian"},{"id":"minecraft:gray_glazed_terracotta","label":"Terracota acristalada gris"},{"id":"minecraft:silver_glazed_terracotta","label":"Terracota acristalada gris claro"},{"id":"minecraft:magenta_glazed_terracotta","label":"Terracota acristalada magenta"},{"id":"minecraft:brown_glazed_terracotta","label":"Terracota acristalada marrón"},{"id":"minecraft:purple_glazed_terracotta","label":"Terracota acristalada morada"},{"id":"minecraft:orange_glazed_terracotta","label":"Terracota acristalada naranja"},{"id":"minecraft:black_glazed_terracotta","label":"Terracota acristalada negra"},{"id":"minecraft:red_glazed_terracotta","label":"Terracota acristalada roja"},{"id":"minecraft:pink_glazed_terracotta","label":"Terracota acristalada rosa"},{"id":"minecraft:green_glazed_terracotta","label":"Terracota acristalada verde"},{"id":"minecraft:lime_glazed_terracotta","label":"Terracota acristalada verde lima"},{"id":"minecraft:yellow_terracotta","label":"Terracota amarilla"},{"id":"minecraft:blue_terracotta","label":"Terracota azul"},{"id":"minecraft:light_blue_terracotta","label":"Terracota azul claro"},{"id":"minecraft:white_terracotta","label":"Terracota blanca"},{"id":"minecraft:cyan_terracotta","label":"Terracota cian"},{"id":"minecraft:gray_terracotta","label":"Terracota gris"},{"id":"minecraft:light_gray_terracotta","label":"Terracota gris claro"},{"id":"minecraft:magenta_terracotta","label":"Terracota magenta"},{"id":"minecraft:brown_terracotta","label":"Terracota marrón"},{"id":"minecraft:purple_terracotta","label":"Terracota morada"},{"id":"minecraft:orange_terracotta","label":"Terracota naranja"},{"id":"minecraft:black_terracotta","label":"Terracota negra"},{"id":"minecraft:red_terracotta","label":"Terracota roja"},{"id":"minecraft:pink_terracotta","label":"Terracota rosa"},{"id":"minecraft:green_terracotta","label":"Terracota verde"},{"id":"minecraft:lime_terracotta","label":"Terracota verde lima"},{"id":"minecraft:resin_clump","label":"Terrón de resina"},{"id":"minecraft:dirt","label":"Tierra"},{"id":"minecraft:dirt_with_roots","label":"Tierra con raíces"},{"id":"minecraft:soul_soil","label":"Tierra de alma"},{"id":"minecraft:coarse_dirt","label":"Tierra estéril"},{"id":"minecraft:shears","label":"Tijeras"},{"id":"minecraft:yellow_dye","label":"Tinte amarillo"},{"id":"minecraft:blue_dye","label":"Tinte azul"},{"id":"minecraft:light_blue_dye","label":"Tinte azul claro"},{"id":"minecraft:white_dye","label":"Tinte blanco"},{"id":"minecraft:cyan_dye","label":"Tinte cian"},{"id":"minecraft:gray_dye","label":"Tinte gris"},{"id":"minecraft:light_gray_dye","label":"Tinte gris claro"},{"id":"minecraft:magenta_dye","label":"Tinte magenta"},{"id":"minecraft:brown_dye","label":"Tinte marrón"},{"id":"minecraft:purple_dye","label":"Tinte morado"},{"id":"minecraft:orange_dye","label":"Tinte naranja"},{"id":"minecraft:black_dye","label":"Tinte negro"},{"id":"minecraft:red_dye","label":"Tinte rojo"},{"id":"minecraft:pink_dye","label":"Tinte rosa"},{"id":"minecraft:green_dye","label":"Tinte verde"},{"id":"minecraft:lime_dye","label":"Tinte verde lima"},{"id":"minecraft:tuff","label":"Toba volcánica"},{"id":"minecraft:chiseled_tuff","label":"Toba volcánica cincelada"},{"id":"minecraft:polished_tuff","label":"Toba volcánica pulida"},{"id":"minecraft:jukebox","label":"Tocadiscos"},{"id":"minecraft:totem_of_undying","label":"Tótem de la inmortalidad"},{"id":"minecraft:trident","label":"Tridente"},{"id":"minecraft:wheat","label":"Trigo"},{"id":"minecraft:birch_log","label":"Tronco de abedul"},{"id":"minecraft:stripped_birch_log","label":"Tronco de abedul sin corteza"},{"id":"minecraft:spruce_log","label":"Tronco de abeto"},{"id":"minecraft:stripped_spruce_log","label":"Tronco de abeto sin corteza"},{"id":"minecraft:acacia_log","label":"Tronco de acacia"},{"id":"minecraft:stripped_acacia_log","label":"Tronco de acacia sin corteza"},{"id":"minecraft:cherry_log","label":"Tronco de cerezo"},{"id":"minecraft:stripped_cherry_log","label":"Tronco de cerezo sin corteza"},{"id":"minecraft:jungle_log","label":"Tronco de jungla"},{"id":"minecraft:stripped_jungle_log","label":"Tronco de jungla sin corteza"},{"id":"minecraft:mangrove_log","label":"Tronco de manglar"},{"id":"minecraft:stripped_mangrove_log","label":"Tronco de manglar sin corteza"},{"id":"minecraft:oak_log","label":"Tronco de roble"},{"id":"minecraft:dark_oak_log","label":"Tronco de roble oscuro"},{"id":"minecraft:stripped_dark_oak_log","label":"Tronco de roble oscuro sin corteza"},{"id":"minecraft:pale_oak_log","label":"Tronco de roble pálido"},{"id":"minecraft:stripped_pale_oak_log","label":"Tronco de roble pálido sin corteza"},{"id":"minecraft:stripped_oak_log","label":"Tronco de roble sin corteza"},{"id":"minecraft:white_tulip","label":"Tulipán blanco"},{"id":"minecraft:orange_tulip","label":"Tulipán naranja"},{"id":"minecraft:red_tulip","label":"Tulipán rojo"},{"id":"minecraft:pink_tulip","label":"Tulipán rosa"},{"id":"minecraft:leather_chestplate","label":"Túnica de cuero"},{"id":"minecraft:structure_void","label":"Vacío de estructuras"},{"id":"minecraft:minecart","label":"Vagoneta"},{"id":"minecraft:command_block_minecart","label":"Vagoneta con bloque de comandos"},{"id":"minecraft:chest_minecart","label":"Vagoneta con cofre"},{"id":"minecraft:tnt_minecart","label":"Vagoneta con dinamita"},{"id":"minecraft:hopper_minecart","label":"Vagoneta con embudo"},{"id":"minecraft:crimson_fence","label":"Valla carmesí"},{"id":"minecraft:birch_fence","label":"Valla de abedul"},{"id":"minecraft:spruce_fence","label":"Valla de abeto"},{"id":"minecraft:acacia_fence","label":"Valla de acacia"},{"id":"minecraft:bamboo_fence","label":"Valla de bambú"},{"id":"minecraft:cherry_fence","label":"Valla de cerezo"},{"id":"minecraft:nether_brick_fence","label":"Valla de inframundo"},{"id":"minecraft:jungle_fence","label":"Valla de jungla"},{"id":"minecraft:mangrove_fence","label":"Valla de manglar"},{"id":"minecraft:oak_fence","label":"Valla de roble"},{"id":"minecraft:dark_oak_fence","label":"Valla de roble oscuro"},{"id":"minecraft:pale_oak_fence","label":"Valla de roble pálido"},{"id":"minecraft:warped_fence","label":"Valla deformada"},{"id":"minecraft:breeze_rod","label":"Vara de brisa"},{"id":"minecraft:end_rod","label":"Vara de End"},{"id":"minecraft:blaze_rod","label":"Vara de llama"},{"id":"minecraft:candle","label":"Vela"},{"id":"minecraft:yellow_candle","label":"Vela amarilla"},{"id":"minecraft:blue_candle","label":"Vela azul"},{"id":"minecraft:light_blue_candle","label":"Vela azul claro"},{"id":"minecraft:white_candle","label":"Vela blanca"},{"id":"minecraft:cyan_candle","label":"Vela cian"},{"id":"minecraft:gray_candle","label":"Vela gris"},{"id":"minecraft:light_gray_candle","label":"Vela gris claro"},{"id":"minecraft:magenta_candle","label":"Vela magenta"},{"id":"minecraft:brown_candle","label":"Vela marrón"},{"id":"minecraft:purple_candle","label":"Vela morada"},{"id":"minecraft:orange_candle","label":"Vela naranja"},{"id":"minecraft:black_candle","label":"Vela negra"},{"id":"minecraft:red_candle","label":"Vela roja"},{"id":"minecraft:pink_candle","label":"Vela rosa"},{"id":"minecraft:green_candle","label":"Vela verde"},{"id":"minecraft:lime_candle","label":"Vela verde lima"},{"id":"minecraft:nether_wart","label":"Verruga de inframundo"},{"id":"minecraft:sculk_vein","label":"Veta de sculk"},{"id":"minecraft:anvil","label":"Yunque"},{"id":"minecraft:damaged_anvil","label":"Yunque dañado"},{"id":"minecraft:chipped_anvil","label":"Yunque desconchado"},{"id":"minecraft:carrot","label":"Zanahoria"},{"id":"minecraft:golden_carrot","label":"Zanahoria dorada"}];
     // END EMBEDDED LOOT ITEMS
     const LOOT_ITEM_IDS = new Set(LOOT_ITEMS.map(item=>item.id));
     const LOOT_ITEM_LABELS = new Map(LOOT_ITEMS.map(item=>[item.id,item.label]));
+    const PIG_FOOD_IDS = new Set([
+        // Vanilla foods held in the hand, using the canonical Bedrock item IDs.
+        'apple','baked_potato','beef','beetroot','beetroot_soup','bread','carrot','chicken','chorus_fruit',
+        'cooked_beef','cooked_chicken','cooked_cod','cooked_mutton','cooked_porkchop','cooked_rabbit','cooked_salmon',
+        'cod','cookie','dried_kelp','enchanted_golden_apple','glow_berries','golden_apple','golden_carrot','honey_bottle',
+        'melon_slice','milk_bucket','mushroom_stew','mutton','poisonous_potato','porkchop','potato','pufferfish',
+        'pumpkin_pie','rabbit','rabbit_stew','rotten_flesh','salmon','spider_eye','suspicious_stew','sweet_berries','tropical_fish',
+        // Other items used to feed, lure or tame vanilla creatures.
+        'bamboo','beetroot_seeds','bone','cactus','crimson_fungus','dandelion','hay_block','kelp','melon_seeds',
+        'pumpkin_seeds','seagrass','slime_ball','sugar','torchflower_seeds','tropical_fish_bucket','warped_fungus','wheat','wheat_seeds'
+    ]);
+    const PIG_FOOD_ITEMS = LOOT_ITEMS
+        .map(({id,label})=>({id:id.slice('minecraft:'.length),label}))
+        .filter(item=>PIG_FOOD_IDS.has(item.id));
     const MAX_LOOT_ROWS = 5, MAX_LOOT_COUNT = 64;
     const LOOT_CHANCES = [
         {id:'always',label:'Siempre',chance:1}, {id:'very_high',label:'Muy alta',chance:0.9},
@@ -279,7 +294,16 @@
     const PIG_MOVEMENT = [{id:'walk',label:'Camina',icon:'directions_walk'},{id:'swim',label:'Nada',icon:'pool'},{id:'amphibious',label:'Camina y nada',icon:'water'},{id:'fly',label:'Vuela',icon:'flight'}];
     // These families match the vanilla BP. A family includes its Minecraft variants.
     const PIG_TARGETS = [{id:'zombie',label:'Zombis'},{id:'skeleton',label:'Esqueletos'},{id:'creeper',label:'Creepers'},{id:'spider',label:'Arañas'},{id:'slime',label:'Slimes'},{id:'enderman',label:'Endermen'},{id:'cow',label:'Vacas'},{id:'sheep',label:'Ovejas'},{id:'chicken',label:'Gallinas'},{id:'pig',label:'Cerdos de Minecraft'},{id:'wolf',label:'Lobos'},{id:'villager',label:'Aldeanos'}];
+    // Vanilla projectiles that work from any shooter without block damage or teleporting the owner.
+    const PIG_PROJECTILES = [{id:'minecraft:arrow',label:'Flecha'},{id:'minecraft:snowball',label:'Bola de nieve'},
+        {id:'minecraft:small_fireball',label:'Bola de fuego'},{id:'minecraft:thrown_trident',label:'Tridente'},
+        {id:'minecraft:llama_spit',label:'Escupitajo de llama'},{id:'minecraft:breeze_wind_charge_projectile',label:'Carga de viento'},
+        {id:'minecraft:egg',label:'Huevo'}];
+    // Entity anchors of minecraft:behavior.fire_at_target: 0 = feet, 1 = eyes, 2 = body middle.
+    const PIG_PROJECTILE_ORIGINS = [{id:'feet',label:'Pies',anchor:0},{id:'body',label:'Cuerpo',anchor:2},{id:'eyes',label:'Ojos',anchor:1}];
+    const PIG_ATTACK_STYLES = [{id:'melee',label:'Solo golpes',icon:'sports_mma'},{id:'both',label:'Golpes y proyectiles',icon:'call_split'},{id:'ranged',label:'Solo proyectiles',icon:'gps_fixed'}];
     const BEHAVIOR_SPEEDS = [{value:0.15,label:'Lenta'},{value:0.25,label:'Normal'},{value:0.35,label:'Rápida'},{value:0.45,label:'Muy rápida'}];
+    const MOUNT_JUMP_STRENGTH = {min:0.4,max:1,step:0.05,defaultValue:0.5};
     function defaultBehavior() { return {version:1,profile:'original',health:20,speed:0.25,damage:4,range:16,item:'apple',tempt:true}; }
     function isPigBehavior(source) { return source?.['minecraft:entity']?.components?.['minecraft:type_family']?.family?.includes('pig') === true; }
     function pigBehavior(settings) {
@@ -288,10 +312,12 @@
             if(!b.pig.food) b.pig.food={attract:[b.item],tame:[b.item],heal:[{item:b.item,amount:b.pig.healAmount}],chance:100};
             if(!b.pig.breeding) b.pig.breeding={enabled:false,items:['potato'],cooldown:300,growth:1200};
             if(!b.pig.mount) b.pig.mount={enabled:false,saddle:true,control:'player',height:0.63,offset:0};
+            b.pig.mount.jump ??= false;
             if(!b.pig.damageSources) b.pig.damageSources=Object.fromEntries(PIG_DAMAGE_SOURCES.map(source=>[source.id,true]));
             if(!b.pig.locomotion) b.pig.locomotion={mode:'walk'};
             if(!b.pig.respiration) b.pig.respiration={medium:'air',reserve:15};
             if(!b.pig.targets) b.pig.targets={attack:[],avoid:[]};
+            if(!b.pig.ranged) b.pig.ranged={mode:'melee',projectile:'minecraft:arrow',origin:'eyes',height:0};
             return b;
         }
         const tame=['companion','guardian'].includes(b.profile);
@@ -318,6 +344,15 @@
         const rank=id=>/adult|standing/.test(id)?0:/medium/.test(id)?1:/baby|child|small|sitting/.test(id)?3:2;
         return Object.entries(e.component_groups||{}).filter(([,g])=>g[name]!==undefined).sort(([a],[b])=>rank(a)-rank(b))[0]?.[1][name];
     }
+    function ravagerSeat(source) {
+        if(!entityComponent(source,'type_family')?.family?.includes('ravager')) return undefined;
+        const seats=entityComponent(source,'rideable')?.seats;
+        const position=(Array.isArray(seats)?seats[0]:seats)?.position;
+        if(!Array.isArray(position)||position.length!==3) return undefined;
+        const [lateral,height,offset]=position;
+        if(!position.every(Number.isFinite)||Math.abs(lateral)>2||height<0||height>4||Math.abs(offset)>2) return undefined;
+        return {lateral,height,offset};
+    }
     function supportsEntityBehavior(source) {
         const e=source?.['minecraft:entity'];return !!(e&&typeof e.description?.identifier==='string'&&e.components&&typeof e.components==='object'&&!Array.isArray(e.components));
     }
@@ -341,7 +376,7 @@
             const speed=entityComponent(source,'movement')?.value;
             if((fresh||settings.profile==='original')&&typeof speed==='number') b.speed=BEHAVIOR_SPEEDS.reduce((a,v)=>Math.abs(v.value-speed)<Math.abs(a.value-speed)?v:a).value;
             const box=entityComponent(source,'collision_box')||{width:0.6,height:1.8};
-            p.mount.height=Math.min(4,Math.round(box.height*0.7*100)/100);
+            Object.assign(p.mount,ravagerSeat(source)??{height:Math.min(4,Math.round(box.height*0.7*100)/100)});
             if(entityComponent(source,'fire_immune')!==undefined) {p.damageSources.fire=false;p.damageSources.lava=false;}
         }
         p.universal=true;
@@ -366,7 +401,7 @@
         }
         if(settings.pig?.food!==undefined || settings.pig?.breeding!==undefined) {
             const p=settings.pig,f=p.food,r=p.breeding;
-            const items=a=>Array.isArray(a)&&a.length>0&&a.length<=PIG_FOOD_ITEMS.length&&new Set(a).size===a.length&&a.every(id=>PIG_FOOD_ITEMS.some(i=>i.id===id));
+            const items=a=>Array.isArray(a)&&a.length>0&&a.length<=PIG_FOOD_ITEMS.length&&new Set(a).size===a.length&&a.every(id=>PIG_FOOD_IDS.has(id));
             const integer=(v,min,max)=>Number.isInteger(v)&&v>=min&&v<=max;
             requireThat(f&&r&&items(f.attract)&&items(f.tame)&&Array.isArray(f.heal)&&items(f.heal.map(i=>i?.item))&&
                 f.heal.every(i=>integer(i.amount,1,20))&&integer(f.chance,1,100)&&typeof r.enabled==='boolean'&&items(r.items)&&
@@ -377,6 +412,8 @@
         if(settings.pig?.mount!==undefined) {
             const m=settings.pig.mount;
             requireThat(m&&typeof m.enabled==='boolean'&&typeof m.saddle==='boolean'&&['direct','player','pig'].includes(m.control)&&
+                (m.jump===undefined||typeof m.jump==='boolean')&&
+                (m.jumpStrength===undefined||Number.isFinite(m.jumpStrength)&&m.jumpStrength>=MOUNT_JUMP_STRENGTH.min&&m.jumpStrength<=MOUNT_JUMP_STRENGTH.max)&&
                 (m.lateral===undefined || Number.isFinite(m.lateral)&&Math.abs(m.lateral)<=2)&&Number.isFinite(m.height)&&m.height>=0&&m.height<=4&&Number.isFinite(m.offset)&&m.offset>=-2&&m.offset<=2,
                 'Los ajustes de montura no son válidos.');
         }
@@ -387,6 +424,12 @@
                 'Las causas de daño de la criatura no son válidas.');
         }
         if(settings.pig?.loot!==undefined)validateLoot(settings.pig.loot);
+        if(settings.pig?.ranged!==undefined) {
+            const r=settings.pig.ranged;
+            requireThat(r&&PIG_ATTACK_STYLES.some(s=>s.id===r.mode)&&PIG_PROJECTILES.some(i=>i.id===r.projectile)&&
+                PIG_PROJECTILE_ORIGINS.some(o=>o.id===r.origin)&&Number.isFinite(r.height)&&r.height>=-2&&r.height<=4,
+                'Los ajustes del ataque a distancia no son válidos.');
+        }
         if(settings.pig?.locomotion!==undefined || settings.pig?.respiration!==undefined || settings.pig?.targets!==undefined) {
             const p=settings.pig,l=p.locomotion,r=p.respiration,t=p.targets;
             const targets=a=>Array.isArray(a)&&a.length<=PIG_TARGETS.length&&new Set(a).size===a.length&&a.every(id=>PIG_TARGETS.some(m=>m.id===id));
@@ -401,7 +444,7 @@
         const next=before.pig?.simple?simplePigBehavior(before):pigBehavior(before);
                     next.profile='calm';
                     const path=key.split('.');
-                    if(path.length===2&&['damageSources','mount','food','breeding','locomotion','respiration','targets','loot'].includes(path[0])) next.pig[path[0]][path[1]]=clone(value);
+                    if(path.length===2&&['damageSources','mount','food','breeding','locomotion','respiration','targets','loot','ranged'].includes(path[0])) next.pig[path[0]][path[1]]=clone(value);
                     else if(key in next.pig) next.pig[key]=value; else next[key]=value;
                     const p=next.pig;
                     if(key==='reaction') { if(['enemy','flee','retaliate'].includes(value)) {p.tame=false;p.follow=false;p.defend=false;next.tempt=false;} if(['enemy','retaliate'].includes(value)) p.panic=false; }
@@ -516,6 +559,21 @@
             c['minecraft:follow_range'] = {value:settings.range};
             c['minecraft:behavior.melee_attack'] = {priority:3,speed_multiplier:1.2,track_target:true};
         }
+        const ranged=fighter&&p&&p.ranged.mode!=='melee'?p.ranged:null;
+        if(ranged) {
+            // fire_at_target, unlike shooter + ranged_attack, lets the creature choose where the shot starts.
+            // Height only: sideways offsets follow world axes, not the creature's facing.
+            c['minecraft:behavior.fire_at_target']={priority:2,projectile_def:ranged.projectile,attack_range:[0,settings.range],
+                attack_cooldown:1,pre_shoot_delay:0.5,post_shoot_delay:0.2,ranged_fov:90,
+                owner_anchor:PIG_PROJECTILE_ORIGINS.find(o=>o.id===ranged.origin).anchor,owner_offset:[0,ranged.height,0],
+                target_anchor:2,target_offset:[0,0,0]};
+            if(ranged.mode==='ranged') {
+                delete c['minecraft:behavior.melee_attack'];
+                // Without melee the creature keeps a shooting distance instead of walking into its target.
+                c['minecraft:behavior.move_around_target']={priority:3,destination_position_range:[4,8],movement_speed:1.2,destination_pos_spread_degrees:360,
+                    filters:{test:'target_distance',subject:'self',value:settings.range,operator:'<='}};
+            }
+        }
         if (enemy) {
             c['minecraft:behavior.nearest_attackable_target'] = {priority:1,must_see:true,
                 entity_types:[{filters:playerFilter,max_dist:settings.range}]};
@@ -592,8 +650,8 @@
             const ready=m.saddle?'blockbench_edu:unsaddled':'blockbench_edu:ride_ready';
             const rideable={seat_count:1,family_types:['player'],pull_in_entities:false,rider_can_interact:false,
                 interact_text:'action.interact.mount',seats:{position:[m.lateral || 0,m.height,m.offset]},
-                on_rider_enter_event:{event:'blockbench_edu:on_mount',target:'self'},
-                on_rider_exit_event:{event:'blockbench_edu:on_dismount',target:'self'}};
+                on_rider_enter_event:'blockbench_edu:on_mount',
+                on_rider_exit_event:'blockbench_edu:on_dismount'};
             groups['blockbench_edu:ride_ready']={'minecraft:rideable':rideable};
             if(m.saddle) {
                 groups['blockbench_edu:ride_ready']['minecraft:is_saddled']={};
@@ -608,6 +666,13 @@
                 'minecraft:item_controllable':{control_items:'carrotOnAStick'},
                 'minecraft:behavior.controlled_by_player':{priority:0}
             }:(p.wander?{'minecraft:behavior.random_stroll':{priority:2,speed_multiplier:1}}:{});
+            if(m.control==='direct'&&m.jump) {
+                c['minecraft:horse.jump_strength']={value:m.jumpStrength??MOUNT_JUMP_STRENGTH.defaultValue};
+                groups[mounted]['minecraft:can_power_jump']={};
+                groups[mounted]['minecraft:variable_max_auto_step']={controlled_value:1};
+                // The jump control expects a saddled mount, even when no item is required to get on.
+                if(!m.saddle) groups[mounted]['minecraft:is_saddled']={};
+            }
             const paused=[free,...(tamed?[ownerFree]:[]),...(p.breeding.enabled?[breedFree]:[])];
             events['blockbench_edu:on_mount']={remove:{component_groups:paused},add:{component_groups:[mounted]}};
             events['blockbench_edu:on_dismount']={sequence:[
@@ -626,15 +691,117 @@
         }
         const description = clone(original.description);
         delete description.runtime_identifier;
-        const required=p?.mount.enabled?'1.21.80':p?.universal?'1.16.0':source.format_version;
+        const required=p?.mount.enabled?'1.21.80':ranged?'1.21.30':p?.universal?'1.16.0':source.format_version;
         const version=v=>String(v).split('.').map(Number),a=version(source.format_version),b=version(required);
         const useRequired=b.some((n,i)=>n>(a[i]||0)&&b.slice(0,i).every((v,j)=>v===(a[j]||0)));
         return applyLootOverride(source,settings,{format_version:useRequired?required:source.format_version,'minecraft:entity':{description,components:c,component_groups:groups,events}});
     }
-    async function buildAddon(reference, compiled, pngBase64, Zip, auxiliaryTextures = {}, behaviorSettings = defaultBehavior()) {
+    // Vanilla render controllers hide bones by name (donkey "Bag*" only shows with a chest,
+    // "Saddle" only when saddled...). Copies made in Edu keep their source name, so every
+    // bone missing from the original model gets a neutral prefix that no controller matches.
+    function neutralizeAddedBones(geometry, original) {
+        const key = name => String(name || '').toLowerCase();
+        const known = new Set((original?.bones || []).map(bone => key(bone.name)));
+        const used = new Set((geometry.bones || []).map(bone => key(bone.name)));
+        const renamed = new Map();
+        for (const bone of geometry.bones || []) {
+            if (known.has(key(bone.name))) continue;
+            let name = 'edu_' + bone.name, n = 2;
+            while (used.has(key(name))) name = `edu_${bone.name}_${n++}`;
+            used.add(key(name)); renamed.set(key(bone.name), name); bone.name = name;
+        }
+        for (const bone of geometry.bones || []) if (renamed.has(key(bone.parent))) bone.parent = renamed.get(key(bone.parent));
+    }
+    function cleanCreatureName(name) {
+        return name.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/g, ' ').trim();
+    }
+    function creatureFileStem(name) {
+        return name.normalize('NFC').replace(/[^\p{L}\p{N}_-]+/gu, '_') || 'Mi_criatura';
+    }
+    function writeCreatureNameScript(reference, manifests, bpZip, name, rideable) {
+        const identifier = reference.entity.description.identifier;
+        const script = 'scripts/blockbench_edu_name.js';
+        const bp = manifests.bp;
+        const moduleUuid = bp.header.uuid.replace(/^[\da-f]/i, digit => (parseInt(digit, 16) ^ 8).toString(16));
+        if (!bp.modules.some(module => module.type === 'script' && module.entry === script)) {
+            bp.modules.push({type:'script', language:'javascript', entry:script, uuid:moduleUuid, version:manifests.version});
+        }
+        if (!bp.dependencies.some(dep => dep.module_name === '@minecraft/server')) {
+            bp.dependencies.push({module_name:'@minecraft/server', version:'2.8.0'});
+            const [major, minor, patch] = bp.header.min_engine_version || [0, 0, 0];
+            if (major < 1 || major === 1 && (minor < 26 || minor === 26 && patch < 30)) bp.header.min_engine_version = [1,26,30];
+        }
+        const lines = [rideable?'import { system, world } from "@minecraft/server";':'import { world } from "@minecraft/server";'];
+        if(name) lines.push(
+            'world.afterEvents.entitySpawn.subscribe(({ entity }) => {',
+            `    if (entity.typeId === ${JSON.stringify(identifier)} && !entity.nameTag) entity.nameTag = ${JSON.stringify(name)};`,
+            '});'
+        );
+        if(rideable) lines.push(
+            `const creatureType = ${JSON.stringify(identifier)};`,
+            'const hiddenName = "blockbench_edu:hidden_mounted_name";',
+            'let previousMounts = new Map();',
+            '',
+            '// Keep the name on the entity so it survives saving the world or unloading a chunk.',
+            'world.afterEvents.entityLoad.subscribe(({ entity }) => {',
+            '    if (entity.typeId === creatureType && entity.getDynamicProperty(hiddenName) !== undefined) {',
+            '        previousMounts.set(entity.id, entity);',
+            '    }',
+            '});',
+            '',
+            'system.runInterval(() => {',
+            '    const currentMounts = new Map();',
+            '    for (const player of world.getAllPlayers()) {',
+            '        const mount = player.getComponent("minecraft:riding")?.entityRidingOn;',
+            '        if (!mount?.isValid || mount.typeId !== creatureType) continue;',
+            '        currentMounts.set(mount.id, mount);',
+            '        if (mount.nameTag) {',
+            '            mount.setDynamicProperty(hiddenName, mount.nameTag);',
+            '            mount.nameTag = "";',
+            '        }',
+            '    }',
+            '    for (const [id, mount] of previousMounts) {',
+            '        if (currentMounts.has(id) || !mount.isValid) continue;',
+            '        const name = mount.getDynamicProperty(hiddenName);',
+            '        if (typeof name !== "string") continue;',
+            '        if (!mount.nameTag) mount.nameTag = name;',
+            '        mount.setDynamicProperty(hiddenName, undefined);',
+            '    }',
+            '    previousMounts = currentMounts;',
+            '}, 1);'
+        );
+        bpZip.file(reference.bp.prefix + script, lines.join('\n')+'\n');
+    }
+    async function applyCreatureName(reference, manifests, rpZip, behavior, name) {
+        const identifier = reference.entity.description.identifier;
+        const bp = manifests.bp;
+        const entity = behavior['minecraft:entity'];
+        const key = 'minecraft:nameable';
+        entity.components ||= {};
+        entity.components[key] = {...entity.components[key], always_show:true};
+        for (const group of Object.values(entity.component_groups || {})) {
+            if (group[key]) group[key].always_show = true;
+        }
+        const texts = reference.rp.prefix + 'texts/';
+        const paths = new Set([texts + 'en_US.lang', texts + 'es_ES.lang',
+            ...Object.keys(rpZip.files).filter(path => path.startsWith(texts) && path.endsWith('.lang'))]);
+        const keys = [`entity.${identifier}.name`, `item.spawn_egg.entity.${identifier}.name`];
+        for (const path of paths) {
+            const file = rpZip.file(path);
+            const original = file ? await file.async('string') : '';
+            const lines = original.replace(/^\uFEFF/, '').split(/\r?\n/).filter(line => !keys.some(key => line.startsWith(key + '=')));
+            const remaining = lines.join('\n').trimEnd();
+            rpZip.file(path, (remaining ? remaining + '\n' : '') + keys.map(key => `${key}=${name}\t\n`).join(''));
+        }
+        bp.header.name = name;
+        manifests.rp.header.name = name;
+    }
+    async function buildAddon(reference, compiled, pngBase64, Zip, auxiliaryTextures = {}, behaviorSettings = defaultBehavior(), creatureName = '', packIconBase64) {
+        compiled = clone(compiled);
         const entries = geometryEntries(compiled);
         requireThat(entries.length === 1 && entries[0].description.identifier === reference.geometryId,
             'El identificador del proyecto no corresponde al addon de referencia.');
+        neutralizeAddedBones(entries[0], reference.geometry);
         const output = await Zip.loadAsync(await reference.root.generateAsync({type: 'uint8array'}));
         const copies = new Map();
         for (const pack of [reference.bp, reference.rp]) if (!copies.has(pack.outerPath)) {
@@ -647,19 +814,39 @@
                 if(v[0]<1 || v[0]===1&&(v[1]<21 || v[1]===21&&v[2]<80)) pack.header.min_engine_version=required.slice();
             }
         }
-        copies.get(reference.bp.outerPath).file(reference.bp.path, JSON.stringify(manifests.bp, null, 2));
+        const bpZip = copies.get(reference.bp.outerPath), rpZip = copies.get(reference.rp.outerPath);
+        const name = cleanCreatureName(creatureName);
         validateBehavior(behaviorSettings);
-        if (behaviorSettings.profile !== 'original' || behaviorSettings.pig?.simple || behaviorSettings.pig?.loot&&behaviorSettings.pig.loot.mode!=='inherit') {
-            requireThat(reference.behavior, 'No se encontró un comportamiento único para esta criatura.');
-            copies.get(reference.bp.outerPath).file(reference.behavior.path, JSON.stringify(compileBehavior(reference.behavior.json, behaviorSettings), null, 2));
+        const customBehavior = behaviorSettings.profile !== 'original' || behaviorSettings.pig?.simple ||
+            behaviorSettings.pig?.loot && behaviorSettings.pig.loot.mode !== 'inherit';
+        requireThat(!customBehavior||reference.behavior, 'No se encontró un comportamiento único para esta criatura.');
+        if(reference.behavior) {
+            const behavior = customBehavior ? compileBehavior(reference.behavior.json, behaviorSettings) : reference.behavior.json;
+            const entity = behavior['minecraft:entity'];
+            const rideable = [entity.components,...Object.values(entity.component_groups||{})].some(group=>{
+                const component=group?.['minecraft:rideable'];
+                return component&&(!component.family_types?.length||component.family_types.includes('player'));
+            });
+            if(name||rideable) writeCreatureNameScript(reference, manifests, bpZip, name, rideable);
+            if(name) {
+                const named = clone(behavior);
+                await applyCreatureName(reference, manifests, rpZip, named, name);
+                bpZip.file(reference.behavior.path, JSON.stringify(named, null, 2));
+            } else if(customBehavior) {
+                bpZip.file(reference.behavior.path, JSON.stringify(behavior, null, 2));
+            }
         }
         if(['none','custom'].includes(behaviorSettings.pig?.loot?.mode)) {
             requireThat(reference.behavior,'No se ha encontrado el comportamiento para guardar el botín.');
             const root=reference.bp.path.slice(0,reference.bp.path.lastIndexOf('/')+1);
-            copies.get(reference.bp.outerPath).file(root+lootTablePath(reference.behavior.json),JSON.stringify(compileLootTable(behaviorSettings.pig.loot),null,2));
+            bpZip.file(root+lootTablePath(reference.behavior.json),JSON.stringify(compileLootTable(behaviorSettings.pig.loot),null,2));
         }
-        const rpZip = copies.get(reference.rp.outerPath);
+        bpZip.file(reference.bp.path, JSON.stringify(manifests.bp, null, 2));
         rpZip.file(reference.rp.path, JSON.stringify(manifests.rp, null, 2));
+        if (packIconBase64) {
+            bpZip.file(reference.bp.prefix + 'pack_icon.png', packIconBase64, {base64: true});
+            rpZip.file(reference.rp.prefix + 'pack_icon.png', packIconBase64, {base64: true});
+        }
         // Preserve any additional geometries in the reference file.
         let replacement = clone(reference.json);
         if (Array.isArray(replacement['minecraft:geometry'])) {
@@ -740,6 +927,12 @@
             if (matching) description.geometry[alias] = matching.description.identifier;
         }
         description.identifier = identifier;
+        if (options.spawnEgg) {
+            requireThat(['base_color', 'overlay_color'].every(key => /^#[0-9a-f]{6}$/i.test(options.spawnEgg[key])),
+                'Elige los dos colores del huevo generador.');
+            // Color-based eggs must replace texture-based eggs, not mix both modes.
+            description.spawn_egg = {base_color: options.spawnEgg.base_color, overlay_color: options.spawnEgg.overlay_color};
+        }
         behavior['minecraft:entity'].description.identifier = identifier;
         const zip = new Zip(), bpId = uuid(), rpId = uuid(), title = options.name || mob.name;
         for (const [folder, type, id, other] of [['BP', 'data', bpId, rpId], ['RP', 'resources', rpId, bpId]]) {
@@ -797,7 +990,8 @@
     async function writeCreatureProject(model, state, reference, Zip) {
         validateCreatureProject(model, state);
         const zip = new Zip();
-        zip.file('project.json', JSON.stringify({format: 'blockbench-edu', version: state.behavior?.pig?.loot ? 12 : state.behavior?.pig?.universal ? 10 : state.behavior?.pig?.mount?.control==='direct' ? 9 : state.behavior?.pig?.simple ? 8 : state.behavior?.pig?.locomotion ? 7 : state.behavior?.pig?.damageSources ? 6 : state.behavior?.pig?.mount ? 5 : state.behavior?.pig?.food ? 4 : state.behavior?.pig ? 3 : 2, model, state}));
+        const mount=state.behavior?.pig?.mount;
+        zip.file('project.json', JSON.stringify({format: 'blockbench-edu', version: mount?.jumpStrength!==undefined ? 15 : mount?.jump ? 14 : state.behavior?.pig?.ranged && state.behavior.pig.ranged.mode!=='melee' ? 13 : state.behavior?.pig?.loot ? 12 : state.behavior?.pig?.universal ? 10 : mount?.control==='direct' ? 9 : state.behavior?.pig?.simple ? 8 : state.behavior?.pig?.locomotion ? 7 : state.behavior?.pig?.damageSources ? 6 : mount ? 5 : state.behavior?.pig?.food ? 4 : state.behavior?.pig ? 3 : 2, model, state}));
         zip.file('reference.mcaddon', await reference.root.generateAsync({type:'uint8array'}));
         return zip.generateAsync({type:'uint8array', compression:'DEFLATE'});
     }
@@ -807,7 +1001,7 @@
             zip = await Zip.loadAsync(content);
             data = JSON.parse(await zip.file('project.json').async('string'));
         } catch { throw new Error('Este archivo no es un proyecto de Blockbench Edu o está dañado. Elige el archivo .bbedu que guardaste.'); }
-        requireThat(data.format === 'blockbench-edu' && [1,2,3,4,5,6,7,8,9,10,11,12].includes(data.version), 'Este proyecto necesita otra versión de Blockbench Edu.');
+        requireThat(data.format === 'blockbench-edu' && [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15].includes(data.version), 'Este proyecto necesita otra versión de Blockbench Edu.');
         validateCreatureProject(data.model, data.state);
         requireThat(zip.file('reference.mcaddon'), 'El proyecto no contiene su addon base.');
         const reference = await readAddon(await zip.file('reference.mcaddon').async('uint8array'), Zip);
@@ -819,10 +1013,43 @@
         reference.lastVersion = data.state.lastVersion;
         return {...data, reference};
     }
-    const core = {lootChances:LOOT_CHANCES,lootItems:LOOT_ITEMS,compileLootTable,lootTablePath,validateLoot,resizePixels, smoothPixels, extractPixels, extractSurface, sampleRegion, packFaces, centeredBounds, geometryEntries, signature, syncManifests, readAddon, buildAddon, createStarter, createMobAddon, compatibleSounds, writeCreatureProject, readCreatureProject, simplePigBehavior, entityBehavior, entityComponent, supportsEntityBehavior, defaultBehavior, validateBehavior, supportsBehavior, compileBehavior, pigBehavior, adjustPigBehavior};
+    const EDU_ADDON_PROJECT = 'blockbench_edu.project.bbedu';
+    async function attachAddonProject(output, reference, project, Zip) {
+        for (const outerPath of new Set([reference.rp.outerPath, reference.bp.outerPath])) {
+            const pack = outerPath ? await Zip.loadAsync(await output.file(outerPath).async('uint8array')) : output;
+            for (const source of [reference.rp, reference.bp].filter(source => source.outerPath === outerPath)) {
+                pack.file(source.prefix + EDU_ADDON_PROJECT, project);
+            }
+            if (outerPath) output.file(outerPath, await pack.generateAsync({type:'uint8array', compression:'DEFLATE'}));
+        }
+    }
+    async function readExportedAddon(content, standalone, Zip) {
+        const message = 'Elige un addon exportado por Blockbench Edu que incluya su proyecto editable.';
+        let packs;
+        if (standalone) {
+            const zip = await Zip.loadAsync(content);
+            requireThat(zip.file(EDU_ADDON_PROJECT) && zip.file('manifest.json'), message);
+            const manifest = JSON.parse(await zip.file('manifest.json').async('string'));
+            const kind = manifest.modules?.some(module => module.type === 'resources') ? 'rp' : 'bp';
+            packs = {[kind]:{zip, prefix:'', manifest}};
+        } else {
+            const addon = await readAddon(content, Zip);
+            packs = {rp:addon.rp, bp:addon.bp};
+        }
+        const marked = Object.values(packs).map(pack => pack.zip.file(pack.prefix + EDU_ADDON_PROJECT));
+        requireThat(marked.every(Boolean), message);
+        const data = await readCreatureProject(await marked[0].async('uint8array'), Zip);
+        requireThat(Object.entries(packs).every(([kind, pack]) =>
+            pack.manifest.header?.uuid === data.reference[kind].manifest.header.uuid &&
+            JSON.stringify(pack.manifest.header.version) === JSON.stringify(data.state.lastVersion)),
+            'El proyecto de Edu no corresponde a esta versión de los packs.');
+        return data;
+    }
+    const core = {lootChances:LOOT_CHANCES,lootItems:LOOT_ITEMS,compileLootTable,lootTablePath,validateLoot,resizePixels, smoothPixels, extractPixels, extractSurface, sampleRegion, packFaces, centeredBounds, geometryEntries, signature, syncManifests, readAddon, buildAddon, createStarter, createMobAddon, compatibleSounds, writeCreatureProject, readCreatureProject, attachAddonProject, readExportedAddon, simplePigBehavior, entityBehavior, entityComponent, supportsEntityBehavior, defaultBehavior, validateBehavior, supportsBehavior, compileBehavior, pigBehavior, adjustPigBehavior};
     if (typeof module !== 'undefined' && module.exports) { module.exports = core; return; }
 
-    let cameraViewTool, panel, style, projectStyle, wizardStyle, action, loader, wizard, classroom, classroomStyle, selectionTool, smoothTool, colorSelectionTool, selectionFillTool, previousTool, teacherReturn, alive = false;
+    let cameraViewTool, panel, style, projectStyle, wizardStyle, action, loader, wizard, classroom, classroomStyle, selectionTool, smoothTool, colorSelectionTool, selectionFillTool, previousTool, teacherReturn, wholeModelTransformer, alive = false;
+    let restoreCameraRaycast;
     const EDU_ICON = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="5" fill="#123d27"/><path d="m16 3 12 7v13l-12 7-12-7V10Z" fill="#53d983"/><path d="m4 10 12 7 12-7M16 17v13" fill="none" stroke="#143e28" stroke-width="2"/><path d="m8 9 8-4 8 4-8 5Z" fill="#b8ffd1"/><path d="M8 18v5m16-5v5" stroke="#143e28" stroke-width="3"/></svg>');
     const sessions = new Map(), listeners = [];
     const allowsTeacherView = () => window.BlockbenchEduWeb?.role !== 'student';
@@ -833,6 +1060,11 @@
         return Cube.all.find(c => c.uuid === session.selectedId) || Cube.all.find(c => c.uuid === session.headId);
     }
     function selectPiece(id) {
+        if (classroom) {
+            classroom.wholeModel = id === '__model__';
+            selectClassroomTool();
+            if (classroom.wholeModel) { refresh(); return; }
+        }
         const session = current(), cube = Cube.all.find(c => c.uuid === id);
         if (!session || !cube) return;
         session.selectedId = id;
@@ -876,7 +1108,31 @@
         if (!session || !Cube.all.every(cube => session.initialSizes[cube.uuid])) return;
         session.cubeIds = Cube.all.map(cube => cube.uuid);
         session.pieceLinks = buildPieceLinks();
+        if (!session.cubeIds.includes(session.headId)) session.headId = session.cubeIds[0];
         if (!session.cubeIds.includes(session.selectedId)) session.selectedId = session.headId;
+    }
+    function paintBoneBranch(bone) {
+        const groups = [bone], elements = [];
+        bone.forEachChild(child => (child instanceof Group ? groups : elements).push(child));
+        return {groups, elements};
+    }
+    function removePaintBone(id) {
+        const session = validateSession(), bone = Group.all.find(group => group.uuid === id);
+        if (!bone || !session.prepared) return;
+        const {groups, elements} = paintBoneBranch(bone);
+        if (!Cube.all.some(cube => !elements.includes(cube))) return;
+        if (groups.some(group => group.uuid === session.soloBoneId)) showOnlyPaintBone(session.soloBoneId);
+        const animations = Animation.all.filter(animation => groups.some(group => animation.animators?.[group.uuid]));
+        const aspects = {elements, groups, outliner:true, selection:true, animations};
+        Undo.initEdit(aspects);
+        try {
+            bone.remove(false);
+            reconcileEduPieces(session);
+            if (!Cube.selected.length && selectedPiece()) selectPiece(selectedPiece().uuid);
+            Canvas.updateVisibility();
+            Undo.finishEdit('Eliminar parte Edu', {...aspects, elements:[], groups:[]});
+        } catch (error) { Undo.cancelEdit(true); reconcileEduPieces(session); throw error; }
+        refresh();
     }
     function duplicatePaintBone(id) {
         const session = validateSession(), bone = Group.all.find(group => group.uuid === id);
@@ -970,9 +1226,13 @@
         delete session.soloBoneId; delete session.soloPreviousVisibility;
         Canvas.updateVisibility(); refresh();
     }
-    function selectPaintColor(texture, x, y) {
+    function selectPaintColor(texture, x, y, event) {
         const session = current();
         if (!session || session.busy || texture?.uuid !== session.textureId) return;
+        const selection = texture.selection;
+        const subtract = !!event?.altKey;
+        const add = !!event?.shiftKey && selection.is_custom;
+        if (subtract && !selection.is_custom) return;
         x = Math.max(0, Math.min(texture.canvas.width-1, Math.floor(x)));
         y = Math.max(0, Math.min(texture.canvas.height-1, Math.floor(y)));
         const {width, height, data} = texture.ctx.getImageData(0,0,texture.canvas.width,texture.canvas.height);
@@ -981,15 +1241,17 @@
         if (Texture.selected !== texture) texture.select();
         UVEditor.vue.texture = texture;
         Undo.initSelection({texture_selection:true});
-        texture.selection.changeSize(width,height); texture.selection.clear();
+        selection.changeSize(width,height);
+        if (!add && !subtract) selection.clear();
         for (let pixel=0; pixel<width*height; pixel++) {
             const i=pixel*4;
             if (data[i]===rgba[0] && data[i+1]===rgba[1] && data[i+2]===rgba[2] && data[i+3]===rgba[3]) {
-                texture.selection.set(pixel%width,Math.floor(pixel/width),1);
+                selection.set(pixel%width,Math.floor(pixel/width),subtract ? 0 : 1);
             }
         }
+        if (!selection.hasSelection()) selection.clear();
         UVEditor.updateSelectionOutline(); Undo.finishSelection('Seleccionar un color Edu');
-        classroom.tool('brush_tool'); refresh();
+        refresh();
     }
     let colorSelectionPreview;
     function clearColorSelectionPreview() {
@@ -1002,26 +1264,66 @@
         clearColorSelectionPreview();
         const texture = Texture.all.find(texture => texture.uuid === current()?.textureId);
         if (!classroom || classroom.mode !== 'paint' || !classroom.selectedPixelCount || !texture?.selection.is_custom) return;
-        const selection = texture.selection, scale = 4;
-        const canvas = document.createElement('canvas'); canvas.width = selection.width*scale; canvas.height = selection.height*scale;
+        const selection = texture.selection;
+        const canvas = document.createElement('canvas'); canvas.width = selection.width; canvas.height = selection.height;
         const ctx = canvas.getContext('2d');
-        for (let y=0;y<selection.height;y++) for (let x=0;x<selection.width;x++) {
-            if (!selection.get(x,y)) continue;
-            ctx.fillStyle = 'rgba(0,230,255,0.35)'; ctx.fillRect(x*scale,y*scale,scale,scale);
-            ctx.fillStyle = (x+y)%2 ? '#101010' : '#ffffff';
-            if (!selection.get(x-1,y)) ctx.fillRect(x*scale,y*scale,1,scale);
-            if (!selection.get(x+1,y)) ctx.fillRect((x+1)*scale-1,y*scale,1,scale);
-            if (!selection.get(x,y-1)) ctx.fillRect(x*scale,y*scale,scale,1);
-            if (!selection.get(x,y+1)) ctx.fillRect(x*scale,(y+1)*scale-1,scale,1);
-        }
+        const mask = ctx.createImageData(canvas.width,canvas.height);
+        selection.array.forEach((value,index) => { if (value) mask.data[index*4+3] = 255; });
+        ctx.putImageData(mask,0,0);
         const map = new THREE.CanvasTexture(canvas); map.magFilter = THREE.NearestFilter; map.minFilter = THREE.NearestFilter; map.generateMipmaps = false;
-        const material = new THREE.MeshBasicMaterial({map,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2,side:THREE.DoubleSide});
+        const material = new THREE.ShaderMaterial({
+            uniforms:{
+                selectionMask:{value:map},
+                size:{value:new THREE.Vector2(canvas.width,canvas.height)},
+                stripePhase:{value:0}
+            },
+            extensions:{derivatives:true}, transparent:true, depthWrite:false,
+            polygonOffset:true, polygonOffsetFactor:-2, polygonOffsetUnits:-2, side:THREE.DoubleSide,
+            vertexShader:`
+                varying vec2 paintUV;
+                void main() {
+                    paintUV = uv;
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                }`,
+            fragmentShader:`
+                uniform sampler2D selectionMask;
+                uniform vec2 size;
+                uniform float stripePhase;
+                varying vec2 paintUV;
+                float selected(vec2 pixel) {
+                    if (any(lessThan(pixel, vec2(0.0))) || any(greaterThanEqual(pixel, size))) return 0.0;
+                    return texture2D(selectionMask, (pixel + 0.5) / size).a;
+                }
+                void main() {
+                    vec2 position = paintUV * size;
+                    vec2 pixel = floor(position);
+                    vec2 within = fract(position);
+                    vec2 thickness = clamp(fwidth(position) * 1.25, vec2(0.025), vec2(0.24));
+                    if (selected(pixel) < 0.5) discard;
+                    bool vertical = (within.x < thickness.x && selected(pixel - vec2(1.0,0.0)) < 0.5)
+                        || (within.x > 1.0 - thickness.x && selected(pixel + vec2(1.0,0.0)) < 0.5);
+                    bool horizontal = (within.y < thickness.y && selected(pixel - vec2(0.0,1.0)) < 0.5)
+                        || (within.y > 1.0 - thickness.y && selected(pixel + vec2(0.0,1.0)) < 0.5);
+                    if (!vertical && !horizontal) discard;
+                    float along = vertical ? position.y : position.x;
+                    float stripe = step(0.5, fract(along - stripePhase));
+                    gl_FragColor = vec4(vec3(mix(0.08, 0.94, stripe)), 0.95);
+                }`
+        });
+        const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+        // Blockbench already renders each frame. Advance the dashes only when it draws the selection.
+        const advanceStripes = () => {
+            const phase = reducedMotion.matches ? 0 : (performance.now() % 900) / 900;
+            material.uniforms.stripePhase.value = phase;
+            material.uniformsNeedUpdate = true;
+        };
         const meshes = [];
         for (const cube of Cube.all) {
             if (!cube.mesh) continue;
             // Share the live geometry so the marker follows UVs and shape without editing either.
             const mesh = new THREE.Mesh(cube.mesh.geometry,material); mesh.name = 'edu_color_selection_preview';
             mesh.raycast = () => {}; mesh.renderOrder = 10;
+            mesh.onBeforeRender = advanceStripes;
             cube.mesh.add(mesh); meshes.push(mesh);
         }
         colorSelectionPreview = {meshes,material,texture:map};
@@ -1037,14 +1339,21 @@
     function paintColorSelection() {
         validateSession();
         const texture = Texture.all[0], selection = texture.selection;
-        if (!selection.is_custom || !selection.hasSelection()) return;
+        const opacity = classroom.paintOpacity / 100;
+        if (!opacity || !selection.is_custom || !selection.hasSelection()) return;
         const image = texture.ctx.getImageData(0,0,texture.canvas.width,texture.canvas.height);
-        const rgb = tinycolor(classroom.color).toRgb();
+        const color = tinycolor(ColorPanel.get()).toRgb();
+        const blend = classroom.paintBlend;
         Undo.initEdit({textures:[texture],bitmap:true});
         try {
             for (let pixel=0; pixel<image.width*image.height; pixel++) {
                 if (!selection.array[pixel]) continue;
-                image.data[pixel*4]=rgb.r; image.data[pixel*4+1]=rgb.g; image.data[pixel*4+2]=rgb.b; image.data[pixel*4+3]=255;
+                const index = pixel * 4;
+                const base = {r:image.data[index],g:image.data[index+1],b:image.data[index+2],a:image.data[index+3]/255};
+                const mixed = blend === 'default'
+                    ? Painter.combineColors(base,color,opacity)
+                    : Painter.blendColors(base,color,opacity,blend);
+                image.data.set([mixed.r,mixed.g,mixed.b,mixed.a*255],index);
             }
             texture.ctx.putImageData(image,0,0); texture.updateChangesAfterEdit();
             Undo.finishEdit('Pintar selección de color Edu');
@@ -1087,9 +1396,10 @@
             if (selection?.is_custom && !classroom.selectedPixelCount) { selection.clear(); UVEditor.updateSelectionOutline(); }
             classroom.soloBoneId = session?.soloBoneId || '';
             classroom.bones = paintBones().map((bone,index) => ({id:bone.uuid,label:pieceLabel(bone,index),
+                canRemove:paintBoneBranch(bone).elements.filter(element=>element instanceof Cube).length < Cube.all.length,
                 hidden:bone.children.filter(c => c instanceof Cube).every(c => !c.visibility)}));
             classroom.pieces = panel.vue.pieces;
-            classroom.selectedId = panel.vue.selectedId;
+            classroom.selectedId = classroom.wholeModel ? '__model__' : panel.vue.selectedId;
             classroom.dimensions = panel.vue.dimensions;
             classroom.maximum = panel.vue.maximum;
             classroom.minimum = panel.vue.minimum;
@@ -1129,7 +1439,7 @@
             const expected = FACE_AXES[name].map(axis => Math.max(1, Math.floor(cleanDimension(cube.to[axis] - cube.from[axis]))));
             const scaledUV = face.uv.map((v,i) => v * (i%2 ? atlas.height/Project.texture_height : atlas.width/Project.texture_width));
             const pixels = normalizing ? sampleRegion(atlas, scaledUV, ...expected) : extractSurface(atlas, face.uv);
-            requireThat(pixels.width === expected[0] && pixels.height === expected[1], 'La plantilla no tiene densidad de un píxel por unidad en todas sus caras.');
+            // Whole-model scaling intentionally keeps UVs and their pixel density unchanged.
             faces.push({cubeId: cube.uuid, name, uv: face.uv.slice(), signs: [Math.sign(face.uv[2] - face.uv[0]) || 1, Math.sign(face.uv[3] - face.uv[1]) || 1], pixels});
         }
         return faces;
@@ -1189,6 +1499,10 @@
         }
         return links;
     }
+    function resizedFacePixels(pixels, before, after) {
+        if (pixels === Math.max(1,Math.floor(cleanDimension(before)))) return Math.max(1,Math.floor(cleanDimension(after)));
+        return Math.max(1, Math.round(before > 0 ? pixels * after / before : pixels + after));
+    }
     function resize(axis, step) {
         const session = validateSession();
         requireThat(session.prepared && Cube.all.every(c => !c.box_uv), 'Prepara la textura antes de cambiar el tamaño.');
@@ -1210,7 +1524,7 @@
             const change = changes.find(item => item.cube.uuid === face.cubeId);
             if (!change) continue;
             const [a,b] = FACE_AXES[face.name];
-            face.pixels = resizePixels(face.pixels, Math.max(1,Math.floor(change.sizes[a])), Math.max(1,Math.floor(change.sizes[b])), face.signs);
+            face.pixels = resizePixels(face.pixels, resizedFacePixels(face.pixels.width, change.cube.size(a), change.sizes[a]), resizedFacePixels(face.pixels.height, change.cube.size(b), change.sizes[b]), face.signs);
         }
         const atlas = packFaces(faces);
         transaction('Cambiar partes vinculadas Edu', texture => {
@@ -1218,13 +1532,59 @@
             updateAtlas(texture,atlas);
         });
     }
+    // Work in model coordinates so pivots, nested bones and hidden cubes stay together.
+    // Like Blockbench ModelScaler, scale geometry without resampling the bitmap or changing UVs.
+    function transformWholeModel(kind, axis, step, record = true) {
+        validateSession();
+        requireThat(['size','move','rotate'].includes(kind) && Number.isFinite(step), 'El cambio no es válido.');
+        const cubes = Cube.all.slice(), groups = Group.all.slice();
+        requireThat(cubes.length, 'Abre una criatura para cambiarla.');
+        const factor = step > 0 ? 1.1 : 1 / 1.1;
+        requireThat(kind !== 'size' || cubes.every(c => [...c.from,...c.to,...c.origin,c.inflate].every(v => Number.isFinite(v * factor) && Math.abs(v * factor) < 100000)), 'Se alcanzó el límite de tamaño del modelo.');
+        if (record) Undo.initEdit({elements:cubes, groups});
+        try {
+            if (kind === 'size') {
+                for (const cube of cubes) {
+                    for (const key of ['from','to','origin']) cube[key] = cube[key].map(v => v * factor);
+                    cube.inflate *= factor;
+                }
+                for (const group of groups) group.origin = group.origin.map(v => v * factor);
+            } else if (kind === 'move') {
+                for (const cube of cubes) for (const key of ['from','to','origin']) cube[key][axis] += step;
+                for (const group of groups) group.origin[axis] += step;
+            } else {
+                const direction = axis instanceof THREE.Vector3 ? axis.clone().normalize() : new THREE.Vector3().setComponent(axis, 1);
+                const turn = new THREE.Quaternion().setFromAxisAngle(direction, step * Math.PI / 180);
+                const roots = [...groups.filter(g => !(g.parent instanceof Group)), ...cubes.filter(c => !(c.parent instanceof Group))];
+                for (const root of roots) {
+                    const origin = new THREE.Vector3(...root.origin);
+                    const offset = origin.clone().applyQuaternion(turn).sub(origin).toArray();
+                    const belongs = node => { for (let p = node; p instanceof Group || p instanceof Cube; p = p.parent) if (p === root) return true; return false; };
+                    for (const cube of cubes.filter(belongs)) for (const key of ['from','to','origin']) cube[key] = cube[key].map((v,i) => v + offset[i]);
+                    for (const group of groups.filter(belongs)) group.origin = group.origin.map((v,i) => v + offset[i]);
+                    const order = Format.euler_order;
+                    const orientation = new THREE.Quaternion().setFromEuler(new THREE.Euler(...root.rotation.map(v => v * Math.PI / 180), order));
+                    const euler = new THREE.Euler().setFromQuaternion(turn.clone().multiply(orientation), order);
+                    root.rotation = [euler.x,euler.y,euler.z].map(v => v * 180 / Math.PI);
+                }
+            }
+            Canvas.updateAll();
+            if (record) Undo.finishEdit({size:'Cambiar tamaño de todo el modelo Edu',move:'Mover todo el modelo Edu',rotate:'Girar todo el modelo Edu'}[kind]);
+        } catch (error) { if (record) Undo.cancelEdit(true); throw error; }
+        if (record) refresh();
+    }
     let eduDrag = null, eduPointerDown = false;
     function selectClassroomTool() {
         if (!classroom || classroom.mode !== 'shape') return;
+        if (classroom.wholeModel && classroom.operation === 'size') {
+            cameraViewTool ||= new Tool('edu_camera_view',{name:'Vista de la criatura',icon:'3d_rotation',modes:['edit'],selectElements:false,selectFace:false,transformerMode:'hidden'});
+            cameraViewTool.select(); return;
+        }
+        if (classroom.wholeModel) { Cube.all.forEach(c => c.markAsSelected()); updateSelection(); }
         BarItems[{size: 'resize_tool', move: 'move_tool', rotate: 'rotate_tool'}[classroom.operation]].select();
     }
     function beginEduDrag({aspects, save}) {
-        if (!eduPointerDown || !classroom || classroom.mode !== 'shape' || !current()?.prepared) return;
+        if (!eduPointerDown || !classroom || classroom.wholeModel || classroom.mode !== 'shape' || !current()?.prepared) return;
         const cube = selectedPiece();
         if (!cube || !['move_tool','resize_tool','rotate_tool'].includes(Toolbox.selected.id)) return;
         const affected = linkedPieces(cube);
@@ -1261,7 +1621,8 @@
                     const part=affected.find(c=>c.uuid===face.cubeId);
                     if (!part) continue;
                     const [a,b]=FACE_AXES[face.name];
-                    face.pixels=resizePixels(face.pixels,Math.max(1,Math.floor(cleanDimension(part.to[a]-part.from[a]))),Math.max(1,Math.floor(cleanDimension(part.to[b]-part.from[b]))),face.signs);
+                    const previous = before.get(part.uuid);
+                    face.pixels=resizePixels(face.pixels,resizedFacePixels(face.pixels.width,previous.to[a]-previous.from[a],part.to[a]-part.from[a]),resizedFacePixels(face.pixels.height,previous.to[b]-previous.from[b],part.to[b]-part.from[b]),face.signs);
                 }
                 updateAtlas(Texture.all[0],packFaces(faces));
             } else {
@@ -1344,17 +1705,17 @@
             headId:session.headId, selectedId:session.selectedId, initial:session.initial, initialSizes:session.initialSizes,
             originalFaces:session.originalFaces.filter(face=>session.cubeIds.includes(face.cubeId)), originalResolution:session.originalResolution,
             lastVersion, behavior:session.behavior || defaultBehavior()});
-        const bytes = await writeCreatureProject(model,state,session.reference,JSZip);
-        return new Blob([bytes],{type:'application/zip'});
+        return writeCreatureProject(model,state,session.reference,JSZip);
     }
     async function saveCreature() {
         const session = validateSession();
         requireThat(session.prepared, 'Prepara la criatura antes de guardarla.');
         const model = captureEditableModel(session);
-        const name = Project.name.replace(/[^\p{L}\p{N}_-]+/gu,'_') || 'Mi_criatura';
+        const name = creatureFileStem(Project.name);
         session.busy = true; refresh();
         try {
-            const content = await portableProject(session, model, session.reference.lastVersion);
+            const bytes = await portableProject(session, model, session.reference.lastVersion);
+            const content = new Blob([bytes],{type:'application/zip'});
             Blockbench.export({type:'Proyecto de Blockbench Edu', extensions:['bbedu'], savetype:'zip',
                 name, content}, () => {
                 Blockbench.showMessageBox({title:'Tu proyecto está listo para guardar',
@@ -1396,7 +1757,10 @@
         try {
             // Validate the complete archive before changing the editor.
             const native = /\.bbmodel$/i.test(filename);
-            const data = native ? {model:readBlockbenchModel(content)} : await readCreatureProject(content,JSZip);
+            const standalone = /\.mcpack$/i.test(filename);
+            const data = native ? {model:readBlockbenchModel(content)}
+                : standalone || /\.mcaddon$/i.test(filename) ? await readExportedAddon(content,standalone,JSZip)
+                : await readCreatureProject(content,JSZip);
             requireThat(alive && Project === previous, 'Cambió el proyecto mientras se abría el archivo. Vuelve a intentarlo.');
             leaveClassroom();
             Codecs.project.load(data.model,{path:'Mi_criatura.bbmodel',no_file:true});
@@ -1433,7 +1797,7 @@
     }
     function importCreature() {
         if (openingCreature || current()?.busy) return;
-        Blockbench.import({extensions:['bbedu','bbmodel'],type:'Proyecto de Blockbench Edu',readtype:'binary'},files => {
+        Blockbench.import({extensions:['bbedu','bbmodel','mcaddon','mcpack'],type:'Proyecto de Blockbench Edu',readtype:'binary'},files => {
             if (files.length) openCreatureFile(files[0].content, files[0].name).catch(error => {
                 console.error('[Blockbench Edu]',error);
                 Blockbench.showMessageBox({title:'No pudimos abrir la criatura',message:error.message,buttons:['Volver']});
@@ -1489,57 +1853,156 @@
             return model;
         } finally { Cube.all.forEach((cube, i) => { cube.visibility = visibility[i]; }); }
     }
+    function capturePackIcon(texture) {
+        const cubes = Cube.all.filter(cube => cube.export && cube.mesh?.geometry.index?.count);
+        if (!cubes.length) return;
+        const {renderer} = MediaPreview;
+        if (renderer.getContext().isContextLost()) return;
+        const size = renderer.getSize(new THREE.Vector2());
+
+        // Render just the exported cubes, using their live geometry and painted pixels.
+        const iconScene = new THREE.Scene();
+        const map = new THREE.CanvasTexture(texture.canvas);
+        map.colorSpace = THREE.SRGBColorSpace;
+        map.magFilter = map.minFilter = THREE.NearestFilter;
+        map.generateMipmaps = false;
+        const material = new THREE.MeshLambertMaterial({map, alphaTest: 0.01, transparent: true, side: THREE.DoubleSide});
+        try {
+            for (const cube of cubes) {
+                cube.mesh.updateWorldMatrix(true, false);
+                const mesh = new THREE.Mesh(cube.mesh.geometry, material);
+                mesh.matrixAutoUpdate = false;
+                mesh.matrix.copy(cube.mesh.matrixWorld);
+                iconScene.add(mesh);
+            }
+            const bounds = new THREE.Box3().setFromObject(iconScene);
+            const {center, radius} = bounds.getBoundingSphere(new THREE.Sphere());
+            const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, radius * 4 + 2);
+            camera.position.copy(center).addScaledVector(new THREE.Vector3(-1, 0.6, -1).normalize(), radius * 2 + 1);
+            camera.lookAt(center);
+            camera.updateMatrixWorld();
+
+            const projected = new THREE.Box3(), point = new THREE.Vector3();
+            for (const mesh of iconScene.children) {
+                const {attributes: {position}, index} = mesh.geometry;
+                const view = new THREE.Matrix4().multiplyMatrices(camera.matrixWorldInverse, mesh.matrixWorld);
+                for (let i = 0; i < index.count; i++) {
+                    projected.expandByPoint(point.fromBufferAttribute(position, index.getX(i)).applyMatrix4(view));
+                }
+            }
+            const frameCenter = projected.getCenter(new THREE.Vector3());
+            const frameSize = projected.getSize(new THREE.Vector3());
+            const half = Math.max(frameSize.x, frameSize.y, 0.1) * 0.57;
+            camera.left = frameCenter.x - half; camera.right = frameCenter.x + half;
+            camera.bottom = frameCenter.y - half; camera.top = frameCenter.y + half;
+            camera.updateProjectionMatrix();
+
+            const light = new THREE.DirectionalLight(0xffffff, 0.65);
+            light.position.set(-2, 4, -3);
+            iconScene.add(new THREE.AmbientLight(0xffffff, 0.55), light);
+            renderer.setSize(256, 256, false);
+            renderer.render(iconScene, camera);
+            const canvas = document.createElement('canvas');
+            canvas.width = canvas.height = 256;
+            canvas.getContext('2d').drawImage(renderer.domElement, 0, 0, 256, 256);
+            return canvas.toDataURL('image/png').split(',')[1];
+        } finally {
+            renderer.setSize(size.x, size.y, false);
+            material.dispose(); map.dispose();
+        }
+    }
     async function prepareExport(session, projectId, includeModel = false) {
         const compiled = getGeometry();
+        const creatureName = cleanCreatureName(Project.name) || 'Mi criatura';
         requireThat(session.prepared && Cube.all.every(c => !c.box_uv), 'Prepara la textura antes de exportar.');
         const faces = captureFaces(Texture.all[0]);
         const width = Project.texture_width, height = Project.texture_height;
         const png = Texture.all[0].canvas.toDataURL('image/png').split(',')[1];
-        const model = includeModel ? captureEditableModel(session) : null;
+        const model = captureEditableModel(session);
+        let packIcon;
+        try { packIcon = capturePackIcon(Texture.all[0]); }
+        catch (error) { console.warn('[Blockbench Edu] No se pudo generar el ícono del pack.', error); }
         const auxiliary = await remapAuxiliaryTextures(session, faces, width, height);
-        const result = await buildAddon(session.reference, compiled, png, JSZip, auxiliary, session.behavior || defaultBehavior());
-        const content = await result.zip.generateAsync({type: 'blob'});
+        const result = await buildAddon(session.reference, compiled, png, JSZip, auxiliary, session.behavior || defaultBehavior(), creatureName, packIcon);
+        const bytes = await portableProject(session, model, result.version);
+        await attachAddonProject(result.zip, session.reference, bytes, JSZip);
+        const content = await result.zip.generateAsync({type:'blob', compression:'DEFLATE'});
         requireThat(alive && Project?.uuid === projectId, 'Cambió el proyecto durante la exportación. Vuelve a exportar.');
-        const modelContent = model && new Blob([JSON.stringify(model)], {type:'application/json'});
-        const projectContent = model && await portableProject(session, model, result.version);
-        return {result, content, modelContent, projectContent, creatureName: Project.name,
-            fileName: `${Project.name.replace(/[^a-z0-9_-]+/gi, '_')}_${result.version.join('_')}`};
+        const modelContent = includeModel ? new Blob([JSON.stringify(model)], {type:'application/json'}) : null;
+        const projectContent = includeModel ? new Blob([bytes], {type:'application/zip'}) : null;
+        return {result, content, modelContent, projectContent, creatureName,
+            fileName: `${creatureFileStem(creatureName)}_${result.version.join('_')}`};
     }
     async function exportAddon() {
         const session = validateSession(), projectId = Project.uuid;
         session.busy = true; refresh();
         try {
-            const {result, content, creatureName, fileName} = await prepareExport(session, projectId);
+            const {result, content, fileName} = await prepareExport(session, projectId);
             Blockbench.export({type: 'Minecraft Addon', extensions: ['mcaddon'], savetype: 'zip',
                 name: fileName, content}, () => {
                 session.reference.lastVersion = result.version; refresh();
                 if (alive && classroom && Project?.uuid === projectId) Blockbench.showMessageBox({
                     title: '¡Tu criatura está lista para llevar!',
-                    message: `Busca el archivo **.mcaddon** en tus descargas.\n\n1. Ábrelo con **Minecraft Education**.\n2. Pide a tu docente que active la criatura en un mundo de prueba.\n3. En el inventario creativo, busca **${creatureName}** y usa su huevo para que aparezca.\n\nPuedes seguir creando. Si haces más cambios, vuelve a descargarla.`,
+                    message: 'Busca el archivo **.mcaddon** en tus descargas.\n\n1. Ábrelo con **Minecraft Education**.\n2. Pide a tu docente que active la criatura en un mundo de prueba.\n3. Busca el huevo con el nombre que elegiste en el inventario creativo y úsalo para que aparezca.\n\nPuedes seguir creando. Si haces más cambios, vuelve a descargarla.',
                     buttons: ['Seguir creando']
                 });
             });
         } finally { session.busy = false; refresh(); }
     }
-    function showSaveOptions() {
+    function showSaveOptions(directAction) {
         validateSession();
         const projectId = Project.uuid;
         let dialog;
-        const choose = work => {
+        const choose = (work, name) => {
             if (Project?.uuid !== projectId || current()?.busy) return;
+            if (Project.name !== name) { Project.name = name; Project.saved = false; }
             dialog.hide(); attempt(work);
         };
         dialog = new Dialog({id:'blockbench_edu_save_options', title:'Guardar y exportar', width:540,
             buttons:['Seguir creando'], component:{
-                data:() => ({hasClass:!!window.BlockbenchEduDrive?.classCode}),
-                methods:{save:() => choose(saveCreature), minecraft:() => choose(exportAddon), deliver:() => choose(deliverAddon)},
-                template:`<div class="edu-save-options"><p>¿Qué quieres hacer con tu criatura?</p>
-                    <button class="edu-save-choice" @click="save"><i class="material-icons" aria-hidden="true">save</i><span><strong>Guardar para seguir editando</strong><small>Guarda tu proyecto .bbedu en el ordenador. Ábrelo en Edu la próxima clase para continuar.</small></span></button>
+                data:() => ({name:cleanCreatureName(Project.name).slice(0, 80), choosing:false, hasClass:!!window.BlockbenchEduDrive?.classCode}),
+                computed:{cleanName() { return cleanCreatureName(this.name); }},
+                methods:{
+                    next() {
+                        if (!this.cleanName) return;
+                        if (directAction) choose(directAction, this.cleanName);
+                        else {
+                            this.choosing = true;
+                            this.$nextTick(() => this.$refs.firstChoice?.focus());
+                        }
+                    },
+                    back() {
+                        this.choosing = false;
+                        this.$nextTick(() => this.$refs.creatureName?.focus());
+                    },
+                    save() { choose(saveCreature, this.cleanName); },
+                    minecraft() { choose(exportAddon, this.cleanName); },
+                    deliver() { choose(deliverAddon, this.cleanName); }
+                },
+                template:`<div class="edu-save-options"><template v-if="!choosing">
+                    <label class="edu-save-name">Nombre de tu criatura
+                        <span class="edu-save-name-field">
+                            <input ref="creatureName" type="text" v-model="name" maxlength="80" autocomplete="off"
+                                placeholder="Escribe un nombre" aria-describedby="edu-save-name-help" @keydown.enter.prevent.stop="next"/>
+                            <i class="material-icons" aria-hidden="true">edit</i>
+                        </span>
+                    </label>
+                    <p id="edu-save-name-help">Este nombre aparecerá encima de tu criatura en Minecraft y se usará para nombrar los archivos.</p>
+                    <button class="edu-save-next" @click="next" :disabled="!cleanName">Continuar</button>
+                    </template><template v-else>
+                    <p>¿Qué quieres hacer con <strong>{{cleanName}}</strong>?</p>
+                    <button ref="firstChoice" class="edu-save-choice" @click="save"><i class="material-icons" aria-hidden="true">save</i><span><strong>Guardar para seguir editando</strong><small>Guarda tu proyecto .bbedu en el ordenador. Ábrelo en Edu la próxima clase para continuar.</small></span></button>
                     <button class="edu-save-choice" @click="minecraft"><i class="material-icons" aria-hidden="true">sports_esports</i><span><strong>Llevar a Minecraft</strong><small>Descarga el addon .mcaddon para abrirlo con Minecraft Education y usar tu criatura en un mundo.</small></span></button>
                     <button v-if="hasClass" class="edu-save-choice" @click="deliver"><i class="material-icons" aria-hidden="true">school</i><span><strong>Entregar al profe</strong><small>Envía tu trabajo al buzón de la clase.</small></span></button>
-                </div>`
+                    <button class="edu-save-back" @click="back">Cambiar nombre</button>
+                    </template></div>`
             }});
         dialog.show();
+        dialog.content_vue.$nextTick(() => {
+            const input = dialog.content_vue.$refs.creatureName;
+            input?.focus();
+            input?.select();
+        });
     }
     function lockDeliveryUi(dialogElement) {
         const inertStates = new Map();
@@ -1626,9 +2089,9 @@
     function selectHead() { const session = current(); if (session) selectPiece(session.headId); }
     function camera(which) {
         if (which === 'frame') {
-            const selectedId = selectedPiece()?.uuid;
+            const selectedId = classroom?.wholeModel ? '__model__' : selectedPiece()?.uuid;
             const event = new MouseEvent('click', {shiftKey: true});
-            BarItems.select_all.trigger(event); BarItems.focus_on_selection.trigger(event);
+            Cube.all.forEach(c => c.markAsSelected()); updateSelection(); BarItems.focus_on_selection.trigger(event);
             if (selectedId) selectPiece(selectedId);
         }
         else BarItems[{front: 'camera_north', side: 'camera_east', back: 'camera_south', left: 'camera_west', top: 'camera_top', bottom: 'camera_bottom', orbit: 'camera_initial'}[which]]?.trigger();
@@ -1670,16 +2133,41 @@
         refreshTeacherReturn();
         window.dispatchEvent(new Event('resize'));
     }
+    function restartCreature() {
+        const project = Project, session = current();
+        if (!session || session.busy || openingCreature) return;
+        Blockbench.showMessageBox({
+            title: '¿Empezar de nuevo?',
+            message: 'Vas a descartar la criatura abierta y todos sus cambios. Volverás al primer paso del tutorial.',
+            buttons: ['Cancelar', 'Descartar y empezar de nuevo'], confirmIndex: 0, cancelIndex: 0
+        }, choice => {
+            if (choice !== 1) return;
+            attempt(async () => {
+                if (!alive || !classroom || Project !== project || session.busy || openingCreature) return;
+                requireThat(!project.locked, 'No pudimos cerrar la criatura. Vuelve a intentarlo.');
+                leaveClassroom();
+                if (await project.close(true)) {
+                    if (alive) showWizard();
+                } else {
+                    if (alive && Project === project) enterClassroom();
+                    throw new Error('No pudimos cerrar la criatura. Vuelve a intentarlo.');
+                }
+            });
+        });
+    }
+    const DEFAULT_SIDEBAR_WIDTH = 356;
     function enterClassroom() {
         leaveClassroom();
         previousTool = Toolbox.selected?.id;
         Modes.options.edit.select();
         const mount = document.createElement('div'); document.body.append(mount);
         classroom = new Vue({el: mount,
-            data: {sidebarWidth: current()?.sidebarWidth || 260, sidebarMax: 480, sidebarDragging: false, sidebarStartX: 0, sidebarStartWidth: 260, mode: 'shape', operation: 'size', position: [0,0,0], rotation: [0,0,0], axes: ['De lado', 'Arriba / abajo', 'Adelante / atrás'], turns: ['Inclinar', 'Girar', 'Ladear'], pieces: [], selectedId: '', dimensions: [0,0,0], maximum: [0,0,0], minimum: [1,1,1], busy: false, canUndo: false, canRedo: false,
-                behavior:clone(current()?.behavior || defaultBehavior()), behaviorSupported:false, categoryEditor:false, behaviorNotice:'', behaviorPage:'', behaviorCategories:[{id:'base',label:'Base',icon:'auto_awesome'},{id:'movement',label:'Movimiento',icon:'directions_walk'},{id:'reaction',label:'Reacción al jugador',icon:'visibility'},{id:'friendship',label:'Amistad',icon:'favorite'},{id:'health',label:'Vida y daño',icon:'healing'},{id:'combat',label:'Combate',icon:'sports_martial_arts'},{id:'mount',label:'Montura',icon:'airline_seat_recline_normal'},{id:'loot',label:'Botín',icon:'redeem'}], behaviorProfiles:BEHAVIOR_PROFILES,
-                lootSearch:'',lootEditingIndex:-1,lootChances:LOOT_CHANCES,lootModes:[{id:'original',label:'Original',icon:'auto_awesome'},{id:'none',label:'Nada',icon:'block'},{id:'custom',label:'Mis objetos',icon:'redeem'}],movementChoices:PIG_MOVEMENT, mobChoices:PIG_TARGETS, mobSearch:'', behaviorItems:BEHAVIOR_ITEMS, pigFoodItems:PIG_FOOD_ITEMS, damageSourceChoices:PIG_DAMAGE_SOURCES, damageSourceGroups:[{id:'combat',label:'Golpes y proyectiles'},{id:'fire',label:'Fuego y explosiones'},{id:'environment',label:'Peligros del entorno'},{id:'magic',label:'Daño mágico'}], behaviorSpeeds:BEHAVIOR_SPEEDS, behaviorCanUndo:false, behaviorCanRedo:false,
-                bones: [], partsOpen: current()?.partsOpen ?? true, soloBoneId: '', selectedPixelCount: 0, paintTool: 'brush_tool', brushSize: 1, cameraControlsOpen: false, cameraIsOrtho: false,
+            data: {sidebarWidth: current()?.sidebarWidth ?? DEFAULT_SIDEBAR_WIDTH, sidebarMax: 480, sidebarDragging: false, sidebarStartX: 0, sidebarStartWidth: DEFAULT_SIDEBAR_WIDTH, mode: 'shape', operation: 'size', wholeModel: true, position: [0,0,0], rotation: [0,0,0], axes: ['De lado', 'Arriba / abajo', 'Adelante / atrás'], turns: ['Inclinar', 'Girar', 'Ladear'], pieces: [], selectedId: '', dimensions: [0,0,0], maximum: [0,0,0], minimum: [1,1,1], busy: false, canUndo: false, canRedo: false,
+                behavior:clone(current()?.behavior || defaultBehavior()), behaviorSupported:false, categoryEditor:false, behaviorNotice:'', behaviorPage:'', behaviorCategories:[{id:'base',label:'Base',icon:'auto_awesome'},{id:'movement',label:'Movimiento',icon:'directions_walk'},{id:'reaction',label:'Reacción al jugador',icon:'visibility'},{id:'friendship',label:'Amistad',icon:'favorite'},{id:'health',label:'Vida y daño',icon:'healing'},{id:'combat',label:'Combate',icon:'sports_martial_arts'},{id:'mount',label:'Montura',icon:'airline_seat_recline_normal'},{id:'loot',label:'Botín',icon:'redeem'},{id:'food',label:'Comidas',icon:'restaurant'}], behaviorProfiles:BEHAVIOR_PROFILES,
+                lootSearch:'',lootEditingIndex:-1,lootChances:LOOT_CHANCES,lootModes:[{id:'original',label:'Original',icon:'auto_awesome'},{id:'none',label:'Nada',icon:'block'},{id:'custom',label:'Mis objetos',icon:'redeem'}],movementChoices:PIG_MOVEMENT,attackStyles:PIG_ATTACK_STYLES,projectileChoices:PIG_PROJECTILES,projectileOrigins:PIG_PROJECTILE_ORIGINS, mobChoices:PIG_TARGETS, mobSearch:'', behaviorItems:BEHAVIOR_ITEMS, pigFoodItems:PIG_FOOD_ITEMS, damageSourceChoices:PIG_DAMAGE_SOURCES, damageSourceGroups:[{id:'combat',label:'Golpes y proyectiles'},{id:'fire',label:'Fuego y explosiones'},{id:'environment',label:'Peligros del entorno'},{id:'magic',label:'Daño mágico'}], behaviorSpeeds:BEHAVIOR_SPEEDS, behaviorCanUndo:false, behaviorCanRedo:false,
+                bones: [], partsOpen: current()?.partsOpen ?? true, soloBoneId: '', selectedPixelCount: 0, paintTool: 'brush_tool', brushSize: 1,
+                paintOpacity: 100, paintBlend: 'default', cameraControlsOpen: false, cameraIsOrtho: false,
+                mountJumpPreview: null,
                 teacherViewAvailable: allowsTeacherView(), driveAvailable: !!window.BlockbenchEduDrive, driveClass: !!window.BlockbenchEduDrive?.classCode,
                 cameraRotate: Keybinds.extra.preview_rotate.keybind.toString(), cameraPan: Keybinds.extra.preview_drag.keybind.toString(), cameraZoom: Keybinds.extra.preview_scroll_zoom.keybind.toString(),
                 labels: ['Ancho', 'Alto', 'Profundidad'], color: ColorPanel.get(), colors: ['#ffffff','#20252d','#e85b61','#f7b45c','#f9e778','#60d98b','#63bee8','#8479df','#ed90c4','#986a48']},
@@ -1713,7 +2201,7 @@
                 this.cameraFooterObserver.observe(this.$el.querySelector('footer'));
             },
             beforeDestroy() {
-                document.body.classList.remove('edu-seat-view');clearTimeout(this.noticeTimer);if(this.seatPreview) {scene.remove(this.seatPreview);this.seatPreview.traverse(o=>{o.geometry?.dispose();o.material?.dispose();});}
+                clearTimeout(this.noticeTimer);if(this.seatPreview) {scene.remove(this.seatPreview);this.seatPreview.traverse(o=>{o.geometry?.dispose();o.material?.dispose();});}
                 window.removeEventListener('keydown',this.behaviorUndoKey,true);document.removeEventListener('dblclick',this.behaviorDoubleClick,true);
                 this.partsToggleButton?.remove();
                 window.removeEventListener('edu-drive-class-changed', this.driveClassChanged);
@@ -1722,6 +2210,11 @@
                 document.body.classList.remove('edu-sidebar-dragging');
             },
             computed: {hiddenBoneCount() { return this.bones.filter(bone => bone.hidden).length; },
+                mountJumpSettings() {
+                    return {...MOUNT_JUMP_STRENGTH,value:this.mountJumpPreview??this.behavior.pig?.mount?.jumpStrength??MOUNT_JUMP_STRENGTH.defaultValue};
+                },
+                canBlendPaint() { return ['brush_tool','fill_tool'].includes(this.paintTool); },
+                canAdjustPaintOpacity() { return this.canBlendPaint || this.paintTool === 'eraser'; },
                 behaviorDetail() { return this.behaviorProfiles.find(p=>p.id===this.behavior.profile)?.detail || ''; },
                 behaviorTamed() { return ['companion','guardian'].includes(this.behavior.profile); },
                 behaviorFighter() { return ['enemy','guardian'].includes(this.behavior.profile); },
@@ -1751,7 +2244,9 @@
                     if(p.follow) lines.push(`Te sigue desde ${p.followStart} bloques y se detiene a ${p.followStop}.`);
                     else if(p.tame) lines.push('No sigue a su dueño.');
                     if(p.defend) lines.push('Defiende a su dueño.');
-                    if(p.defend||p.targets.attack.length||['enemy','retaliate'].includes(p.reaction)) lines.push(`Daño por golpe: ${b.damage}.`);
+                    const fights=p.defend||p.targets.attack.length||['enemy','retaliate'].includes(p.reaction);
+                    if(fights&&p.ranged.mode!=='ranged') lines.push(`Daño por golpe: ${b.damage}.`);
+                    if(fights&&p.ranged.mode!=='melee') lines.push(`Dispara: ${this.projectileChoices.find(i=>i.id===p.ranged.projectile).label}, a ${this.shotHeightLabel()} del suelo.`);
                     if(['enemy','flee'].includes(p.reaction)) lines.push(`Detección: ${b.range} bloques.`);
                     if(b.tempt&&!['enemy','flee'].includes(p.reaction)) lines.push(`Atracción: ${p.food.attract.map(id=>this.pigFoodItems.find(i=>i.id===id).label).join(', ')}, hasta ${p.temptRange} bloques.`);
                     if(p.heal) lines.push(...p.food.heal.map(i=>`Curación: ${this.pigFoodItems.find(x=>x.id===i.item).label}, ${i.amount} puntos.`));
@@ -1788,13 +2283,18 @@
             }},
             methods: {
                 showBehaviorNotice(message) { clearTimeout(this.noticeTimer);this.behaviorNotice=message;if(message)this.noticeTimer=setTimeout(()=>this.behaviorNotice='',5500); },
-                categoryHelp() { return {loot:'Elige qué suelta al morir, cuánto y con qué posibilidad.',base:'Cambiar de base reinicia los ajustes y sustituye las habilidades originales.',movement:'Elige cómo se desplaza y a qué velocidad.',reaction:'Elige qué hace cuando se acerca un jugador.',friendship:'Elige cómo domesticarla y qué comida la atrae.',health:'Ajusta su vida, sus daños y cómo se cura.',combat:'Elige qué criaturas ataca o evita.',mount:'Coloca al pasajero y elige cómo conducir; arrastra la vista para girarla.'}[this.behaviorPage] || ''; },
+                categoryHelp() { return {loot:'Elige qué suelta al morir, cuánto y con qué posibilidad.',base:'Cambiar de base reinicia los ajustes y sustituye las habilidades originales.',movement:'Elige cómo se desplaza y a qué velocidad.',reaction:'Elige qué hace cuando se acerca un jugador.',friendship:'Elige cómo domesticarla y qué comida la atrae.',health:'Ajusta su vida, sus daños y cómo se cura.',combat:'Elige qué criaturas ataca o evita y si lanza proyectiles.',mount:'Coloca al pasajero y elige cómo conducir; arrastra la vista para girarla.'}[this.behaviorPage] || ''; },
                 categoryWarnings() {
                     const p=this.behavior.pig;if(!p)return [];
                     const w=(before,option,after,page,target)=>({before,option,after,page,target});
                     if(this.behaviorPage==='mount')return p.locomotion.mode!=='walk'?[w('Para montar, elige','Camina','en Movimiento.','movement','walk')]:!p.mount.enabled?[w('Activa','Se puede montar','para colocar el asiento.','mount','mount')]:[];
                     if(this.behaviorPage==='friendship')return p.reaction!=='neutral'?[w('Para hacer amistad, elige','No ataca','en Reacción al jugador.','reaction','neutral')]:!p.tame?[w('Para que te siga, activa','Se puede domesticar','.','friendship','tame')]:[];
-                    if(this.behaviorPage==='combat'&&!p.tame)return [w('Para defender a su dueño, activa','Se puede domesticar','en Amistad.','friendship','tame')];
+                    if(this.behaviorPage==='combat') {
+                        const warnings=[];
+                        if(p.ranged.mode!=='melee'&&!p.defend&&!p.targets.attack.length&&!['enemy','retaliate'].includes(p.reaction))warnings.push(w('Para que dispare necesita a quién atacar: elige','Enemigo','en Reacción al jugador o marca criaturas para atacar.','reaction','enemy'));
+                        if(!p.tame)warnings.push(w('Para defender a su dueño, activa','Se puede domesticar','en Amistad.','friendship','tame'));
+                        return warnings;
+                    }
                     if(this.behaviorPage==='reaction'&&this.behaviorBlockReason('panic')) {
                         const warnings=[];
                         if(['enemy','retaliate'].includes(p.reaction))warnings.push(w('Para huir al recibir daño, elige','No ataca','.','reaction','neutral'));
@@ -1840,18 +2340,42 @@
                 },
                 selectLootItem(index,item) {const entries=clone(this.behavior.pig.loot.entries);entries[index].item=item;this.changePig('loot.entries',entries);this.lootEditingIndex=-1;this.$nextTick(()=>this.$el.querySelector('[data-loot-row="'+index+'"] button')?.focus());},
                 moveSeat(key,step) { const limits={height:[0,4],offset:[-2,2],lateral:[-2,2]},v=this.behavior.pig.mount[key]||0;this.changePig('mount.'+key,Math.max(limits[key][0],Math.min(limits[key][1],Math.round((v+step)*100)/100))); },
-                resetSeat() { this.changePig('mount.height',0.63);this.changePig('mount.offset',0);this.changePig('mount.lateral',0); },
+                shotBox() { return entityComponent(current()?.reference.behavior?.json,'collision_box')||{width:0.6,height:1.8}; },
+                shotBase(origin) { const size=this.shotBox(); return {feet:0,body:size.height/2,eyes:size.height*0.85}[origin]; },
+                shotHeightLabel() { const r=this.behavior.pig.ranged,v=Math.max(0,this.shotBase(r.origin)+r.height); return v.toLocaleString('es',{maximumFractionDigits:1})+(Math.round(v*10)===10?' bloque':' bloques'); },
+                placeShot(origin) { this.changePig('ranged',{...this.behavior.pig.ranged,origin,height:0}); },
+                moveShot(step) {
+                    const r=this.behavior.pig.ranged,base=this.shotBase(r.origin);
+                    const next=Math.max(-2,-base,Math.min(4,Math.round((r.height+step)*100)/100));
+                    if(next!==r.height) this.changePig('ranged.height',next);
+                },
+                resetSeat() {
+                    const seat=ravagerSeat(current()?.reference.behavior?.json)??{height:0.63,offset:0,lateral:0};
+                    this.changePig('mount',{...this.behavior.pig.mount,...seat});
+                },
                 updateSeatPreview() {
-                    document.body.classList.toggle('edu-seat-view',this.mode==='behavior'&&this.behaviorPage==='mount');
+                    const shot=this.mode==='behavior'&&this.behaviorPage==='combat'&&!!this.behavior.pig?.ranged&&this.behavior.pig.ranged.mode!=='melee';
                     const wasVisible=!!this.seatPreview;
                     if(this.seatPreview) {scene.remove(this.seatPreview);this.seatPreview.traverse(o=>{o.geometry?.dispose();o.material?.dispose();});this.seatPreview=null;}
-                    if(this.mode!=='behavior'||this.behaviorPage!=='mount'||!this.behavior.pig?.mount.enabled) return;
-                    const m=this.behavior.pig.mount,g=new THREE.Group();
-                    const box=(w,h,d,x,y,z,color)=>{const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),new THREE.MeshBasicMaterial({color,transparent:true,opacity:0.8}));mesh.position.set(x,y,z);g.add(mesh);};
-                    box(8,8,8,0,19,0,0xffd18a);box(8,12,4,0,9,0,0x52c9e6);
-                    box(4,4,12,-2,1,-4,0x477ac7);box(4,4,12,2,1,-4,0x477ac7);
-                    box(3,10,3,-6,9,-3,0xffd18a);box(3,10,3,6,9,-3,0xffd18a);
-                    g.position.set(-16*(m.lateral||0),16*m.height+2.2,-16*m.offset);scene.add(g);this.seatPreview=g;
+                    if(!shot&&(this.mode!=='behavior'||this.behaviorPage!=='mount'||!this.behavior.pig?.mount.enabled)) return;
+                    const g=new THREE.Group();
+                    const box=(w,h,d,x,y,z,color,opacity=0.8,front=false)=>{const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),new THREE.MeshBasicMaterial({color,transparent:true,opacity,depthTest:!front}));mesh.position.set(x,y,z);if(front)mesh.renderOrder=10;g.add(mesh);};
+                    if(shot) {
+                        // Same anchors the exported fire_at_target uses, measured on the template's collision box.
+                        // Eye height is approximate: Minecraft places most mob eyes near 85% of their height.
+                        const r=this.behavior.pig.ranged,size=this.shotBox();
+                        const y=16*Math.max(0,this.shotBase(r.origin)+r.height),w=16*size.width+12;
+                        box(w,0.2,w,0,y,0,0xff8a3d,0.25);
+                        box(3,3,3,0,y,0,0xff5a1f,1,true);
+                        box(1,1,12,0,y,-8,0xff5a1f,1,true);box(4,1,1,0,y,-13,0xff5a1f,1,true);box(2,1,1,0,y,-14.5,0xff5a1f,1,true);
+                        scene.add(g);this.seatPreview=g;
+                    } else {
+                        const m=this.behavior.pig.mount;
+                        box(8,8,8,0,19,0,0xffd18a);box(8,12,4,0,9,0,0x52c9e6);
+                        box(4,4,12,-2,1,-4,0x477ac7);box(4,4,12,2,1,-4,0x477ac7);
+                        box(3,10,3,-6,9,-3,0xffd18a);box(3,10,3,6,9,-3,0xffd18a);
+                        g.position.set(-16*(m.lateral||0),16*m.height+2.2,-16*m.offset);scene.add(g);this.seatPreview=g;
+                    }
                     if(!wasVisible&&Preview.selected?.controls) {
                         const preview=Preview.selected,{camera,controls}=preview;
                         const bounds=new THREE.Box3().setFromObject(g);
@@ -1881,7 +2405,7 @@
                     this.fitPartsPanel();
                 },
                 fitPartsPanel() {
-                    const width = Math.max(172, Math.min(224, window.innerWidth - this.sidebarWidth - 300));
+                    const width = Math.max(172, Math.min(248, window.innerWidth - this.sidebarWidth - 300));
                     document.body.style.setProperty('--edu-parts-panel-width', width + 'px');
                     document.body.style.setProperty('--edu-parts-inset', (this.mode==='behavior' || this.partsOpen ? width + 12 : 0) + 'px');
                 },
@@ -1919,12 +2443,12 @@
                 },
                 cameraArrow(direction) { return {left:'arrow_back',right:'arrow_forward',up:'arrow_upward',down:'arrow_downward'}[direction]; },
                 selectPiece, camera, cameraControl, exit() { if (!allowsTeacherView()) return; leaveClassroom(); panel.selectTab(); refresh(); },
-                resize: (axis, step) => attempt(() => resize(axis, step)),
-                transform: (kind, axis, step) => attempt(() => transformPiece(kind, axis, step)),
-                move: (axis, step) => attempt(() => transformPiece('move', axis, axis === 0 ? -step : step)),
+                resize: (axis, step) => attempt(() => classroom.wholeModel ? transformWholeModel('size', axis, step) : resize(axis, step)),
+                transform: (kind, axis, step) => attempt(() => classroom.wholeModel ? transformWholeModel(kind, axis, step) : transformPiece(kind, axis, step)),
+                move: (axis, step) => attempt(() => classroom.wholeModel ? transformWholeModel('move', axis, axis === 0 ? -step : step) : transformPiece('move', axis, axis === 0 ? -step : step)),
                 undo() { if(this.mode==='behavior') this.behaviorHistory(false); else Undo.undo(); },
                 redo() { if(this.mode==='behavior') this.behaviorHistory(true); else Undo.redo(); }, download: () => attempt(exportAddon),
-                deliver: () => attempt(deliverAddon), saveCreature: () => attempt(saveCreature), openCreature: importCreature,
+                deliver: () => attempt(deliverAddon), saveCreature: () => attempt(() => showSaveOptions(saveCreature)), openCreature: importCreature,
                 saveOptions: () => attempt(showSaveOptions),
                 foodItemReason(kind,id) {
                     if(this.busy) return 'Espera a que termine el guardado.';
@@ -1955,6 +2479,7 @@
                     if(key==='reserve'&&(p.respiration.medium==='both'||!p.damageSources.drowning)) return 'No se puede elegir porque respira en ambos medios o está protegido del daño por falta de aire.';
                     if(key==='panic'&&p.targets.attack.length) return 'No se puede elegir porque ataca criaturas. Quita esas criaturas en Combate para que pueda huir al recibir daño.';
                     if(key==='mountOptions'&&!p.mount.enabled) return 'No se puede elegir porque primero hay que activar Se puede montar.';
+                    if(key==='mountJump'&&p.mount.control!=='direct') return 'El salto requiere el control con WASD y ratón.';
                     if(key==='breeding'&&(p.reaction!=='neutral'||p.defend||p.targets.attack.length)) return 'No se puede elegir porque la reproducción requiere No ataca, desactivar la defensa del dueño y quitar las criaturas para atacar.';
                     if((key==='breeding'&&p.heal || key==='heal'&&p.breeding.enabled)&&p.food.heal.some(i=>p.breeding.items.includes(i.item))) return 'No se puede elegir porque un alimento está asignado a curar y a reproducirse. Separa los alimentos en Comida y cuidados o Crías.';
                     if(key==='tame'&&p.reaction!=='neutral') return 'No se puede elegir porque la domesticación requiere No ataca en Reacción al jugador.';
@@ -1975,7 +2500,7 @@
                     return {mount:p.mount.enabled?(p.mount.saddle?'Con silla':'Sin silla'):'No se puede montar',food:'Alimentos separados',breeding:p.breeding.enabled?'Reproducción activada':'Sin reproducción',base:'Personalizada',movement:this.movementChoices.find(m=>m.id===p.locomotion.mode).label+' · '+this.behaviorSpeeds.find(s=>s.value===b.speed).label,
                         reaction:{neutral:'No ataca',flee:'Huye',enemy:'Enemigo',retaliate:'Se defiende'}[p.reaction],
                         friendship:p.tame?(p.follow?'Domesticable · Te sigue':'Domesticable'):'Sin domesticar',
-                        health:b.health+' puntos'+(p.heal?' · Se cura':''),combat:p.targets.attack.length||p.targets.avoid.length?p.targets.attack.length+' para atacar · '+p.targets.avoid.length+' para evitar':p.defend?'Defiende a su dueño':(['enemy','retaliate'].includes(p.reaction)?b.damage+' de daño':'Sin ataques')}[id];
+                        health:b.health+' puntos'+(p.heal?' · Se cura':''),combat:p.targets.attack.length||p.targets.avoid.length?p.targets.attack.length+' para atacar · '+p.targets.avoid.length+' para evitar':p.defend?'Defiende a su dueño':(['enemy','retaliate'].includes(p.reaction)?(p.ranged.mode==='ranged'?'Dispara '+this.projectileChoices.find(i=>i.id===p.ranged.projectile).label.toLowerCase():b.damage+' de daño'+(p.ranged.mode==='both'?' · Dispara':'')):'Sin ataques')}[id];
                 },
                 choosePigBase(profile) {
                     const session=current(), before=clone(session.behavior || defaultBehavior());
@@ -2031,21 +2556,43 @@
                 },
                 setMode(mode) { this.mode = mode; this.fitPartsPanel(); this.refreshPartsToggle(); document.body.classList.toggle('edu-behavior',mode==='behavior'); Modes.options[mode === 'paint' ? 'paint' : 'edit'].select(); if (mode === 'paint') { this.tool(this.paintTool); ColorPanel.set(this.color); } else if(mode==='behavior') {cameraViewTool ||= new Tool('edu_camera_view',{name:'Vista de la criatura',icon:'3d_rotation',modes:['edit'],selectElements:false,selectFace:false,transformerMode:'hidden'});cameraViewTool.select();} else { selectClassroomTool(); } applyPaintVisibility(); updateColorSelectionPreview(); window.dispatchEvent(new Event('resize')); },
                 paintColor(color) { this.color = color; ColorPanel.set(color); },
-                tool(id) { this.paintTool = id; BarItems[id==='fill_tool' && this.selectedPixelCount ? 'blockbench_edu_fill_selection' : id].select(); if (['brush_tool','eraser','blockbench_edu_smooth'].includes(id)) BarItems.slider_brush_size.setValue(this.brushSize); },
+                tool(id) {
+                    this.paintTool = id;
+                    BarItems[id==='fill_tool' && this.selectedPixelCount ? 'blockbench_edu_fill_selection' : id].select();
+                    if (['brush_tool','eraser','blockbench_edu_smooth'].includes(id)) BarItems.slider_brush_size.setValue(this.brushSize);
+                    this.applyPaintOpacity(this.paintOpacity);
+                    this.applyPaintBlend(this.paintBlend);
+                },
+                applyPaintOpacity(opacity) {
+                    this.paintOpacity = opacity;
+                    if (!this.canAdjustPaintOpacity || Toolbox.selected === selectionFillTool) return;
+                    const max = settings.opacity_range.value === '255' ? 255 : 100;
+                    BarItems.slider_brush_opacity.setValue(Math.round(opacity * max / 100));
+                },
+                applyPaintBlend(blend) {
+                    this.paintBlend = blend;
+                    if (this.canBlendPaint) BarItems.blend_mode.set(blend);
+                },
                 changeBrushSize(step) { this.brushSize = Math.max(1,Math.min(64,this.brushSize+step)); if (['brush_tool','eraser','blockbench_edu_smooth'].includes(this.paintTool)) BarItems.slider_brush_size.setValue(this.brushSize); },
-                clearColorSelection: clearPaintColorSelection,
-                toggleBone: togglePaintBone, showOnlyBone: showOnlyPaintBone, showAllBones: showPaintBones, duplicateBone: id => attempt(()=>duplicatePaintBone(id))
+                clearColorSelection: clearPaintColorSelection, restartCreature,
+                toggleBone: togglePaintBone, showOnlyBone: showOnlyPaintBone, showAllBones: showPaintBones,
+                duplicateBone: id => attempt(()=>duplicatePaintBone(id)), removeBone: id => attempt(()=>removePaintBone(id))
             },
-            template: `<div id="edu-classroom"><div v-if="behaviorNotice" class="edu-center-notice" role="status">{{behaviorNotice}}</div><header><strong>Blockbench Edu</strong><nav aria-label="Crear tu criatura"><button @click="setMode('shape')" :class="{active:mode==='shape'}">1 · Dale forma</button><button @click="setMode('paint')" :class="{active:mode==='paint'}">2 · Dale color</button><button @click="setMode('behavior')" :class="{active:mode==='behavior'}">3 · Dale vida</button><button @click="saveOptions" :disabled="busy">4 · Guardar y exportar</button></nav><button v-if="teacherViewAvailable" @click="exit" class="edu-teacher">Para el docente</button></header>
-                <aside><div class="edu-sidebar-scroll"><template v-if="mode==='shape'"><h2>Dale forma</h2><label>¿Qué parte quieres cambiar?<select :value="selectedId" @change="selectPiece($event.target.value)"><option v-for="piece in pieces" :key="piece.id" :value="piece.id">{{piece.label}}</option></select></label><div class="edu-paint-tools edu-shape-tools" role="group" aria-label="¿Qué quieres hacer?"><button @click="operation='size'" :class="{active:operation==='size'}" :aria-pressed="operation==='size'"><i class="material-icons" aria-hidden="true">open_in_full</i>Tamaño</button><button @click="operation='move'" :class="{active:operation==='move'}" :aria-pressed="operation==='move'"><i class="material-icons" aria-hidden="true">open_with</i>Mover</button><button @click="operation='rotate'" :class="{active:operation==='rotate'}" :aria-pressed="operation==='rotate'"><i class="material-icons" aria-hidden="true">rotate_right</i>Girar</button></div><template v-if="operation==='size'"><div class="edu-size"><span>Tamaño general</span><button @click="resize('all',-1)" :disabled="busy || dimensions.some((value,axis) => value-1 &lt; minimum[axis])" aria-label="Reducir tamaño general">−</button><b></b><button @click="resize('all',1)" :disabled="busy || dimensions.some((value,axis) => value+1 &gt; maximum[axis])" aria-label="Aumentar tamaño general">+</button></div><p>Cambia el ancho, el alto y la profundidad a la vez.</p><div class="edu-size" v-for="(label,axis) in labels" :key="label"><span>{{label}}</span><button @click="resize(axis,-1)" :disabled="busy || dimensions[axis]&lt;=minimum[axis]" :aria-label="'Reducir '+label">−</button><b>{{dimensions[axis]}}</b><button @click="resize(axis,1)" :disabled="busy || dimensions[axis]&gt;=maximum[axis]" :aria-label="'Aumentar '+label">+</button></div><p>Usa − para reducir y + para aumentar.<br>Puedes deshacer si no te gusta.</p></template><template v-else-if="operation==='move'"><div class="edu-move-arrows"><strong>Mover</strong><div class="edu-size" v-for="(label,axis) in axes" :key="'move-'+axis"><span>{{label}}</span><button @click="move(axis,-1)" :disabled="busy" :aria-label="'Mover '+label+' menos'">{{axis===1?'↓':axis===2?'↙':'←'}}</button><b></b><button @click="move(axis,1)" :disabled="busy" :aria-label="'Mover '+label+' más'">{{axis===1?'↑':axis===2?'↗':'→'}}</button></div><p>Las capas de esta parte se mueven y cambian de tamaño juntas.</p></div></template><template v-else><div class="edu-size" v-for="(label,index) in turns" :key="label"><span>{{label}}</span><button :aria-label="'Girar menos: '+label" @click="transform('rotate',index,-15)" :disabled="busy">−</button><b>{{rotation[index]}}</b><button :aria-label="'Girar más: '+label" @click="transform('rotate',index,15)" :disabled="busy">+</button></div><p>Usa − y + para girar esta parte poco a poco.</p></template></template>
-                <template v-else-if="mode==='paint'"><h2>Dale color</h2><p>Elige un color y pinta sobre tu criatura.</p><div class="edu-palette"><button v-for="swatch in colors" :key="swatch" :style="{background:swatch}" :aria-label="'Color '+swatch" @click="paintColor(swatch)"></button></div><label>Otro color<input type="color" :value="color" @input="paintColor($event.target.value)"/></label><div class="edu-paint-tools">
+            template: `<div id="edu-classroom"><div v-if="behaviorNotice" class="edu-center-notice" role="status">{{behaviorNotice}}</div><header><strong>Blockbench Edu</strong><nav aria-label="Crear tu criatura"><button @click="setMode('shape')" :class="{active:mode==='shape'}">1 · Dale forma</button><button @click="setMode('paint')" :class="{active:mode==='paint'}">2 · Dale color</button><button @click="setMode('behavior')" :class="{active:mode==='behavior'}">3 · Dale vida</button><button @click="saveOptions" :disabled="busy">4 · Guardar y exportar</button><button class="edu-restart" @click="restartCreature" :disabled="busy">Empezar de nuevo</button></nav><button v-if="teacherViewAvailable" @click="exit" class="edu-teacher">Para el docente</button></header>
+                <aside><div class="edu-sidebar-scroll"><template v-if="mode==='shape'"><h2>Dale forma</h2><label>¿Qué quieres cambiar?<select :value="selectedId" @change="selectPiece($event.target.value)"><option value="__model__">Todo el modelo</option><option v-for="piece in pieces" :key="piece.id" :value="piece.id">{{piece.label}}</option></select></label><div v-if="wholeModel" class="edu-whole-model-notice" role="status"><i class="material-icons" aria-hidden="true">select_all</i><strong>Estás cambiando<br>TODO EL MODELO</strong><span>Incluye todas las partes, también las ocultas.</span></div><div class="edu-paint-tools edu-shape-tools" role="group" aria-label="¿Qué quieres hacer?"><button @click="operation='size'" :class="{active:operation==='size'}" :aria-pressed="operation==='size'"><i class="material-icons" aria-hidden="true">open_in_full</i>Tamaño</button><button @click="operation='move'" :class="{active:operation==='move'}" :aria-pressed="operation==='move'"><i class="material-icons" aria-hidden="true">open_with</i>Mover</button><button @click="operation='rotate'" :class="{active:operation==='rotate'}" :aria-pressed="operation==='rotate'"><i class="material-icons" aria-hidden="true">rotate_right</i>Girar</button></div><template v-if="operation==='size' &amp;&amp; wholeModel"><div class="edu-size"><span>Tamaño de todo</span><button @click="resize('all',-1)" :disabled="busy" aria-label="Reducir todo el modelo">−</button><b></b><button @click="resize('all',1)" :disabled="busy" aria-label="Aumentar todo el modelo">+</button></div><p>Agranda o achica toda la criatura en proporción, sin separar las partes. Cada + aumenta un 10 %; − revierte ese aumento.</p></template><template v-else-if="operation==='size'"><div class="edu-size"><span>Tamaño general</span><button @click="resize('all',-1)" :disabled="busy || dimensions.some((value,axis) => value-1 &lt; minimum[axis])" aria-label="Reducir tamaño general">−</button><b></b><button @click="resize('all',1)" :disabled="busy || dimensions.some((value,axis) => value+1 &gt; maximum[axis])" aria-label="Aumentar tamaño general">+</button></div><p>Cambia el ancho, el alto y la profundidad a la vez.</p><div class="edu-size" v-for="(label,axis) in labels" :key="label"><span>{{label}}</span><button @click="resize(axis,-1)" :disabled="busy || dimensions[axis]&lt;=minimum[axis]" :aria-label="'Reducir '+label">−</button><b>{{dimensions[axis]}}</b><button @click="resize(axis,1)" :disabled="busy || dimensions[axis]&gt;=maximum[axis]" :aria-label="'Aumentar '+label">+</button></div><p>Usa − para reducir y + para aumentar.<br>Puedes deshacer si no te gusta.</p></template><template v-else-if="operation==='move'"><div class="edu-move-arrows"><strong>Mover</strong><div class="edu-size" v-for="(label,axis) in axes" :key="'move-'+axis"><span>{{label}}</span><button @click="move(axis,-1)" :disabled="busy" :aria-label="'Mover '+label+' menos'">{{axis===1?'↓':axis===2?'↙':'←'}}</button><b></b><button @click="move(axis,1)" :disabled="busy" :aria-label="'Mover '+label+' más'">{{axis===1?'↑':axis===2?'↗':'→'}}</button></div><p>{{wholeModel ? 'Mueve toda la criatura sin separar sus partes.' : 'Las capas de esta parte se mueven y cambian de tamaño juntas.'}}</p></div></template><template v-else><div class="edu-size" v-for="(label,index) in turns" :key="label"><span>{{label}}</span><button :aria-label="'Girar menos: '+label" @click="transform('rotate',index,-15)" :disabled="busy">−</button><b>{{wholeModel ? '' : rotation[index]}}</b><button :aria-label="'Girar más: '+label" @click="transform('rotate',index,15)" :disabled="busy">+</button></div><p>{{wholeModel ? 'Gira toda la criatura en pasos de 15°, alrededor del origen del modelo.' : 'Usa − y + para girar esta parte poco a poco.'}}</p></template></template>
+                <template v-else-if="mode==='paint'"><h2>Dale color</h2><p>Elige un color y pinta sobre tu criatura.</p><div class="edu-palette"><button v-for="swatch in colors" :key="swatch" :style="{background:swatch}" :aria-label="'Color '+swatch" @click="paintColor(swatch)"></button></div>
+                    <div class="edu-paint-settings">
+                        <label>Otro color<input type="color" :value="color" @input="paintColor($event.target.value)"/></label>
+                        <label class="edu-paint-opacity"><span>Opacidad <b aria-hidden="true">{{paintOpacity}} %</b></span><input type="range" min="0" max="100" :value="paintOpacity" :aria-valuetext="paintOpacity + ' %'" :disabled="!canAdjustPaintOpacity" @input="applyPaintOpacity($event.target.valueAsNumber)"/></label>
+                        <label class="edu-paint-blend">Modo de pintura<select :value="paintBlend" :disabled="!canBlendPaint" @change="applyPaintBlend($event.target.value)"><option value="default">Pintar</option><option value="color">Teñir</option><option value="multiply">Sombrear</option></select></label>
+                    </div>
+                    <div class="edu-paint-tools">
                     <button @click="tool('brush_tool')" :class="{active:paintTool==='brush_tool'}"><i class="material-icons" aria-hidden="true">brush</i>Pincel</button>
                     <button @click="tool('eraser')" :class="{active:paintTool==='eraser'}"><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14 14 4a2 2 0 0 1 3 0l4 4a2 2 0 0 1 0 3L11 21H7l-3-3a3 3 0 0 1 0-4Z M9 9l8 8 M11 21h10" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>Borrador</button>
                     <button @click="tool('blockbench_edu_smooth')" :class="{active:paintTool==='blockbench_edu_smooth'}"><i class="material-icons" aria-hidden="true">blur_on</i>Suavizar</button>
                     <button @click="tool('fill_tool')" :class="{active:paintTool==='fill_tool'}"><i class="material-icons" aria-hidden="true">format_color_fill</i>Rellenar</button>
                     <button @click="tool('color_picker')" :class="{active:paintTool==='color_picker'}"><i class="material-icons" aria-hidden="true">colorize</i>Copiar color</button>
                     <button @click="tool('blockbench_edu_select_color')" :disabled="busy" :class="{active:paintTool==='blockbench_edu_select_color'}"><i class="material-icons" aria-hidden="true">select_all</i>Seleccionar color</button></div>
-                    <p v-if="paintTool==='blockbench_edu_select_color'">Haz clic en un color de la criatura para seleccionar todos sus píxeles iguales.</p>
                     <div v-if="selectedPixelCount" class="edu-color-selection" role="group" aria-label="Selección de color"><p role="status" aria-live="polite">{{selectedPixelCount}} píxeles seleccionados.<br>Incluye las partes ocultas.</p><p>Usa el pincel, el bote, el borrador o Suavizar sobre la selección. El bote pinta toda la selección.</p><button @click="clearColorSelection" :disabled="busy"><i class="material-icons" aria-hidden="true">deselect</i>Quitar selección</button></div>
                     <div v-if="paintTool==='brush_tool' || paintTool==='eraser' || paintTool==='blockbench_edu_smooth'" class="edu-size"><span>Tamaño</span><button @click="changeBrushSize(-1)" :disabled="brushSize===1" aria-label="Reducir pincel un píxel">−</button><b>{{brushSize}}</b><button @click="changeBrushSize(1)" :disabled="brushSize===64" aria-label="Aumentar pincel un píxel">+</button></div>
                     <p v-if="paintTool==='brush_tool' || paintTool==='eraser' || paintTool==='blockbench_edu_smooth'">Tamaño en píxeles.</p><p v-if="paintTool==='blockbench_edu_smooth'">Mezcla los colores cercanos.</p>
@@ -2054,7 +2601,7 @@
                         <h2 ref="behaviorTitle" tabindex="-1">Dale vida</h2><p v-if="!categoryEditor">Elige cómo se comportará tu criatura en Minecraft.</p>
                         <template v-if="categoryEditor">
                             <template v-if="!behaviorPage">
-                                <div class="edu-behavior-categories"><button v-for="category in behaviorCategories" :key="category.id" @click="openBehaviorPage(category.id)" :disabled="busy"><i class="material-icons edu-category-icon" aria-hidden="true">{{category.icon}}</i><span><strong>{{category.label}}</strong><small>{{categorySummary(category.id)}}</small></span></button></div>
+                                <div class="edu-behavior-categories"><button v-for="category in behaviorCategories" :key="category.id" :class="{'edu-category-wide':category.id==='food'}" @click="openBehaviorPage(category.id)" :disabled="busy"><i class="material-icons edu-category-icon" aria-hidden="true">{{category.icon}}</i><span><strong>{{category.label}}</strong><small v-if="category.id!=='food'">{{categorySummary(category.id)}}</small></span></button></div>
                             </template>
                             <template v-else>
                                 <button class="edu-behavior-back" @click="openBehaviorPage('')"><i class="material-icons" aria-hidden="true">arrow_back</i>Volver</button>
@@ -2081,18 +2628,40 @@
 
                                     <label class="edu-mount-field" :class="{'is-disabled':!!behaviorBlockReason('mountOptions')}" :title="behaviorBlockReason('mountOptions')">¿Quién dirige?<select v-model="behavior.pig.mount.control" @change="changePig('mount.control',$event.target.value)" :disabled="!!behaviorBlockReason('mountOptions')"><option value="direct">El jugador, con WASD y ratón</option><option value="player">El jugador, con zanahoria en un palo</option><option value="pig">La criatura decide</option></select></label>
 
-                                    <section v-if="behavior.pig.mount.enabled" class="edu-setting"><h4>Posición del pasajero</h4><div class="edu-seat-buttons"><button @click="moveSeat('height',0.1)">↑ Subir</button><button @click="moveSeat('height',-0.1)">↓ Bajar</button><button @click="moveSeat('offset',0.1)">Adelante</button><button @click="moveSeat('offset',-0.1)">Atrás</button><button @click="moveSeat('lateral',0.1)">Izquierda</button><button @click="moveSeat('lateral',-0.1)">Derecha</button></div><button @click="resetSeat">Centrar asiento</button></section>
+                                    <template v-if="behavior.pig.mount.enabled">
+                                        <label class="edu-behavior-check" :class="{'is-disabled':!!behaviorBlockReason('mountJump')}" :title="behaviorBlockReason('mountJump')"><input type="checkbox" :checked="behavior.pig.mount.jump && behavior.pig.mount.control==='direct'" @change="changePig('mount.jump',$event.target.checked)" :disabled="!!behaviorBlockReason('mountJump')"/><span>Puede saltar al montarla</span></label>
+                                        <small>{{behaviorBlockReason('mountJump') || 'Sube escalones de un bloque y salta con la tecla de salto.'}}</small>
+                                        <label v-if="behavior.pig.mount.jump && behavior.pig.mount.control==='direct'" class="edu-mount-jump-strength">
+                                            <span>Potencia del salto <b aria-hidden="true">{{mountJumpSettings.value.toLocaleString('es')}}</b></span>
+                                            <input type="range" :min="mountJumpSettings.min" :max="mountJumpSettings.max" :step="mountJumpSettings.step" :value="mountJumpSettings.value" :disabled="busy"
+                                                @keydown.stop @input="mountJumpPreview=$event.target.valueAsNumber"
+                                                @change="mountJumpPreview=null; changePig('mount.jumpStrength',$event.target.valueAsNumber)"
+                                                @pointercancel="mountJumpPreview=null" @blur="mountJumpPreview=null"/>
+                                        </label>
+                                    </template>
+                                    <section v-if="behavior.pig.mount.enabled" class="edu-setting">
+                                        <h4>Posición del pasajero</h4>
+                                        <div class="edu-seat-buttons">
+                                            <button @click="moveSeat('height',0.1)">↑ Subir</button>
+                                            <button @click="moveSeat('height',-0.1)">↓ Bajar</button>
+                                            <button @click="moveSeat('offset',0.1)">↑ Adelante</button>
+                                            <button @click="moveSeat('offset',-0.1)">↓ Atrás</button>
+                                            <button @click="moveSeat('lateral',0.1)">← Izquierda</button>
+                                            <button @click="moveSeat('lateral',-0.1)">→ Derecha</button>
+                                        </div>
+                                        <button @click="resetSeat">Centrar asiento</button>
+                                    </section>
 </template>
                                 <template v-if="behaviorPage==='movement'"><div class="edu-behavior-options"><button :data-setting="choice.id" v-for="choice in movementChoices" :key="choice.id" :aria-pressed="behavior.pig.locomotion.mode===choice.id" :class="{active:behavior.pig.locomotion.mode===choice.id}" @click="changePig('locomotion.mode',choice.id)" :disabled="busy"><i class="material-icons" aria-hidden="true">{{choice.icon}}</i>{{choice.label}}</button></div><label class="edu-behavior-check" :class="{'is-disabled':!!behaviorBlockReason('wander')}" :title="behaviorBlockReason('wander')"><input type="checkbox" :checked="behavior.pig.wander" @change="changePig('wander',$event.target.checked)" :disabled="busy"/><span>Pasea por su cuenta</span></label><label>Velocidad<select v-model.number="behavior.speed" @change="changePig('speed',Number($event.target.value))" :disabled="busy"><option v-for="speed in behaviorSpeeds" :value="speed.value" :key="speed.value">{{speed.label}}</option></select></label></template>
                                 <template v-if="behaviorPage==='reaction'"><div class="edu-behavior-options"><button :data-setting="choice.id" v-for="choice in [{id:'neutral',label:'No ataca'},{id:'flee',label:'Huye'},{id:'retaliate',label:'Se defiende si lo atacan'},{id:'enemy',label:'Enemigo'}]" :key="choice.id" :aria-pressed="behavior.pig.reaction===choice.id" :class="{active:behavior.pig.reaction===choice.id}" @click="changePig('reaction',choice.id)">{{choice.label}}</button></div><label>Distancia para detectar jugadores<input type="number" min="4" max="32" step="1" :value="behavior.range" @input="pigNumber('range',$event.target.value)" @blur="$event.target.value=behavior.range" :disabled="busy"/></label><small>De 4 a 32.</small><label class="edu-behavior-check" :class="{'is-disabled':!!behaviorBlockReason('panic')}" :title="behaviorBlockReason('panic')"><input type="checkbox" :checked="behavior.pig.panic" @change="changePig('panic',$event.target.checked)" :disabled="!!behaviorBlockReason('panic')"/><span>Huye si recibe daño</span></label></template>
-                                <template v-if="behaviorPage==='friendship'">
-<section class="edu-setting"><label class="edu-behavior-check" :class="{'is-disabled':!!behaviorBlockReason('tame')}" :title="behaviorBlockReason('tame')"><input type="checkbox" data-setting="tame" :checked="behavior.pig.tame" @change="changePig('tame',$event.target.checked)" :disabled="!!behaviorBlockReason('tame')"/><span>Se puede domesticar</span></label><label v-if="behavior.pig.tame">Alimento para domesticar<select :value="behavior.pig.food.tame[0]" @change="changePig('food.tame',[$event.target.value])"><option v-for="item in pigFoodItems" :value="item.id">{{item.label}}</option></select></label><label class="edu-behavior-check" :class="{'is-disabled':!!behaviorBlockReason('follow')}" :title="behaviorBlockReason('follow')"><input type="checkbox" :checked="behavior.pig.follow" @change="changePig('follow',$event.target.checked)" :disabled="!!behaviorBlockReason('follow')"/><span>Sigue a su dueño</span></label></section>
+                                <template v-if="behaviorPage==='friendship' || behaviorPage==='food'">
+<section class="edu-setting"><label class="edu-behavior-check" :class="{'is-disabled':!!behaviorBlockReason('tame')}" :title="behaviorBlockReason('tame')"><input type="checkbox" data-setting="tame" :checked="behavior.pig.tame" @change="changePig('tame',$event.target.checked)" :disabled="!!behaviorBlockReason('tame')"/><span>Se puede domesticar</span></label><label v-if="behavior.pig.tame">Alimento para domesticar<select :value="behavior.pig.food.tame[0]" @change="changePig('food.tame',[$event.target.value])"><option v-for="item in pigFoodItems" :value="item.id">{{item.label}}</option></select></label><label v-if="behaviorPage==='friendship'" class="edu-behavior-check" :class="{'is-disabled':!!behaviorBlockReason('follow')}" :title="behaviorBlockReason('follow')"><input type="checkbox" :checked="behavior.pig.follow" @change="changePig('follow',$event.target.checked)" :disabled="!!behaviorBlockReason('follow')"/><span>Sigue a su dueño</span></label></section>
 <section class="edu-setting"><label class="edu-behavior-check" :class="{'is-disabled':!!behaviorBlockReason('tempt')}" :title="behaviorBlockReason('tempt')"><input type="checkbox" :checked="behavior.tempt" @change="changePig('tempt',$event.target.checked)" :disabled="!!behaviorBlockReason('tempt')"/><span>Se acerca si llevas comida</span></label><label v-if="behavior.tempt">Alimento para acercarse<select :value="behavior.pig.food.attract[0]" @change="changePig('food.attract',[$event.target.value])"><option v-for="item in pigFoodItems" :value="item.id">{{item.label}}</option></select></label></section></template>
 <template v-if="behaviorPage==='health'"><label>Puntos de vida<input type="number" :max="behavior.pig &amp;&amp; behavior.pig.universal?2000:200" min="1" step="1" :value="behavior.health" @input="pigNumber('health',$event.target.value)" @blur="$event.target.value=behavior.health" :disabled="busy"/></label><small>De 1 a {{behavior.pig &amp;&amp; behavior.pig.universal?2000:200}}.</small><label>Daño por golpe<input type="number" min="1" max="20" step="1" :value="behavior.damage" @input="pigNumber('damage',$event.target.value)" @blur="$event.target.value=behavior.damage" :disabled="busy"/></label><small>De 1 a 20.</small><h4>¿Qué le puede hacer daño?</h4>
                                     <details v-for="group in damageSourceGroups" :key="group.id" class="edu-food-section"><summary>{{group.label}}</summary><fieldset class="edu-food-list"><legend>{{group.label}}</legend><label v-for="source in damageSourceChoices.filter(source=>source.group===group.id)" :key="source.id" class="edu-behavior-check" :class="{'is-disabled':busy}" :title="busy?'Espera a que termine la operación.':''"><input type="checkbox" :data-setting="source.id" :checked="behavior.pig.damageSources[source.id]" @change="changePig('damageSources.'+source.id,$event.target.checked)" :disabled="busy"/><span>{{source.label}}</span></label></fieldset></details>
-<details class="edu-food-section"><summary data-setting="respiration">Respiración</summary><label>¿Dónde puede respirar?<select :value="behavior.pig.respiration.medium" @change="changePig('respiration.medium',$event.target.value)" :disabled="busy"><option value="air">En el aire</option><option value="water">Bajo el agua</option><option value="both">En el aire y bajo el agua</option></select></label><label class="edu-mount-field" :class="{'is-disabled':!!behaviorBlockReason('reserve')}" :title="behaviorBlockReason('reserve')">Tiempo sin respirar (segundos)<input type="number" min="5" max="300" :value="behavior.pig.respiration.reserve" @input="pigNumber('respiration.reserve',$event.target.value)" @blur="$event.target.value=behavior.pig.respiration.reserve" :disabled="!!behaviorBlockReason('reserve')"/></label><small>De 5 a 300 segundos fuera del medio donde respira.</small></details>
-<section class="edu-setting"><h4>Curación con comida</h4><label class="edu-behavior-check"><input type="checkbox" :checked="behavior.pig.heal" @change="changePig('heal',$event.target.checked)"/><span>Se cura al darle comida</span></label><label v-if="behavior.pig.heal">Alimento para curar<select :value="behavior.pig.food.heal[0].item" @change="changePig('food.heal',[{item:$event.target.value,amount:4}])"><option v-for="item in pigFoodItems" :value="item.id">{{item.label}}</option></select></label><small v-if="behavior.pig.heal">Recupera 2 corazones.</small></section></template>
-<template v-if="behaviorPage==='combat'"><label>Distancia para detectar criaturas<input type="number" min="4" max="32" :value="behavior.range" @input="pigNumber('range',$event.target.value)" @blur="$event.target.value=behavior.range" :disabled="busy"/></label><small>De 4 a 32 bloques. Comparte la distancia de detección del jugador.</small><label>Buscar criatura<input type="search" v-model="mobSearch" placeholder="Por ejemplo: zombi"/></label><details v-for="action in ['attack','avoid']" :key="action" class="edu-food-section"><summary :data-setting="action">{{action==='attack'?'Criaturas para atacar':'Criaturas para evitar'}} · {{behavior.pig.targets[action].length}}</summary><fieldset class="edu-food-list"><legend>{{action==='attack'?'Criaturas para atacar':'Criaturas para evitar'}}</legend><label v-for="mob in filteredMobs()" :key="mob.id" class="edu-behavior-check" :class="{'is-disabled':!!mobReason(action,mob.id)}" :title="mobReason(action,mob.id)"><input type="checkbox" :checked="behavior.pig.targets[action].includes(mob.id)" @change="toggleMob(action,mob.id,$event.target.checked)" :disabled="!!mobReason(action,mob.id)"/><span>{{mob.label}}</span></label></fieldset></details><label class="edu-behavior-check" :class="{'is-disabled':!!behaviorBlockReason('defend')}" :title="behaviorBlockReason('defend')"><input type="checkbox" data-setting="defend" :checked="behavior.pig.defend" @change="changePig('defend',$event.target.checked)" :disabled="busy || !behavior.pig.tame"/><span>Defiende a su dueño</span></label></template>
+<details class="edu-food-section"><summary data-setting="respiration">Respiración</summary><label>¿Dónde puede respirar?<select :value="behavior.pig.respiration.medium" @change="changePig('respiration.medium',$event.target.value)" :disabled="busy"><option value="air">En el aire</option><option value="water">Bajo el agua</option><option value="both">En el aire y bajo el agua</option></select></label><label class="edu-mount-field" :class="{'is-disabled':!!behaviorBlockReason('reserve')}" :title="behaviorBlockReason('reserve')">Tiempo sin respirar (segundos)<input type="number" min="5" max="300" :value="behavior.pig.respiration.reserve" @input="pigNumber('respiration.reserve',$event.target.value)" @blur="$event.target.value=behavior.pig.respiration.reserve" :disabled="!!behaviorBlockReason('reserve')"/></label><small>De 5 a 300 segundos fuera del medio donde respira.</small></details></template>
+<section v-if="behaviorPage==='health' || behaviorPage==='food'" class="edu-setting"><h4>Curación con comida</h4><label class="edu-behavior-check"><input type="checkbox" :checked="behavior.pig.heal" @change="changePig('heal',$event.target.checked)"/><span>Se cura al darle comida</span></label><label v-if="behavior.pig.heal">Alimento para curar<select :value="behavior.pig.food.heal[0].item" @change="changePig('food.heal',[{item:$event.target.value,amount:4}])"><option v-for="item in pigFoodItems" :value="item.id">{{item.label}}</option></select></label><small v-if="behavior.pig.heal">Recupera 2 corazones.</small></section>
+<template v-if="behaviorPage==='combat'"><label>Distancia para detectar criaturas<input type="number" min="4" max="32" :value="behavior.range" @input="pigNumber('range',$event.target.value)" @blur="$event.target.value=behavior.range" :disabled="busy"/></label><small>De 4 a 32 bloques. Comparte la distancia de detección del jugador.</small><label>Buscar criatura<input type="search" v-model="mobSearch" placeholder="Por ejemplo: zombi"/></label><details v-for="action in ['attack','avoid']" :key="action" class="edu-food-section"><summary :data-setting="action">{{action==='attack'?'Criaturas para atacar':'Criaturas para evitar'}} · {{behavior.pig.targets[action].length}}</summary><fieldset class="edu-food-list"><legend>{{action==='attack'?'Criaturas para atacar':'Criaturas para evitar'}}</legend><label v-for="mob in filteredMobs()" :key="mob.id" class="edu-behavior-check" :class="{'is-disabled':!!mobReason(action,mob.id)}" :title="mobReason(action,mob.id)"><input type="checkbox" :checked="behavior.pig.targets[action].includes(mob.id)" @change="toggleMob(action,mob.id,$event.target.checked)" :disabled="!!mobReason(action,mob.id)"/><span>{{mob.label}}</span></label></fieldset></details><label class="edu-behavior-check" :class="{'is-disabled':!!behaviorBlockReason('defend')}" :title="behaviorBlockReason('defend')"><input type="checkbox" data-setting="defend" :checked="behavior.pig.defend" @change="changePig('defend',$event.target.checked)" :disabled="busy || !behavior.pig.tame"/><span>Defiende a su dueño</span></label><h4>Ataque a distancia</h4><div class="edu-behavior-options"><button :data-setting="style.id" v-for="style in attackStyles" :key="style.id" :aria-pressed="behavior.pig.ranged.mode===style.id" :class="{active:behavior.pig.ranged.mode===style.id}" @click="changePig('ranged.mode',style.id)" :disabled="busy"><i class="material-icons" aria-hidden="true">{{style.icon}}</i>{{style.label}}</button></div><small v-if="behavior.pig.ranged.mode==='melee'">Elige Golpes y proyectiles o Solo proyectiles para ver en la vista 3D de dónde sale el disparo.</small><template v-if="behavior.pig.ranged.mode!=='melee'"><label>Proyectil<select :value="behavior.pig.ranged.projectile" @change="changePig('ranged.projectile',$event.target.value)" :disabled="busy"><option v-for="item in projectileChoices" :key="item.id" :value="item.id">{{item.label}}</option></select></label><small>El daño depende del proyectil, como en Minecraft.</small><section class="edu-setting"><h4>¿De dónde sale el disparo?</h4><div class="edu-shot-presets"><button v-for="origin in projectileOrigins" :key="origin.id" :aria-pressed="behavior.pig.ranged.origin===origin.id&amp;&amp;!behavior.pig.ranged.height" :class="{active:behavior.pig.ranged.origin===origin.id&amp;&amp;!behavior.pig.ranged.height}" @click="placeShot(origin.id)" :disabled="busy">{{origin.label}}</button></div><div class="edu-seat-buttons"><button @click="moveShot(0.1)" :disabled="busy">↑ Subir</button><button @click="moveShot(-0.1)" :disabled="busy">↓ Bajar</button></div><p class="edu-shot-height">Sale a <strong>{{shotHeightLabel()}}</strong> del suelo.</p><small>Elige una parte del cuerpo y ajústala con Subir y Bajar. Mira el punto naranja en la vista 3D.</small></section></template></template>
                                 </div>
                             </template>
                         </template>
@@ -2126,7 +2695,7 @@
                     <div class="edu-parts-heading"><h2 id="edu-parts-title"><i class="material-icons" aria-hidden="true">visibility</i>Partes</h2><button ref="partsClose" @click="setPartsOpen(false)" aria-label="Plegar panel de partes" title="Plegar panel de partes"><i class="material-icons" aria-hidden="true">chevron_right</i></button></div>
                     <button class="edu-parts-show-all" @click="showAllBones" :disabled="busy || !hiddenBoneCount"><i class="material-icons" aria-hidden="true">visibility</i>Mostrar todas</button>
                     <p class="edu-parts-count" role="status" aria-live="polite">{{bones.length-hiddenBoneCount}} de {{bones.length}} visibles</p>
-                    <ul class="edu-parts-list" aria-label="Visibilidad de las partes"><li v-for="bone in bones" :key="bone.id" :class="{'edu-part-hidden':bone.hidden}"><button class="edu-part-eye" @click="toggleBone(bone.id)" :disabled="busy" :aria-label="(bone.hidden?'Mostrar ':'Ocultar ')+bone.label" :aria-pressed="bone.hidden?'false':'true'"><i class="material-icons" aria-hidden="true">{{bone.hidden?'visibility_off':'visibility'}}</i><span>{{bone.label}}</span></button><button class="edu-part-solo" :class="{active:soloBoneId===bone.id}" @click="showOnlyBone(bone.id)" :disabled="busy" :aria-pressed="soloBoneId===bone.id?'true':'false'" :aria-label="soloBoneId===bone.id?'Volver a la vista anterior':'Ver solo '+bone.label" :title="soloBoneId===bone.id?'Volver a la vista anterior':'Ver solo '+bone.label"><i class="material-icons" aria-hidden="true">center_focus_strong</i></button><button class="edu-part-solo" @click="duplicateBone(bone.id)" :disabled="busy" :aria-label="'Duplicar '+bone.label" :title="'Duplicar '+bone.label"><i class="material-icons" aria-hidden="true">content_copy</i></button></li></ul>
+                    <ul class="edu-parts-list" aria-label="Visibilidad de las partes"><li v-for="bone in bones" :key="bone.id" :class="{'edu-part-hidden':bone.hidden}"><button class="edu-part-eye" @click="toggleBone(bone.id)" :disabled="busy" :aria-label="(bone.hidden?'Mostrar ':'Ocultar ')+bone.label" :aria-pressed="bone.hidden?'false':'true'"><i class="material-icons" aria-hidden="true">{{bone.hidden?'visibility_off':'visibility'}}</i><span>{{bone.label}}</span></button><button class="edu-part-solo" :class="{active:soloBoneId===bone.id}" @click="showOnlyBone(bone.id)" :disabled="busy" :aria-pressed="soloBoneId===bone.id?'true':'false'" :aria-label="soloBoneId===bone.id?'Volver a la vista anterior':'Ver solo '+bone.label" :title="soloBoneId===bone.id?'Volver a la vista anterior':'Ver solo '+bone.label"><i class="material-icons" aria-hidden="true">center_focus_strong</i></button><button class="edu-part-solo" @click="duplicateBone(bone.id)" :disabled="busy" :aria-label="'Duplicar '+bone.label" :title="'Duplicar '+bone.label"><i class="material-icons" aria-hidden="true">content_copy</i></button><button class="edu-part-solo edu-part-delete" @click="removeBone(bone.id)" :disabled="busy || !bone.canRemove" :aria-label="'Eliminar '+bone.label" :title="bone.canRemove ? 'Eliminar esta parte y sus subpartes' : 'La criatura debe conservar al menos una pieza'"><i class="material-icons" aria-hidden="true">delete_outline</i></button></li></ul>
                     <p class="edu-parts-help">Oculta partes para pintar debajo.<br>Tu criatura se exporta completa.</p>
                 </section>
                 <div class="edu-sidebar-resizer" :class="{dragging:sidebarDragging}" role="separator" tabindex="0" aria-label="Ancho del menú" aria-orientation="vertical" :aria-valuenow="sidebarWidth" :aria-valuemin="260" :aria-valuemax="sidebarMax" title="Arrastra para cambiar el ancho del menú" @pointerdown.prevent="startSidebarDrag" @pointermove="dragSidebar" @pointerup="endSidebarDrag" @pointercancel="endSidebarDrag" @lostpointercapture="endSidebarDrag" @keydown="keySidebar"><span aria-hidden="true"></span></div>
@@ -2135,7 +2704,13 @@
                         <div role="group" aria-label="Girar la vista"><strong>Girar la vista</strong><div><button v-for="direction in ['left','right','up','down']" :key="direction" :disabled="cameraIsOrtho" @click="cameraControl('rotate',direction)" :aria-label="'Girar la vista '+({left:'a la izquierda',right:'a la derecha',up:'hacia arriba',down:'hacia abajo'}[direction])"><i class="material-icons" aria-hidden="true">{{cameraArrow(direction)}}</i></button></div><small v-if="cameraIsOrtho">Elige Vista 3D para girar.</small></div>
                         <div role="group" aria-label="Desplazar la vista"><strong>Desplazar la vista</strong><div><button v-for="direction in ['left','right','up','down']" :key="direction" @click="cameraControl('pan',direction)" :aria-label="'Desplazar la vista '+({left:'a la izquierda',right:'a la derecha',up:'hacia arriba',down:'hacia abajo'}[direction])"><i class="material-icons" aria-hidden="true">{{cameraArrow(direction)}}</i></button></div></div>
                         <div role="group" aria-label="Acercar o alejar"><strong>Acercar / alejar</strong><div><button @click="cameraControl('zoom','in')" aria-label="Acercar la vista"><i class="material-icons" aria-hidden="true">zoom_in</i></button><button @click="cameraControl('zoom','out')" aria-label="Alejar la vista"><i class="material-icons" aria-hidden="true">zoom_out</i></button></div></div>
-                    </div><p class="edu-camera-help" v-if="mode!=='behavior'"><span>{{cameraRotate}} + arrastrar: girar la vista</span><span>{{cameraPan}} + arrastrar: desplazar la vista</span><span>{{cameraZoom}}: acercar o alejar</span></p></footer></div>`
+                    </div>
+                    <p class="edu-camera-help edu-color-shortcuts" v-if="mode==='paint' && paintTool==='blockbench_edu_select_color'">
+                        <span><kbd>Clic</kbd> Seleccionar color</span>
+                        <span><kbd>Mayús (Shift)</kbd> + clic para agregar</span>
+                        <span><kbd>Alt</kbd> + clic para quitar</span>
+                    </p>
+                    <p class="edu-camera-help" v-if="mode!=='behavior'"><span>{{cameraRotate}} + arrastrar: girar la vista</span><span>{{cameraPan}} + arrastrar: desplazar la vista</span><span>{{cameraZoom}}: acercar o alejar</span></p></footer></div>`
         });
         document.body.classList.add('edu-classroom');
         selectClassroomTool();
@@ -2150,8 +2725,42 @@
             id: 'blockbench_edu_wizard', title: 'Blockbench Edu', width: 960, buttons: [],
             onCancel() { if (wizard.content_vue.busy) return false; document.body.classList.remove('edu-setup'); wizard.hide(); window.BlockbenchEduWeb?.showHome(); },
             component: {
-                data: () => ({step: 0, busy: false, error: '', icon: EDU_ICON, creature: '', search: '', catalog: CATALOG,
-                    steps: ['Empezamos', 'Elige tu criatura', 'A crear']}),
+                components: {
+                    'edu-spawn-egg': {
+                        props: {base: String, overlay: String},
+                        template: '<canvas class="edu-egg-preview" ref="canvas" width="16" height="16" role="img" aria-label="Vista previa de los colores del huevo generador"></canvas>',
+                        mounted() {
+                            Promise.all(Object.values(SPAWN_EGG_TEXTURES).map(source => new Promise((resolve, reject) => {
+                                const image = new Image();
+                                image.onload = () => resolve(image);
+                                image.onerror = reject;
+                                image.src = source;
+                            }))).then(images => { this.eggImages = images; this.draw(); });
+                        },
+                        watch: {base() { this.draw(); }, overlay() { this.draw(); }},
+                        methods: {
+                            draw() {
+                                if (!this.eggImages || !this.$refs.canvas) return;
+                                const context = this.$refs.canvas.getContext('2d');
+                                context.clearRect(0, 0, 16, 16);
+                                this.eggImages.forEach((image, index) => {
+                                    const layer = document.createElement('canvas');
+                                    layer.width = layer.height = 16;
+                                    const tint = layer.getContext('2d');
+                                    tint.drawImage(image, 0, 0);
+                                    tint.globalCompositeOperation = 'multiply';
+                                    tint.fillStyle = index ? this.overlay : this.base;
+                                    tint.fillRect(0, 0, 16, 16);
+                                    tint.globalCompositeOperation = 'destination-in';
+                                    tint.drawImage(image, 0, 0);
+                                    context.drawImage(layer, 0, 0);
+                                });
+                            }
+                        }
+                    }
+                },
+                data: () => ({step: 0, busy: false, error: '', icon: EDU_ICON, creature: '', search: '', catalog: CATALOG, eggBackground: '#ffffff', eggDetail: '#000000',
+                    steps: ['Empezamos', 'Elige tu criatura', 'Huevo generador', 'A crear']}),
                 computed: {
                     choices() { return Object.entries(this.catalog).filter(([id,mob]) => mob.entity && mob.behavior && !['basic', 'vehicle', 'armor_stand'].includes(id) && !mob.disable_on_edu && (id + ' ' + mob.name).toLowerCase().includes(this.search.toLowerCase())).sort((a,b) => a[1].name.localeCompare(b[1].name, 'es', {sensitivity:'base'}) || a[0].localeCompare(b[0])); }
                 },
@@ -2162,11 +2771,11 @@
                     async next() {
                         if (this.busy) return;
                         if (this.step === 1 && !this.creature) return;
-                        if (this.step < 2) { this.step++; return; }
+                        if (this.step < 3) { this.step++; return; }
                         this.busy = true; this.error = '';
                         try {
                             const mob = this.catalog[this.creature];
-                            const starter = await createMobAddon(mob, {name: mob.name + ' Edu'}, JSZip, guid);
+                            const starter = await createMobAddon(mob, {name: mob.name + ' Edu', spawnEgg: {base_color: this.eggBackground, overlay_color: this.eggDetail}}, JSZip, guid);
                             requireThat(alive, 'El plugin se descargó durante la preparación.');
                             const primary = geometryEntries(starter.geometry).find(g => g.description.identifier === 'geometry.' + starter.identifier.split(':')[1]);
                             requireThat(primary, 'No se encontró el modelo principal de la criatura.');
@@ -2200,11 +2809,12 @@
                 template: `<div class="edu-wizard">
                     <nav aria-label="Pasos del asistente"><ol><li v-for="(label,index) in steps" :key="label" :class="{active:index===step,done:index&lt;step}"><span>{{index+1}}</span>{{label}}</li></ol></nav>
                     <section class="edu-wizard-content"><div class="edu-wizard-scroll">
-                        <template v-if="step===0"><img :src="icon" class="edu-wizard-icon" alt=""/><h2>Crea tu propia criatura</h2><p>Elige una criatura de Minecraft, cambia su forma, píntala y llévatela a Minecraft Education.</p><p>Te vamos a acompañar paso a paso. Necesitas teclado y ratón.</p><button @click="openCreature" :disabled="busy"><i class="material-icons" aria-hidden="true">folder_open</i> Abrir una criatura</button><p>¿Ya habías empezado? Abre tu proyecto .bbedu o un modelo Bedrock .bbmodel para continuar.</p></template>
+                        <template v-if="step===0"><img :src="icon" class="edu-wizard-icon" alt=""/><h2>Crea tu propia criatura</h2><p>Elige una criatura de Minecraft, cambia su forma, píntala y llévatela a Minecraft Education.</p><p>Te vamos a acompañar paso a paso. Necesitas teclado y ratón.</p><button @click="openCreature" :disabled="busy"><i class="material-icons" aria-hidden="true">folder_open</i> Abrir una criatura</button><p>¿Ya habías empezado? Abre un proyecto .bbedu, un modelo Bedrock .bbmodel o un addon exportado por Edu.</p></template>
                         <template v-if="step===1"><h2>Elige tu criatura</h2><search-bar v-model="search" placeholder="Buscar criatura…" aria-label="Buscar criatura"/><ul class="entity_wizard_mob_list edu-catalog" aria-label="Criaturas"><li v-for="entry in choices" :key="entry[0]" :class="{selected:creature===entry[0]}" :style="{backgroundImage:'url('+entry[1].thumbnail+')'}" role="button" tabindex="0" :aria-pressed="creature===entry[0]" @click="creature=entry[0]" @keydown.enter.stop.prevent="creature=entry[0]" @keyup.enter.stop.prevent @keydown.space.stop.prevent="creature=entry[0]" @keyup.space.stop.prevent><label>{{entry[1].name}}</label></li></ul><p v-if="!choices.length">No encontramos esa criatura. Prueba con otro nombre.</p><p v-if="creature">Has elegido: <strong>{{catalog[creature].name}}</strong></p><p v-else>Selecciona una criatura para continuar.</p></template>
-                        <template v-if="step===2"><h2>¡Tu criatura está lista!</h2><ol class="edu-instructions"><li>Elige una parte y usa <strong>− y +</strong> para darle forma.</li><li>Entra en <strong>Dale color</strong> y elige tus colores.</li><li>Entra en <strong>Dale vida</strong> para elegir su comportamiento.</li><li>Guarda tu criatura para llevarla a <strong>Minecraft Education</strong>.</li></ol><p>Tu dibujo se acomoda solo. Para volver un paso atrás, usa <strong>Ctrl+Z</strong>.</p></template>
+                        <template v-if="step===2"><h2>Elige los colores del huevo generador</h2><p>Este huevo sirve para hacer aparecer tu criatura en Minecraft Education.</p><div class="edu-egg-colors"><edu-spawn-egg :base="eggBackground" :overlay="eggDetail"/><div class="edu-egg-inputs"><label>Color de fondo<input type="color" v-model="eggBackground" :disabled="busy"/></label><label>Color de detalle<input type="color" v-model="eggDetail" :disabled="busy"/></label></div></div></template>
+                        <template v-if="step===3"><h2>¡Tu criatura está lista!</h2><ol class="edu-instructions"><li>Elige una parte y usa <strong>− y +</strong> para darle forma.</li><li>Entra en <strong>Dale color</strong> y elige tus colores.</li><li>Entra en <strong>Dale vida</strong> para elegir su comportamiento.</li><li>Guarda tu criatura para llevarla a <strong>Minecraft Education</strong>.</li></ol><p>Tu dibujo se acomoda solo. Para volver un paso atrás, usa <strong>Ctrl+Z</strong>.</p></template>
                         <p v-if="error" role="alert" class="edu-wizard-error">{{error}}</p>
-                        </div><div class="edu-wizard-footer"><button @click="cancel" :disabled="busy">Cancelar</button><div><button v-if="step&gt;0" @click="back" :disabled="busy">Atrás</button><button class="edu-primary" @click="next" :disabled="busy || (step===1 && !creature)">{{busy ? 'Preparando tu criatura…' : step===2 ? 'Abrir editor' : step===0 ? 'Comenzar' : 'Siguiente'}}</button></div></div>
+                        </div><div class="edu-wizard-footer"><button @click="cancel" :disabled="busy">Cancelar</button><div><button v-if="step&gt;0" @click="back" :disabled="busy">Atrás</button><button class="edu-primary" @click="next" :disabled="busy || (step===1 && !creature)">{{busy ? 'Preparando tu criatura…' : step===3 ? 'Abrir editor' : step===0 ? 'Comenzar' : 'Siguiente'}}</button></div></div>
                     </section>
                 </div>`
             }
@@ -2217,8 +2827,37 @@
         variant: 'both', min_version: '5.2.2',
         onload() {
             alive = true;
+            const originalRaycast = Canvas.raycast;
+            // Blockbench reserves a left drag over the model for editing. In
+            // Dale vida the preview is read-only, so let the native camera use it.
+            const cameraRaycast = function (...args) {
+                if (classroom?.mode === 'behavior' && Toolbox.selected === cameraViewTool) return false;
+                return originalRaycast.apply(this, args);
+            };
+            Canvas.raycast = cameraRaycast;
+            restoreCameraRaycast = () => {
+                if (Canvas.raycast === cameraRaycast) Canvas.raycast = originalRaycast;
+            };
             if (window.BlockbenchEduWeb) window.BlockbenchEduWeb.openCreature = importCreature;
-            projectStyle = Blockbench.addCSS('.edu-save-options{padding:10px 4px;display:grid;gap:12px}.edu-save-options>p{line-height:1.5;margin:0 0 4px}.edu-save-options .edu-save-choice{display:flex;align-items:center;gap:16px;width:100%;height:auto;min-height:100px;white-space:normal;text-align:left;padding:18px;border:2px solid #526f5d;border-radius:12px;background:#21302e;color:#eaf5ee}.edu-save-choice>i{font-size:30px;flex-shrink:0;color:#8beaab}.edu-save-choice span{display:grid;gap:8px;min-width:0}.edu-save-choice strong{font-size:17px;line-height:1.3;color:#8beaab}.edu-save-choice small{font-size:14px;line-height:1.5;color:#cee0d5}.edu-save-options .edu-save-choice:hover{background:#2d473b;border-color:#65d98a}.edu-save-options .edu-save-choice:focus-visible{outline:3px solid #8beaab;outline-offset:2px}.edu-project-files{flex-shrink:0;display:grid;gap:6px;padding-top:12px}.edu-project-files button{display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px}');
+            projectStyle = Blockbench.addCSS(`
+                .edu-save-name { display:grid; gap:8px; font-weight:600 }
+                .edu-save-name-field { position:relative; display:block }
+                .edu-save-name-field input[type="text"] {
+                    box-sizing:border-box; width:100%; height:48px; padding:0 42px 0 12px;
+                    border:1px solid #87969d; border-radius:8px;
+                    background:#2b333b; color:#f0f5f3; font-size:16px; font-weight:400;
+                }
+                .edu-save-name-field input::placeholder { color:#aebbc1 }
+                .edu-save-name-field input:hover { border-color:#bac8ce }
+                .edu-save-name-field input[type="text"]:focus {
+                    border-color:#8beaab; outline:2px solid #8beaab; outline-offset:2px;
+                }
+                .edu-save-name-field i {
+                    position:absolute; top:50%; right:12px; transform:translateY(-50%);
+                    font-size:19px; color:#becacf; pointer-events:none;
+                }
+                .edu-save-name-field:focus-within i { color:#8beaab }
+            ` + '.edu-save-options{padding:10px 4px;display:grid;gap:12px}.edu-save-options>p{line-height:1.5;margin:0 0 4px;overflow-wrap:anywhere}.edu-save-options .edu-save-next{justify-self:end;min-height:36px;padding:0 18px}.edu-save-options .edu-save-next:not(:disabled){background:#65d98a;color:#102c1c}.edu-save-options .edu-save-back{justify-self:start}.edu-save-options .edu-save-choice{display:flex;align-items:center;gap:16px;width:100%;height:auto;min-height:100px;white-space:normal;text-align:left;padding:18px;border:2px solid #526f5d;border-radius:12px;background:#21302e;color:#eaf5ee}.edu-save-choice>i{font-size:30px;flex-shrink:0;color:#8beaab}.edu-save-choice span{display:grid;gap:8px;min-width:0}.edu-save-choice strong{font-size:17px;line-height:1.3;color:#8beaab}.edu-save-choice small{font-size:14px;line-height:1.5;color:#cee0d5}.edu-save-options .edu-save-choice:hover{background:#2d473b;border-color:#65d98a}.edu-save-options .edu-save-choice:focus-visible{outline:3px solid #8beaab;outline-offset:2px}.edu-project-files{flex-shrink:0;display:grid;gap:6px;padding-top:12px}.edu-project-files button{display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px}');
             colorSelectionTool = new Tool('blockbench_edu_select_color', {name:'Seleccionar un color',icon:'select_all',modes:['paint'],
                 paintTool:true,selectElements:false,cursor:'crosshair',condition:() => !!classroom,
                 onCanvasClick(data) {
@@ -2226,9 +2865,9 @@
                     const texture = data.element.faces[data.face].getTexture();
                     if (!texture) return;
                     const [x,y] = Painter.getCanvasToolPixelCoords(data.intersects[0].uv,texture);
-                    attempt(() => selectPaintColor(texture,x,y));
+                    attempt(() => selectPaintColor(texture,x,y,data.event));
                 },
-                onTextureEditorClick(texture,x,y) { attempt(() => selectPaintColor(texture,x,y)); return false; }
+                onTextureEditorClick(texture,x,y,event) { attempt(() => selectPaintColor(texture,x,y,event)); return false; }
             });
             selectionFillTool = new Tool('blockbench_edu_fill_selection', {name:'Rellenar selección de color',icon:'format_color_fill',modes:['paint'],
                 paintTool:true,selectElements:false,cursor:'crosshair',condition:() => !!classroom && classroom.selectedPixelCount>0,
@@ -2271,20 +2910,28 @@
             });
             selectionTool = new Tool('blockbench_edu_select', {name: 'Elegir una parte', icon: 'touch_app', modes: ['edit'],
                 selectElements: true, condition: () => !!classroom});
-            classroomStyle = Blockbench.addCSS(`body.edu-classroom #blackout{z-index:200!important}body.edu-classroom #dialog_wrapper .dialog{z-index:201!important}body.edu-setup #page_wrapper,body.edu-classroom #page_wrapper{visibility:hidden}body.edu-setup:before{content:"";position:fixed;inset:0;background:#141e24;z-index:10}body.edu-setup #blackout{background:#141e24}body.edu-classroom #preview{visibility:visible!important;position:fixed!important;left:calc(var(--edu-sidebar-width,260px) + 32px)!important;top:84px!important;right:calc(16px + var(--edu-parts-inset,0px))!important;bottom:var(--edu-preview-bottom,116px)!important;width:calc(100vw - var(--edu-sidebar-width,260px) - 48px - var(--edu-parts-inset,0px))!important;height:calc(100vh - 84px - var(--edu-preview-bottom,116px))!important;z-index:101;background:#202b32;border-radius:20px}body.edu-classroom #preview .preview_menu,body.edu-classroom #preview .orbit_gizmo{display:none!important}#edu-classroom{position:fixed;inset:0;z-index:100;background:#141e24;color:#eaf5ee;font-size:16px}#edu-classroom button,#edu-classroom select{min-width:0;max-width:100%;min-height:42px;border-radius:10px;background:#30423b;color:#eaf5ee;padding:8px 12px;border:0;cursor:pointer}#edu-classroom button:disabled{opacity:.4;cursor:default}#edu-classroom button:hover:not(:disabled),#edu-classroom button.active{background:#65d98a;color:#102c1c}#edu-classroom header{height:76px;display:flex;gap:24px;align-items:center;padding:12px 20px}#edu-classroom header strong{color:#65d98a;font-size:20px}#edu-classroom nav{display:flex;gap:10px}#edu-classroom .edu-teacher{margin-left:auto;font-size:12px;background:transparent}#edu-classroom aside{position:absolute;left:16px;top:84px;bottom:86px;width:var(--edu-sidebar-width,260px);background:#21302e;border-radius:20px;padding:22px;display:flex;flex-direction:column;gap:0;overflow:hidden}#edu-classroom h2{font-size:24px;color:#b8ffd1}#edu-classroom label{display:grid;gap:10px}#edu-classroom select{width:100%}#edu-classroom .edu-size{display:grid;grid-template-columns:1fr 38px 32px 38px;align-items:center;gap:4px}#edu-classroom .edu-size button{padding:0;font-size:24px}#edu-classroom .edu-size b{text-align:center}#edu-classroom p{line-height:1.5;color:#bed0c7}#edu-classroom .edu-history{flex-shrink:0;margin-top:12px;padding-top:12px;border-top:1px solid #456052;display:grid;grid-template-columns:1fr 1fr;gap:8px}#edu-classroom .edu-history button{display:flex;justify-content:center;align-items:center;gap:4px;padding:8px 4px;font-size:13px}#edu-classroom .edu-sidebar-scroll{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;gap:16px;padding-right:4px}#edu-classroom .edu-sidebar-scroll>*{flex-shrink:0;min-width:0}#edu-classroom footer{position:absolute;bottom:18px;left:calc(var(--edu-sidebar-width,260px) + 32px);right:16px;display:flex;justify-content:center;gap:8px;flex-wrap:wrap}#edu-classroom .edu-palette{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}#edu-classroom .edu-palette button{padding:0;border:2px solid #71877c;min-height:34px}#edu-classroom input[type=color]{height:42px;width:100%;min-width:0}#edu-classroom aside>*{flex-shrink:0;min-width:0}#edu-classroom .edu-palette button{width:100%}#edu-classroom .edu-paint-tools{display:grid;grid-template-columns:1fr 1fr;gap:8px}#edu-classroom .edu-paint-tools button{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:14px;height:auto;min-height:66px;line-height:18px}#edu-classroom .edu-paint-tools button>*{flex-shrink:0}#edu-classroom .edu-shape-tools{grid-template-columns:repeat(3,minmax(0,1fr))}#edu-classroom .edu-shape-tools button{padding:8px 4px}#edu-classroom .edu-camera-help{flex-basis:100%;display:flex;justify-content:center;flex-wrap:wrap;gap:4px 18px;margin:0;font-size:12px;line-height:1.4}#edu-classroom .edu-camera-help span{white-space:nowrap}#edu-classroom .edu-camera-toggle{display:flex;align-items:center;gap:6px}#edu-classroom .edu-camera-controls{flex-basis:100%;display:flex;justify-content:center;gap:16px;flex-wrap:wrap;background:#21302e;border-radius:12px;padding:10px}#edu-classroom .edu-camera-controls>div{display:flex;flex-direction:column;align-items:center;gap:6px}#edu-classroom .edu-camera-controls strong{font-size:13px}#edu-classroom .edu-camera-controls>div>div{display:flex;gap:4px}#edu-classroom .edu-camera-controls button{padding:6px;min-width:36px;min-height:36px}#edu-classroom .edu-camera-controls small{font-size:11px}#edu-return-students{position:fixed;right:20px;top:84px;z-index:110;display:flex;align-items:center;gap:8px;border:0;border-radius:10px;background:#65d98a;color:#102c1c;padding:10px 16px;min-height:42px;cursor:pointer;box-shadow:0 3px 12px #0006}#edu-return-students[hidden]{display:none}#edu-return-students:focus-visible{outline:3px solid #fff;outline-offset:2px}#edu-classroom .edu-sidebar-resizer{position:fixed;left:calc(var(--edu-sidebar-width,260px) + 16px);top:84px;bottom:var(--edu-preview-bottom,116px);width:16px;z-index:102;cursor:col-resize;touch-action:none;display:flex;align-items:center;justify-content:center;border-radius:8px}#edu-classroom .edu-sidebar-resizer span{width:4px;height:48px;border-radius:4px;background:#71877c;pointer-events:none}#edu-classroom .edu-sidebar-resizer:hover span,#edu-classroom .edu-sidebar-resizer:focus-visible span,#edu-classroom .edu-sidebar-resizer.dragging span{background:#65d98a}#edu-classroom .edu-sidebar-resizer:focus-visible{outline:2px solid #65d98a;outline-offset:-2px}body.edu-sidebar-dragging,body.edu-sidebar-dragging *{cursor:col-resize!important;user-select:none!important}
+            classroomStyle = Blockbench.addCSS(`body.edu-classroom #blackout{z-index:200!important}body.edu-classroom #dialog_wrapper .dialog{z-index:201!important}body.edu-setup #page_wrapper,body.edu-classroom #page_wrapper{visibility:hidden}body.edu-setup:before{content:"";position:fixed;inset:0;background:#141e24;z-index:10}body.edu-setup #blackout{background:#141e24}body.edu-classroom #preview{visibility:visible!important;position:fixed!important;left:calc(var(--edu-sidebar-width,${DEFAULT_SIDEBAR_WIDTH}px) + 32px)!important;top:84px!important;right:calc(16px + var(--edu-parts-inset,0px))!important;bottom:var(--edu-preview-bottom,116px)!important;width:calc(100vw - var(--edu-sidebar-width,${DEFAULT_SIDEBAR_WIDTH}px) - 48px - var(--edu-parts-inset,0px))!important;height:calc(100vh - 84px - var(--edu-preview-bottom,116px))!important;z-index:101;background:#202b32;border-radius:20px}body.edu-classroom #preview .preview_menu,body.edu-classroom #preview .orbit_gizmo{display:none!important}#edu-classroom{position:fixed;inset:0;z-index:100;background:#141e24;color:#eaf5ee;font-size:16px}#edu-classroom button,#edu-classroom select{min-width:0;max-width:100%;min-height:42px;border-radius:10px;background:#30423b;color:#eaf5ee;padding:8px 12px;border:0;cursor:pointer}#edu-classroom button:disabled{opacity:.4;cursor:default}#edu-classroom button:hover:not(:disabled),#edu-classroom button.active{background:#65d98a;color:#102c1c}#edu-classroom header{height:76px;display:flex;gap:24px;align-items:center;padding:12px 20px}#edu-classroom header strong{color:#65d98a;font-size:20px}#edu-classroom nav{display:flex;gap:10px}#edu-classroom .edu-teacher{margin-left:auto;font-size:12px;background:transparent}#edu-classroom aside{position:absolute;left:16px;top:84px;bottom:86px;width:var(--edu-sidebar-width,${DEFAULT_SIDEBAR_WIDTH}px);background:#21302e;border-radius:20px;padding:22px;display:flex;flex-direction:column;gap:0;overflow:hidden}#edu-classroom h2{font-size:24px;color:#b8ffd1}#edu-classroom label{display:grid;gap:10px}#edu-classroom select{width:100%}#edu-classroom .edu-size{display:grid;grid-template-columns:1fr 38px 32px 38px;align-items:center;gap:4px}#edu-classroom .edu-size button{padding:0;font-size:24px}#edu-classroom .edu-size b{text-align:center}#edu-classroom p{line-height:1.5;color:#bed0c7}#edu-classroom .edu-history{flex-shrink:0;margin-top:12px;padding-top:12px;border-top:1px solid #456052;display:grid;grid-template-columns:1fr 1fr;gap:8px}#edu-classroom .edu-history button{display:flex;justify-content:center;align-items:center;gap:4px;padding:8px 4px;font-size:13px}#edu-classroom .edu-sidebar-scroll{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;gap:16px;padding-right:4px}#edu-classroom .edu-sidebar-scroll>*{flex-shrink:0;min-width:0}#edu-classroom footer{position:absolute;bottom:18px;left:calc(var(--edu-sidebar-width,${DEFAULT_SIDEBAR_WIDTH}px) + 32px);right:16px;display:flex;justify-content:center;gap:8px;flex-wrap:wrap}#edu-classroom .edu-palette{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}#edu-classroom .edu-palette button{padding:0;border:2px solid #71877c;min-height:34px}#edu-classroom input[type=color]{height:42px;width:100%;min-width:0}#edu-classroom aside>*{flex-shrink:0;min-width:0}#edu-classroom .edu-palette button{width:100%}#edu-classroom .edu-paint-tools{display:grid;grid-template-columns:1fr 1fr;gap:8px}#edu-classroom .edu-paint-tools button{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:14px;height:auto;min-height:66px;line-height:18px}#edu-classroom .edu-paint-tools button>*{flex-shrink:0}#edu-classroom .edu-whole-model-notice{display:grid;grid-template-columns:28px 1fr;gap:8px;border-radius:12px;padding:12px;box-shadow:0 3px 10px #0003}#edu-classroom .edu-whole-model-notice strong{font-size:16px;line-height:1.35}#edu-classroom .edu-whole-model-notice span{grid-column:1/-1;font-size:13px;line-height:1.4}#edu-classroom .edu-shape-tools{grid-template-columns:repeat(3,minmax(0,1fr))}#edu-classroom .edu-shape-tools button{padding:8px 4px}#edu-classroom .edu-camera-help{flex-basis:100%;display:flex;justify-content:center;flex-wrap:wrap;gap:4px 18px;margin:0;font-size:12px;line-height:1.4}#edu-classroom .edu-camera-help span{white-space:nowrap}#edu-classroom .edu-camera-toggle{display:flex;align-items:center;gap:6px}#edu-classroom .edu-camera-controls{flex-basis:100%;display:flex;justify-content:center;gap:16px;flex-wrap:wrap;background:#21302e;border-radius:12px;padding:10px}#edu-classroom .edu-camera-controls>div{display:flex;flex-direction:column;align-items:center;gap:6px}#edu-classroom .edu-camera-controls strong{font-size:13px}#edu-classroom .edu-camera-controls>div>div{display:flex;gap:4px}#edu-classroom .edu-camera-controls button{padding:6px;min-width:36px;min-height:36px}#edu-classroom .edu-camera-controls small{font-size:11px}#edu-return-students{position:fixed;right:20px;top:84px;z-index:110;display:flex;align-items:center;gap:8px;border:0;border-radius:10px;background:#65d98a;color:#102c1c;padding:10px 16px;min-height:42px;cursor:pointer;box-shadow:0 3px 12px #0006}#edu-return-students[hidden]{display:none}#edu-return-students:focus-visible{outline:3px solid #fff;outline-offset:2px}#edu-classroom .edu-sidebar-resizer{position:fixed;left:calc(var(--edu-sidebar-width,${DEFAULT_SIDEBAR_WIDTH}px) + 16px);top:84px;bottom:var(--edu-preview-bottom,116px);width:16px;z-index:102;cursor:col-resize;touch-action:none;display:flex;align-items:center;justify-content:center;border-radius:8px}#edu-classroom .edu-sidebar-resizer span{width:4px;height:48px;border-radius:4px;background:#71877c;pointer-events:none}#edu-classroom .edu-sidebar-resizer:hover span,#edu-classroom .edu-sidebar-resizer:focus-visible span,#edu-classroom .edu-sidebar-resizer.dragging span{background:#65d98a}#edu-classroom .edu-sidebar-resizer:focus-visible{outline:2px solid #65d98a;outline-offset:-2px}body.edu-sidebar-dragging,body.edu-sidebar-dragging *{cursor:col-resize!important;user-select:none!important}
                 #edu-classroom .edu-parts-panel{position:absolute;right:16px;top:84px;bottom:var(--edu-preview-bottom,116px);width:var(--edu-parts-panel-width,224px);z-index:102;background:#21302e;border-radius:20px;padding:14px 10px;display:flex;flex-direction:column;gap:10px;min-height:0;overflow:hidden}
+                #edu-classroom .edu-paint-settings{display:grid;gap:10px}
+                #edu-classroom .edu-paint-opacity{gap:2px}
+                #edu-classroom :is(.edu-paint-opacity,.edu-mount-jump-strength) span{display:flex;justify-content:space-between}
+                #edu-classroom :is(.edu-paint-opacity,.edu-mount-jump-strength) input{width:100%;margin:0;--color-track:#71877c;--color-thumb:#65d98a;--color-center:#21302e;cursor:pointer}
+                #edu-classroom .edu-paint-blend{grid-template-columns:auto minmax(0,1fr);align-items:center}
+                #edu-classroom .edu-paint-settings :disabled{opacity:.5;cursor:default}
                 #edu-classroom .edu-parts-heading{display:flex;align-items:center;justify-content:space-between;gap:4px;flex-shrink:0}
                 #edu-classroom .edu-parts-heading h2{display:flex;align-items:center;gap:7px;font-size:18px;margin:0;color:#eaf5ee}
                 #edu-classroom .edu-parts-heading button{padding:4px;min-width:34px;min-height:34px;background:transparent}
                 #edu-classroom .edu-parts-show-all{display:flex;align-items:center;justify-content:center;gap:6px;flex-shrink:0;width:100%;font-size:13px;border:1px solid #456052}
                 #edu-classroom .edu-parts-count{margin:0;font-size:12px;flex-shrink:0;padding:0 4px}
                 #edu-classroom .edu-parts-list{list-style:none;padding:0 2px 0 0;margin:0;flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden}
-                #edu-classroom .edu-parts-list li{display:grid;grid-template-columns:minmax(0,1fr) 34px 34px;gap:2px;align-items:center;margin:0 0 4px;padding:0;border-radius:9px}
+                #edu-classroom .edu-parts-list li{display:grid;grid-template-columns:minmax(0,1fr) repeat(3,34px);gap:2px;align-items:center;margin:0 0 4px;padding:0;border-radius:9px}
                 #edu-classroom .edu-part-eye{display:flex;align-items:center;gap:7px;text-align:left;padding:8px 5px;background:transparent;font-size:13px;min-width:0;width:100%}
                 #edu-classroom .edu-part-eye i{font-size:20px;flex-shrink:0}
                 #edu-classroom .edu-part-eye span{overflow-wrap:anywhere;min-width:0;line-height:1.4}
                 #edu-classroom .edu-part-solo{padding:5px;min-height:34px;background:transparent}
                 #edu-classroom .edu-part-solo i{font-size:19px}
+                #edu-classroom .edu-color-shortcuts{padding:4px 8px;row-gap:6px;color:#eaf5ee}
+                #edu-classroom .edu-color-shortcuts kbd{background:#30423b;border:1px solid #526f5d;border-radius:4px;padding:1px 5px;font:inherit}
                 #edu-classroom .edu-part-hidden{background:#182823}
                 #edu-classroom .edu-part-hidden .edu-part-eye{color:#a1afa7}
                 #edu-classroom .edu-parts-help{font-size:11px;line-height:1.5;margin:0;padding:0 4px;flex-shrink:0}
@@ -2294,6 +2941,8 @@
                 #edu-classroom .edu-parts-panel button:focus-visible,#edu-parts-toggle:focus-visible{outline:3px solid #65d98a;outline-offset:-3px}
 
                 #edu-classroom header{gap:12px}#edu-classroom nav{gap:6px}#edu-classroom nav button{font-size:14px;padding:8px 10px;white-space:nowrap}
+                #edu-classroom nav .edu-restart{background:#ffe293;color:#332700}
+                #edu-classroom nav .edu-restart:hover:not(:disabled){background:#ffd15c;color:#332700}
                 #edu-classroom .edu-behavior-categories{display:grid;gap:10px}#edu-classroom .edu-behavior-categories button{display:flex;align-items:center;gap:10px;text-align:left;min-height:68px;height:auto;padding:12px}#edu-classroom .edu-behavior-categories button span{flex:1;min-width:0}#edu-classroom .edu-behavior-categories strong,#edu-classroom .edu-behavior-categories small{display:block}#edu-classroom .edu-behavior-categories small{font-size:12px;line-height:1.4;margin-top:4px;opacity:.85}
 
                 #edu-classroom .edu-behavior-back{position:sticky;top:0;z-index:2;background:#30483c;color:#e0f6e7;font-weight:700;border:2px solid #94dca7;font-size:17px;min-height:46px}
@@ -2304,13 +2953,15 @@
                 #edu-classroom .edu-behavior-check input{width:22px;height:22px;align-self:center!important}
                 #edu-classroom .edu-loot-modes{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}#edu-classroom .edu-loot-modes button{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:0;min-height:66px;height:auto;padding:7px 3px;font-size:13px;line-height:1.3;white-space:normal;gap:4px}#edu-classroom .edu-loot-row{grid-template-columns:minmax(0,1fr) 42px}#edu-classroom .edu-loot-row>.edu-loot-item,#edu-classroom .edu-loot-picker{grid-column:1/-1}#edu-classroom .edu-loot-chance{grid-column:1}#edu-classroom .edu-loot-remove{align-self:end;padding:8px}#edu-classroom .edu-loot-item{grid-column:1/-1;white-space:normal;height:auto;min-height:44px;display:flex;justify-content:space-between;align-items:center;gap:8px;text-align:left}#edu-classroom .edu-loot-picker{display:grid;gap:8px}#edu-classroom .edu-loot-results{display:grid;gap:4px;max-height:210px;overflow:auto}#edu-classroom .edu-loot-results button{text-align:left;white-space:normal;height:auto;min-height:38px}#edu-classroom .edu-loot-row input{width:100%;box-sizing:border-box}
                 #edu-classroom .edu-warning-link{display:inline;background:none;border:0;color:inherit;padding:0;min-height:0;height:auto;text-decoration:underline;font-size:inherit;white-space:normal;text-align:left}#edu-classroom .edu-behavior-panel h2{font-weight:800}#edu-classroom .edu-category-help{font-size:14px;margin:0 0 12px}
-                #edu-classroom .edu-warning{background:#ffe293;color:#332700;border:2px solid #efbf40;border-radius:10px;padding:12px;font-size:15px;line-height:1.4}
+                #edu-classroom .edu-warning,#edu-classroom .edu-whole-model-notice{background:#ffe293;color:#332700;border:2px solid #efbf40}
+#edu-classroom .edu-warning{border-radius:10px;padding:12px;font-size:15px;line-height:1.4}
                 #edu-classroom .edu-setting{border:1px solid #577663;border-radius:12px;padding:14px;display:grid;gap:12px;background:#283c32}
                 #edu-classroom .edu-setting h4{font-size:19px;margin:0;color:#b8ffd1}
-                #edu-classroom .edu-seat-buttons{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+                #edu-classroom .edu-seat-buttons{display:grid;grid-template-columns:1fr 1fr;gap:8px}#edu-classroom .edu-shot-presets{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px}#edu-classroom .edu-shot-presets button.active{background:#247343;border:3px solid #94ffaf;color:white}#edu-classroom .edu-shot-height{margin:8px 0 4px}
                 #edu-classroom .edu-center-notice{position:fixed;left:calc(var(--edu-sidebar-width) + 40px);right:260px;top:40%;z-index:250;pointer-events:none;background:#ffe293;color:#332700;border:3px solid #efbf40;border-radius:16px;padding:20px;font-size:19px;font-weight:bold;text-align:center;box-shadow:0 5px 28px #0008}
                 #edu-classroom .edu-behavior-notice{background:#294637;border-left:3px solid #65d98a;padding:10px;border-radius:8px;font-size:13px}#edu-classroom .edu-behavior-fields{display:flex;flex-direction:column;gap:14px}#edu-classroom .edu-behavior-fields small{color:#bed0c7}#edu-classroom .edu-behavior-fields p{margin:0;font-size:14px}#edu-classroom .edu-behavior-back{display:flex;align-items:center;gap:6px}#edu-classroom .edu-behavior-options{display:grid;gap:8px}#edu-classroom .edu-behavior-preset{display:flex;flex-direction:column;text-align:left;gap:6px;height:auto}#edu-classroom h3{color:#b8ffd1;font-size:21px}#edu-classroom .edu-behavior-preset small{color:inherit;white-space:normal;line-height:1.4}
                 #edu-classroom .edu-behavior-categories{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}#edu-classroom .edu-behavior-categories button{padding:8px;min-height:70px}#edu-classroom .edu-behavior-categories button{flex-direction:column;justify-content:center;text-align:center;gap:6px;min-height:98px}#edu-classroom .edu-behavior-categories .edu-category-icon{display:block;font-size:26px;flex-shrink:0}#edu-classroom .edu-behavior-categories button span{flex:0 1 auto;width:100%}#edu-classroom .edu-behavior-categories strong{font-size:13px;line-height:16px}#edu-classroom .edu-behavior-categories small{font-size:10px;line-height:12px}
+                #edu-classroom .edu-behavior-categories .edu-category-wide{grid-column:1/-1;min-height:44px;flex-direction:row;gap:8px}#edu-classroom .edu-behavior-categories .edu-category-wide .edu-category-icon{font-size:20px}#edu-classroom .edu-behavior-categories .edu-category-wide span{width:auto}
                 #edu-classroom .edu-mount-field.is-disabled{color:#7f8e87;cursor:not-allowed}#edu-classroom .edu-mount-field.is-disabled input,#edu-classroom .edu-mount-field.is-disabled select{opacity:.4;pointer-events:none}
                 #edu-classroom .edu-food-list{border:1px solid #456052;border-radius:10px;padding:12px;display:grid;gap:8px;min-width:0}#edu-classroom .edu-food-list legend{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}#edu-classroom .edu-food-section summary{font-weight:600;color:#b8ffd1;min-height:42px}#edu-classroom .edu-food-section{border-top:1px solid #456052;padding-top:6px}
                 #edu-classroom .edu-behavior-section{border-top:1px solid #456052;padding-top:12px}#edu-classroom .edu-behavior-section summary{cursor:pointer;color:#b8ffd1;font-weight:600;margin-bottom:14px}#edu-classroom .edu-behavior-section label{margin-top:12px}
@@ -2320,13 +2971,13 @@
                 #edu-classroom select{appearance:none;-webkit-appearance:none;padding-right:34px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath d='m4 6 4 4 4-4' fill='none' stroke='%23eaf5ee' stroke-width='2'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center}
                 #edu-classroom summary{display:flex;align-items:center;justify-content:space-between;gap:12px;list-style:none;cursor:pointer}#edu-classroom summary::-webkit-details-marker{display:none}#edu-classroom summary::after{content:'';width:8px;height:8px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg);flex-shrink:0;margin-right:4px}#edu-classroom details[open]>summary::after{transform:rotate(225deg)}
                 #edu-classroom .edu-behavior-panel{padding:18px 14px}#edu-classroom .edu-behavior-panel h2{font-size:20px;line-height:1.3;margin:0;overflow-wrap:anywhere}#edu-classroom .edu-behavior-live{overflow:auto;min-height:0;padding-right:4px}#edu-classroom .edu-behavior-live p{margin:6px 0 16px;font-size:14px}#edu-classroom .edu-behavior-live ul{list-style:disc;padding-left:20px;margin:0;color:#cee0d5;font-size:14px;line-height:1.5}#edu-classroom .edu-behavior-live li{display:list-item;list-style:disc;margin-bottom:12px}
-                body.edu-behavior:not(.edu-seat-view) #preview{pointer-events:none}body.edu-behavior .edu-part-solo{display:none!important}
+                body.edu-behavior .edu-part-solo{display:none!important}
                 @media(max-width:1050px){#edu-classroom header{gap:8px;padding:12px}#edu-classroom header strong{font-size:16px}#edu-classroom nav button{font-size:12px;padding:8px}#edu-classroom .edu-teacher{padding:8px;font-size:11px}}
                 #edu-classroom .edu-color-selection{display:flex;flex-direction:column;gap:8px;border-top:1px solid #456052;padding-top:12px}
                 #edu-classroom .edu-color-selection p{margin:0;font-size:12px}
                 #edu-classroom .edu-color-selection button{display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px}
                 @media(max-height:680px){#edu-classroom .edu-parts-panel{gap:6px;padding:10px 8px}#edu-classroom .edu-parts-help{display:none}}
-                @media(pointer:coarse){#edu-classroom .edu-parts-list li{grid-template-columns:minmax(0,1fr) 44px 44px}#edu-classroom .edu-parts-panel button{min-height:44px}}
+                @media(pointer:coarse){#edu-classroom .edu-parts-list li{grid-template-columns:minmax(0,1fr) repeat(3,44px)}#edu-classroom .edu-parts-panel button{min-height:44px}}
 `);
             loader = new ModelLoader('blockbench_edu', {
                 name: 'Blockbench Edu', icon: EDU_ICON, category: 'loaders', target: 'Minecraft Education',
@@ -2336,7 +2987,7 @@
                     template: `<div class="edu-start"><img :src="icon" alt=""/><h1>Blockbench Edu</h1><p>Crea tu propia criatura de Minecraft.</p><p>Dale forma, píntala y llévatela a Education.</p><button @click="start">Comenzar</button></div>`}}
             });
             style = Blockbench.addCSS(`.edu-probe{padding:10px;display:grid;gap:9px;min-width:0}.edu-probe p{line-height:1.4}.edu-probe .edu-row{display:grid;grid-template-columns:minmax(0,1fr) 34px 40px 34px;align-items:center;gap:5px;min-width:0}.edu-probe button{min-height:30px;min-width:0}.edu-probe .edu-row button{width:34px;padding:0}.edu-probe>button{width:100%;white-space:normal}.edu-probe .edu-buttons{display:flex;flex-wrap:wrap;gap:5px}.edu-probe .edu-status{overflow-wrap:anywhere;font-size:12px}.edu-probe .edu-value{text-align:center;font-variant-numeric:tabular-nums}`);
-            wizardStyle = Blockbench.addCSS(`.format_entry[format="blockbench_edu"]{color:#65d98a!important}.format_entry[format="blockbench_edu"]:hover{color:#b8ffd1!important}.format_entry[format="blockbench_edu"].selected{background:#1d4a30!important;color:#b8ffd1!important}.panel_handle[panel_id="blockbench_edu"]{color:#65d98a}.edu-probe button:not(:disabled){background:#244a34;color:#c3ffda}.edu-probe>button:last-child:not(:disabled){background:#65d98a;color:#102c1c}.edu-start{text-align:center;padding:36px 20px}.edu-start img{width:80px;height:80px;margin-bottom:16px}.edu-start h1,#blockbench_edu_wizard h2{color:#65d98a}.edu-start p{margin:12px 0}.edu-start button,#blockbench_edu_wizard .edu-primary{background:#65d98a;color:#102c1c;min-height:36px}.edu-start button{margin-top:18px;padding:0 28px}#blockbench_edu_wizard .dialog_content{padding:0;overflow:hidden;max-height:none}#blockbench_edu_wizard{max-height:calc(100dvh - 32px)}.edu-wizard{display:grid;grid-template-columns:165px minmax(0,1fr);height:min(640px,calc(100dvh - 100px));min-height:0}.edu-wizard nav{padding:24px 12px;background:var(--color-back)}.edu-wizard nav ol{list-style:none;padding:0}.edu-wizard nav li{padding:10px 6px;color:var(--color-subtle_text);display:flex;gap:8px;align-items:center}.edu-wizard nav li span{border:1px solid currentColor;border-radius:50%;width:24px;height:24px;text-align:center}.edu-wizard nav li.active,.edu-wizard nav li.done{color:#65d98a}.edu-wizard-content{padding:20px;display:flex;flex-direction:column;min-height:0;min-width:0;overflow:hidden}.edu-wizard-scroll{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:16px;padding:6px}.edu-wizard-content h2{font-size:24px;line-height:1.2}.edu-wizard-content p,.edu-instructions li{line-height:1.6}.edu-wizard-icon{width:52px;height:52px}.edu-creature-card{display:flex;align-items:center;gap:14px;padding:16px;border:2px solid #65d98a;border-radius:8px;background:#173b2933}.edu-creature-card>span:first-child{font-size:42px}.edu-check{color:#65d98a;margin-left:auto;font-size:24px}.edu-instructions{padding-left:22px}.edu-instructions li{margin-bottom:12px}.edu-wizard-footer{flex-shrink:0;margin-top:12px;border-top:1px solid var(--color-border);display:flex;justify-content:space-between;gap:12px;padding-top:12px}.edu-wizard-footer>div{display:flex;gap:8px}.edu-wizard-footer button{min-width:0;min-height:34px;padding:0 14px}.edu-wizard-error{color:var(--color-error)}#blockbench_edu_wizard .edu-catalog{display:flow-root;flex-shrink:0;width:100%;list-style:none;padding:6px 0}#blockbench_edu_wizard .edu-catalog>li{display:flex;flex-direction:column;position:relative;float:left;width:160px;height:126px;margin:3px;background-color:var(--color-back);border-radius:5px;cursor:pointer;box-sizing:content-box;border:1px solid transparent;background-size:144px;background-repeat:no-repeat;background-position:center 4px;image-rendering:auto}#blockbench_edu_wizard .edu-catalog>li:hover,#blockbench_edu_wizard .edu-catalog>li:focus-visible{background-color:#244a34;color:#fff;outline:2px solid #65d98a;outline-offset:-2px}#blockbench_edu_wizard .edu-catalog>li.selected{border-color:#65d98a}#blockbench_edu_wizard .edu-catalog>li.selected::after{position:absolute;content:"✓";font-family:inherit;font-weight:700;color:#65d98a;background-color:var(--color-ui);height:19px;top:-6px;right:-2px;border-bottom-left-radius:8px;padding:0 3px}#blockbench_edu_wizard .edu-catalog>li label{text-align:center;width:100%;margin-top:auto;pointer-events:none;font-size:15px;line-height:19px;min-height:24px;padding:2px 4px;background:var(--color-back)}`);
+            wizardStyle = Blockbench.addCSS(`.format_entry[format="blockbench_edu"]{color:#65d98a!important}.format_entry[format="blockbench_edu"]:hover{color:#b8ffd1!important}.format_entry[format="blockbench_edu"].selected{background:#1d4a30!important;color:#b8ffd1!important}.panel_handle[panel_id="blockbench_edu"]{color:#65d98a}.edu-probe button:not(:disabled){background:#244a34;color:#c3ffda}.edu-probe>button:last-child:not(:disabled){background:#65d98a;color:#102c1c}.edu-start{text-align:center;padding:36px 20px}.edu-start img{width:80px;height:80px;margin-bottom:16px}.edu-start h1,#blockbench_edu_wizard h2{color:#65d98a}.edu-start p{margin:12px 0}.edu-start button,#blockbench_edu_wizard .edu-primary{background:#65d98a;color:#102c1c;min-height:36px}.edu-start button{margin-top:18px;padding:0 28px}#blockbench_edu_wizard .dialog_content{padding:0;overflow:hidden;max-height:none}#blockbench_edu_wizard{max-height:calc(100dvh - 32px)}.edu-wizard{display:grid;grid-template-columns:165px minmax(0,1fr);height:min(640px,calc(100dvh - 100px));min-height:0}.edu-wizard nav{padding:24px 12px;background:var(--color-back)}.edu-wizard nav ol{list-style:none;padding:0}.edu-wizard nav li{padding:10px 6px;color:var(--color-subtle_text);display:flex;gap:8px;align-items:center}.edu-wizard nav li span{border:1px solid currentColor;border-radius:50%;width:24px;height:24px;text-align:center}.edu-wizard nav li.active,.edu-wizard nav li.done{color:#65d98a}.edu-wizard-content{padding:20px;display:flex;flex-direction:column;min-height:0;min-width:0;overflow:hidden}.edu-wizard-scroll{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:16px;padding:6px}.edu-wizard-content h2{font-size:24px;line-height:1.2}.edu-wizard-content p,.edu-instructions li{line-height:1.6}.edu-wizard-icon{width:52px;height:52px}.edu-egg-colors{display:flex;align-items:center;justify-content:center;gap:40px;flex-wrap:wrap;padding:24px 12px}.edu-egg-preview{width:160px;height:160px;flex-shrink:0;image-rendering:pixelated}.edu-egg-inputs{display:grid;gap:24px}.edu-egg-inputs label{display:grid;gap:8px;font-size:16px}.edu-egg-inputs input[type=color]{width:160px;height:48px;cursor:pointer}.edu-creature-card{display:flex;align-items:center;gap:14px;padding:16px;border:2px solid #65d98a;border-radius:8px;background:#173b2933}.edu-creature-card>span:first-child{font-size:42px}.edu-check{color:#65d98a;margin-left:auto;font-size:24px}.edu-instructions{padding-left:22px}.edu-instructions li{margin-bottom:12px}.edu-wizard-footer{flex-shrink:0;margin-top:12px;border-top:1px solid var(--color-border);display:flex;justify-content:space-between;gap:12px;padding-top:12px}.edu-wizard-footer>div{display:flex;gap:8px}.edu-wizard-footer button{min-width:0;min-height:34px;padding:0 14px}.edu-wizard-error{color:var(--color-error)}#blockbench_edu_wizard .edu-catalog{display:flow-root;flex-shrink:0;width:100%;list-style:none;padding:6px 0}#blockbench_edu_wizard .edu-catalog>li{display:flex;flex-direction:column;position:relative;float:left;width:160px;height:126px;margin:3px;background-color:var(--color-back);border-radius:5px;cursor:pointer;box-sizing:content-box;border:1px solid transparent;background-size:144px;background-repeat:no-repeat;background-position:center 4px;image-rendering:auto}#blockbench_edu_wizard .edu-catalog>li:hover,#blockbench_edu_wizard .edu-catalog>li:focus-visible{background-color:#244a34;color:#fff;outline:2px solid #65d98a;outline-offset:-2px}#blockbench_edu_wizard .edu-catalog>li.selected{border-color:#65d98a}#blockbench_edu_wizard .edu-catalog>li.selected::after{position:absolute;content:"✓";font-family:inherit;font-weight:700;color:#65d98a;background-color:var(--color-ui);height:19px;top:-6px;right:-2px;border-bottom-left-radius:8px;padding:0 3px}#blockbench_edu_wizard .edu-catalog>li label{text-align:center;width:100%;margin-top:auto;pointer-events:none;font-size:15px;line-height:19px;min-height:24px;padding:2px 4px;background:var(--color-back)}`);
             panel = new Panel('blockbench_edu', {
                 name: 'Prueba Edu', icon: EDU_ICON, growable: true, min_height: 460, resizable: true,
                 condition: () => !!Project && Format.id === 'bedrock',
@@ -2348,8 +2999,8 @@
                         driveLink: window.BlockbenchEduDrive?.classLink || '', driveMessage: ''}),
                     methods: {returnToStudents: enterClassroom, link: importAddon, prepare: () => attempt(prepare), resize: (a, s) => attempt(() => resize(a, s)),
                         select: selectHead, selectPiece, camera, paint: () => Modes.options.paint.select(), edit: () => Modes.options.edit.select(),
-                        undo: () => Undo.undo(), redo: () => Undo.redo(), exportAddon: () => attempt(exportAddon),
-                        saveCreature: () => attempt(saveCreature), openCreature: importCreature,
+                        undo: () => Undo.undo(), redo: () => Undo.redo(), exportAddon: () => attempt(() => showSaveOptions(exportAddon)),
+                        saveCreature: () => attempt(() => showSaveOptions(saveCreature)), openCreature: importCreature,
                         setDriveClass() {
                             try {
                                 window.BlockbenchEduDrive.setClassCode(this.driveCode.trim());
@@ -2390,6 +3041,33 @@
             document.body.append(teacherReturn);
             // A pending canvas-to-image load must not suppress the bitmap restored
             // by native undo. Its source has already been replaced by the snapshot.
+            wholeModelTransformer = new TransformerModule('edu_whole_model', {
+                priority:100,
+                condition:() => !!classroom && classroom.mode === 'shape' && classroom.wholeModel && ['move','rotate'].includes(classroom.operation),
+                use_condition:() => !current()?.busy,
+                updateGizmo() {
+                    const visible = TransformerModule.modules.edit.updateGizmo.call(this);
+                    delete Transformer.rotation_ref;
+                    Transformer.rotation_selection.set(0,0,0);
+                    if (classroom.operation === 'rotate') Transformer.position.set(0,0,0);
+                    return visible;
+                },
+                calculateOffset(context) { return TransformerModule.modules.edit.calculateOffset.call(this, context); },
+                onStart() { Undo.initEdit({elements:Cube.all.slice(),groups:Group.all.slice()}); },
+                onMove(context) {
+                    const delta = context.value - this.previous_value;
+                    const axis = context.axis_number ?? context.rotate_normal;
+                    transformWholeModel(classroom.operation, axis, delta, false);
+                    Transformer.updateSelection();
+                },
+                onEnd(context) {
+                    if (!context.has_changed) return;
+                    if (context.keep_changes) Undo.finishEdit(classroom.operation === 'move' ? 'Mover todo el modelo Edu' : 'Girar todo el modelo Edu');
+                    else Undo.cancelEdit(true);
+                    refresh();
+                },
+                onCancel(context) { if (context.has_changed) Undo.cancelEdit(true); refresh(); }
+            });
             const dragStart = () => { eduPointerDown = !!classroom && classroom.mode === 'shape'; };
             const dragEnd = () => { queueMicrotask(() => { eduPointerDown = false; eduDrag = null; }); };
             Transformer.addEventListener('mouseDown', dragStart);
@@ -2410,7 +3088,7 @@
             Blockbench.on('load_undo_save', restoreBitmap); listeners.push(['load_undo_save', restoreBitmap]);
             const followSelection = () => {
                 const session = current();
-                if (classroom && session && Cube.selected.length === 1) session.selectedId = Cube.selected[0].uuid;
+                if (classroom && !classroom.wholeModel && session && Cube.selected.length === 1) session.selectedId = Cube.selected[0].uuid;
                 refresh();
             };
             Blockbench.on('update_selection', followSelection); listeners.push(['update_selection', followSelection]);
@@ -2425,6 +3103,8 @@
         },
         onunload() {
             alive = false;
+            restoreCameraRaycast?.();
+            restoreCameraRaycast = null;
             projectStyle?.delete(); projectStyle = null;
             if (window.BlockbenchEduWeb) delete window.BlockbenchEduWeb.openCreature;
             teacherReturn?.remove(); teacherReturn = null;
@@ -2444,6 +3124,7 @@
                 else if (event === 'edu_transform_end') Transformer.removeEventListener('mouseUp', listener);
                 else Blockbench.removeListener(event, listener);
             }
+            wholeModelTransformer?.delete(); wholeModelTransformer = null;
             eduDrag = null; eduPointerDown = false;
             listeners.length = 0; sessions.clear();
             panel?.delete(); action?.delete(); style?.delete(); panel = null;

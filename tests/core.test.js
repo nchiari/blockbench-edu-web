@@ -56,6 +56,95 @@ test('Wizard catalog generation preserves cow geometry, behavior, animation and 
     assert.equal(await ref.root.file(ref.texturePath).async('base64'), catalog.cow.textures.default.split(',')[1]);
     assert.match(await ref.root.file('RP/texts/es_ES.lang').async('string'), /Mi vaca/);
 });
+test('named export labels the egg and assigns an overhead name to new creatures only', async () => {
+    const mob = require('../reference/wizard-catalog.json').cow;
+    const starter = await core.createMobAddon(mob, {name:'Vaca Edu'}, Zip, require('node:crypto').randomUUID);
+    const ref = await core.readAddon(starter.addon, Zip);
+    const name = 'Lúa "la azul"';
+    const exportNamed = (source, name) => core.buildAddon(source, starter.geometry, mob.textures.default.split(',')[1], Zip, {}, core.defaultBehavior(), name);
+    const {zip, version} = await exportNamed(ref, name);
+    const named = await core.readAddon(await zip.generateAsync({type:'uint8array'}), Zip);
+    const module = named.bp.manifest.modules.find(module => module.type === 'script');
+    assert.deepEqual(module.version, version);
+    assert.equal(named.bp.manifest.dependencies.find(dep => dep.module_name === '@minecraft/server').version, '2.8.0');
+    assert.equal(named.bp.manifest.header.name, name);
+    assert.equal(named.rp.manifest.header.name, name);
+    const components = named.behavior.json['minecraft:entity'].components;
+    assert.equal(components['minecraft:nameable'].always_show, true);
+    assert.deepEqual(components['minecraft:behavior.random_stroll'], ref.behavior.json['minecraft:entity'].components['minecraft:behavior.random_stroll']);
+    for (const locale of ['en_US', 'es_ES']) {
+        const lang = await zip.file(`RP/texts/${locale}.lang`).async('string');
+        assert.ok(lang.includes(`entity.${starter.identifier}.name=${name}\t\n`));
+        assert.ok(lang.includes(`item.spawn_egg.entity.${starter.identifier}.name=${name}\t\n`));
+        assert.ok(!lang.includes('Vaca Edu'));
+    }
+    const script = await zip.file(named.bp.prefix + module.entry).async('string');
+    let spawn;
+    require('node:vm').runInNewContext(script.replace(/^import [^\n]+\n/, ''), {
+        world:{afterEvents:{entitySpawn:{subscribe(listener) { spawn = listener; }}}}
+    });
+    const creature = {typeId:starter.identifier, nameTag:''};
+    const other = {typeId:'minecraft:cow', nameTag:''};
+    const alreadyNamed = {typeId:starter.identifier, nameTag:'Mora'};
+    for (const entity of [creature, other, alreadyNamed]) spawn({entity});
+    assert.deepEqual([creature.nameTag, other.nameTag, alreadyNamed.nameTag], [name, '', 'Mora']);
+    assert.equal(ref.bp.manifest.modules.length, 1);
+    const updated = await exportNamed(named, 'Otro nombre');
+    const manifest = JSON.parse(await updated.zip.file(named.bp.path).async('string'));
+    assert.deepEqual(manifest.modules.filter(module => module.type === 'script').map(module => module.uuid), [module.uuid]);
+});
+test('the mounted name script hides the tag, restores custom names and survives unloading', async () => {
+    const mob = require('../reference/wizard-catalog.json').pig;
+    const starter = await core.createMobAddon(mob, {}, Zip, require('node:crypto').randomUUID);
+    const ref = await core.readAddon(starter.addon, Zip);
+    const settings = core.adjustPigBehavior(core.entityBehavior(ref.behavior.json), 'mount.enabled', true);
+    const {zip} = await core.buildAddon(ref, starter.geometry, mob.textures.default.split(',')[1], Zip, {}, settings, 'Teddy');
+    const output = await core.readAddon(await zip.generateAsync({type:'uint8array'}), Zip);
+    const module = output.bp.manifest.modules.find(module => module.type === 'script');
+    const script = await zip.file(output.bp.prefix + module.entry).async('string');
+    let spawn, load, tick, riding;
+    const player = {getComponent: () => riding && {entityRidingOn:riding}};
+    require('node:vm').runInNewContext(script.replace(/^import [^\n]+\n/, ''), {
+        world:{
+            getAllPlayers: () => [player],
+            afterEvents:{
+                entitySpawn:{subscribe(listener) { spawn = listener; }},
+                entityLoad:{subscribe(listener) { load = listener; }}
+            }
+        },
+        system:{runInterval(listener) { tick = listener; }}
+    });
+    const memory = new Map();
+    const makeCreature = nameTag => ({
+        id:'creature', typeId:starter.identifier, isValid:true, nameTag,
+        getDynamicProperty: key => memory.get(key),
+        setDynamicProperty: (key,value) => value === undefined ? memory.delete(key) : memory.set(key,value)
+    });
+    const creature = makeCreature('');
+    spawn({entity:creature});
+    assert.equal(creature.nameTag,'Teddy');
+    creature.nameTag = 'Mora';
+    riding = creature;
+    tick();
+    tick();
+    assert.equal(creature.nameTag,'');
+    riding = undefined;
+    tick();
+    assert.equal(creature.nameTag,'Mora');
+    assert.equal(memory.size,0);
+
+    riding = creature;
+    tick();
+    creature.isValid = false;
+    riding = undefined;
+    tick();
+    const reloaded = makeCreature('');
+    load({entity:reloaded});
+    tick();
+    assert.equal(reloaded.nameTag,'Mora');
+    assert.equal(memory.size,0);
+});
+
 function image(width, height) {
     const data = new Uint8ClampedArray(width * height * 4);
     for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
@@ -180,9 +269,13 @@ for (const nested of [false, true]) test(`addon round trip (${nested ? 'nested p
     const {input, geom} = await fixture(nested), reference = await core.readAddon(input, Zip);
     geom['minecraft:geometry'][0].description.texture_width = 19;
     const auxiliaryPath = reference.rp.prefix + 'textures/entity/secondary.png';
+    const icon = require('../reference/wizard-catalog.json').pig.thumbnail.split(',')[1];
     const result = await core.buildAddon(reference, geom, Buffer.from('new png').toString('base64'), Zip,
-        {[auxiliaryPath]: Buffer.from('remapped alternate').toString('base64')});
+        {[auxiliaryPath]: Buffer.from('remapped alternate').toString('base64')}, undefined, '', icon);
     const reread = await core.readAddon(await result.zip.generateAsync({type: 'uint8array'}), Zip);
+    for (const pack of [reread.bp, reread.rp]) {
+        assert.equal(await pack.zip.file(pack.prefix + 'pack_icon.png').async('base64'), icon);
+    }
     assert.equal(reread.geometry.description.texture_width, 19);
     assert.equal(await reread.rp.zip.file(reread.texturePath).async('string'), 'new png');
     assert.equal(await reread.rp.zip.file(auxiliaryPath).async('string'), 'remapped alternate');
@@ -248,4 +341,38 @@ test('smoothing mixes colors within a two-pixel radius and preserves alpha and d
     }
     const edge=core.smoothPixels(source,0,0,2);
     assert.deepEqual(pixel(edge,0,0),[0,0,0,255]);
+});
+test('chosen egg colors replace catalog textures and survive export', async () => {
+    const mob = require('../reference/wizard-catalog.json').pig;
+    const colors = {base_color:'#f123ab', overlay_color:'#1245ef'};
+    const starter = await core.createMobAddon(mob, {spawnEgg:colors}, Zip, require('node:crypto').randomUUID);
+    const reference = await core.readAddon(starter.addon, Zip);
+    assert.deepEqual(reference.entity.description.spawn_egg, colors);
+    const result = await core.buildAddon(reference, starter.geometry, mob.textures.default.split(',')[1], Zip);
+    const exported = await core.readAddon(await result.zip.generateAsync({type:'uint8array'}), Zip);
+    assert.deepEqual(exported.entity.description.spawn_egg, colors);
+    const original = await core.createMobAddon(mob, {}, Zip, require('node:crypto').randomUUID);
+    assert.deepEqual((await core.readAddon(original.addon, Zip)).entity.description.spawn_egg,
+        JSON.parse(mob.entity)['minecraft:client_entity'].description.spawn_egg);
+    await assert.rejects(core.createMobAddon(mob, {spawnEgg:{...colors,base_color:'invalid'}}, Zip, require('node:crypto').randomUUID), /colores/);
+});
+test('copied pieces get neutral names so vanilla render controllers do not hide them', async () => {
+    const donkey = require('../reference/wizard-catalog.json').donkey;
+    const mob = {...donkey, textures: {...donkey.textures, default: donkey.textures.donkey}};
+    const starter = await core.createMobAddon(mob, {}, Zip, require('node:crypto').randomUUID);
+    const ref = await core.readAddon(starter.addon, Zip);
+    const edited = JSON.parse(JSON.stringify(ref.geometry));
+    const bag = edited.bones.find(bone => bone.name === 'BagR');
+    edited.bones.push({...JSON.parse(JSON.stringify(bag)), name: 'BagR_copy'},
+        {...JSON.parse(JSON.stringify(bag)), name: 'BagR_copy_copy', parent: 'BagR_copy'},
+        {...JSON.parse(JSON.stringify(bag)), name: 'edu_Saddle_copy'},
+        {...JSON.parse(JSON.stringify(bag)), name: 'Saddle_copy'});
+    const input = {format_version:'1.12.0', 'minecraft:geometry':[edited]};
+    const result = await core.buildAddon(ref, input, mob.textures.default.split(',')[1], Zip);
+    const bones = JSON.parse(await result.zip.file(ref.path).async('string'))['minecraft:geometry'][0].bones;
+    const names = bones.map(bone => bone.name);
+    assert.ok(names.includes('BagR') && names.includes('Saddle'), 'original pieces keep their names');
+    assert.deepEqual(names.slice(-4), ['edu_BagR_copy', 'edu_BagR_copy_copy', 'edu_edu_Saddle_copy', 'edu_Saddle_copy_2']);
+    assert.equal(bones.find(bone => bone.name === 'edu_BagR_copy_copy').parent, 'edu_BagR_copy');
+    assert.equal(edited.bones.at(-1).name, 'Saddle_copy', 'the project geometry is not modified');
 });

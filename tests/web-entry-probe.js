@@ -11,6 +11,7 @@ async (page) => {
         await page.locator('#blockbench_edu_wizard .search_bar input').fill('zombi');
         await page.locator('.edu-catalog>li').filter({hasText: /^Zombi$/}).click();
         await page.getByRole('button', {name: 'Siguiente', exact: true}).click();
+        await page.getByRole('button', {name: 'Siguiente', exact: true}).click();
         await page.getByRole('button', {name: 'Abrir editor', exact: true}).click();
         await page.waitForFunction(() => !document.body.classList.contains('edu-setup'));
     };
@@ -57,9 +58,39 @@ async (page) => {
 
     await discardProbeProject(); await page.goto(classLink); await waitWizard(); await openCreature();
     await page.getByRole('button', {name: '4 · Guardar y exportar', exact: true}).click();
+    await page.getByRole('button',{name:'Continuar',exact:true}).click();
     check(await page.locator('#blockbench_edu_save_options').getByRole('button', {name: /^Entregar al profe/}).isVisible(), 'Class link enables student delivery in save options');
     await page.getByRole('button', {name:'Seguir creando',exact:true}).click();
     check(await page.locator('.edu-teacher').count() === 0, 'Class link stays in student role');
     report.classLink = {student: true, delivery: true};
+
+    const restart = page.getByRole('button', {name: 'Empezar de nuevo', exact: true});
+    check(await page.locator('#edu-classroom nav > button').nth(4).textContent() === 'Empezar de nuevo', 'Restart is the fifth, unnumbered action');
+    await page.getByRole('button', {name: 'Aumentar todo el modelo', exact: true}).click();
+    const editedProject = () => page.evaluate(() => ({id: Project.uuid, undo: Undo.index}));
+    const edited = await editedProject();
+    check(edited.undo > 0, 'The creature has edits to discard');
+    const restartDialog = page.locator('#message_box');
+    const dismissRestart = async (dismiss, method) => {
+        await restart.click();
+        await restartDialog.waitFor();
+        await dismiss();
+        await restartDialog.waitFor({state: 'hidden'});
+        check(JSON.stringify(await editedProject()) === JSON.stringify(edited), `${method} keeps the creature and its edits`);
+    };
+    await dismissRestart(() => restartDialog.locator('.dialog_close_button').click(), 'Close button');
+    await dismissRestart(() => page.keyboard.press('Escape'), 'Escape');
+    await dismissRestart(() => restartDialog.getByRole('button', {name: 'Cancelar', exact: true}).click(), 'Cancel');
+
+    await restart.click();
+    await page.getByRole('button', {name: 'Descartar y empezar de nuevo', exact: true}).click();
+    await waitWizard();
+    check(await page.locator('#edu-classroom').count() === 0, 'Restart leaves the classroom editor');
+    check(await page.evaluate(id => !ModelProject.all.some(project => project.uuid === id), edited.id), 'Restart closes the discarded project');
+    check(page.url() === classLink, 'Restart retains the classroom link');
+    await openCreature();
+    const fresh = await editedProject();
+    check(fresh.id !== edited.id && fresh.undo === 0, 'The tutorial creates a fresh creature');
+    report.restart = {cancelKeptEdits: true, returnedToTutorial: true, classLinkRetained: true, freshCreature: true};
     return report;
 }

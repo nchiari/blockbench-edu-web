@@ -75,18 +75,50 @@ test('every available template exports custom behavior and restores Original thr
     }
 });
 
-test('direct ground riding accepts keyboard input without requiring a held item',()=>{
-    let b=core.simplePigBehavior(core.defaultBehavior());
+test('an exported saddled spider switches from wandering to keyboard input and back',async()=>{
+    const spider=classroomCatalog.spider;
+    const starter=await core.createMobAddon(spider,{},Zip,randomUUID);
+    const ref=await core.readAddon(starter.addon,Zip);
+    let b=core.entityBehavior(ref.behavior.json,{...core.defaultBehavior(),profile:'companion'});
     assert.equal(b.pig.mount.control,'direct');
     b=core.adjustPigBehavior(b,'mount.enabled',true);
-    const e=core.compileBehavior(JSON.parse(catalog.pig.behavior),b)['minecraft:entity'];
-    const mounted=e.component_groups['blockbench_edu:mounted'];
-    assert.deepEqual(mounted,{'minecraft:input_ground_controlled':{}});
-    assert.equal(e.component_groups['blockbench_edu:ride_ready']['minecraft:rideable'].seat_count,1);
-    assert.ok(e.events['blockbench_edu:on_dismount'].sequence[0].remove.component_groups.includes('blockbench_edu:mounted'));
-    const legacy=core.adjustPigBehavior(b,'mount.control','player');
-    assert.ok(core.compileBehavior(JSON.parse(catalog.pig.behavior),legacy)['minecraft:entity'].component_groups['blockbench_edu:mounted']['minecraft:item_controllable']);
-    assert.equal(core.simplePigBehavior(legacy).pig.mount.control,'player');
+    b=core.adjustPigBehavior(b,'mount.saddle',true);
+    b=core.adjustPigBehavior(b,'wander',true);
+    const built=await core.buildAddon(ref,{'minecraft:geometry':[ref.geometry]},spider.textures.default.split(',')[1],Zip,{},b);
+    const exported=await core.readAddon(await built.zip.generateAsync({type:'uint8array'}),Zip);
+    const e=exported.behavior.json['minecraft:entity'],groups=e.component_groups;
+    const [saddled]=e.events['blockbench_edu:on_saddle'].add.component_groups;
+    const rideable=groups[saddled]['minecraft:rideable'];
+    assert.equal(rideable.seat_count,1);
+    assert.equal(rideable.on_rider_enter_event,'blockbench_edu:on_mount');
+    assert.equal(rideable.on_rider_exit_event,'blockbench_edu:on_dismount');
+    assert.ok(groups['blockbench_edu:free']['minecraft:behavior.random_stroll']);
+    assert.equal(e.components['minecraft:behavior.random_stroll'],undefined);
+    const mount=e.events[rideable.on_rider_enter_event];
+    assert.ok(mount.remove.component_groups.includes('blockbench_edu:free'));
+    assert.ok(mount.remove.component_groups.includes('blockbench_edu:owner_free'));
+    assert.deepEqual(mount.add.component_groups,['blockbench_edu:mounted']);
+    assert.deepEqual(groups['blockbench_edu:mounted'],{'minecraft:input_ground_controlled':{}});
+    const [dismount]=e.events[rideable.on_rider_exit_event].sequence;
+    assert.deepEqual(dismount.remove.component_groups,['blockbench_edu:mounted']);
+    assert.deepEqual(dismount.add.component_groups,['blockbench_edu:free']);
+});
+
+test('Ravager mounts export the template seat and keep manually placed seats',async()=>{
+    const ravager=classroomCatalog.ravager;
+    const starter=await core.createMobAddon(ravager,{},Zip,randomUUID);
+    const ref=await core.readAddon(starter.addon,Zip);
+    const source=ref.behavior.json;
+    const settings=core.adjustPigBehavior(core.entityBehavior(source),'mount.enabled',true);
+    const geometry={'minecraft:geometry':[ref.geometry]};
+    const built=await core.buildAddon(ref,geometry,ravager.textures.default.split(',')[1],Zip,{},settings);
+    const exported=await core.readAddon(await built.zip.generateAsync({type:'uint8array'}),Zip);
+    const position=behavior=>behavior['minecraft:entity'].component_groups['blockbench_edu:ride_ready']['minecraft:rideable'].seats.position;
+    assert.deepEqual(position(exported.behavior.json),[0,2.1,-0.3]);
+
+    const placed=core.adjustPigBehavior(settings,'mount.height',1.83);
+    const reopened=core.entityBehavior(source,placed);
+    assert.deepEqual(position(core.compileBehavior(source,reopened)),[0,1.83,-0.3]);
 });
 
 test('simplified classroom removes breeding even for Original and fixes food amounts',()=>{
@@ -249,6 +281,7 @@ test('pig mounting pauses movement, combat and breeding without losing ownership
     b.pig.mount={enabled:true,saddle:true,control:'player',height:1.15,offset:-0.25};
     b.pig.breeding.enabled=true;
     b.pig.heal=true;
+    assert.equal(core.simplePigBehavior(b).pig.mount.control,'player');
     const out=core.compileBehavior(JSON.parse(catalog.pig.behavior),b),e=out['minecraft:entity'],g=e.component_groups;
     assert.equal(out.format_version,'1.21.80');
     const ready=g['blockbench_edu:ride_ready']['minecraft:rideable'];
@@ -257,8 +290,8 @@ test('pig mounting pauses movement, combat and breeding without losing ownership
     assert.ok(g['blockbench_edu:ride_ready']['minecraft:is_saddled']);
     assert.equal(g['blockbench_edu:unsaddled']['minecraft:rideable'],undefined);
     assert.deepEqual(e.events['blockbench_edu:on_saddle'].remove.component_groups,['blockbench_edu:unsaddled']);
-    assert.equal(ready.on_rider_enter_event.event,'blockbench_edu:on_mount');
-    assert.equal(ready.on_rider_exit_event.event,'blockbench_edu:on_dismount');
+    assert.equal(ready.on_rider_enter_event,'blockbench_edu:on_mount');
+    assert.equal(ready.on_rider_exit_event,'blockbench_edu:on_dismount');
     const pause=e.events['blockbench_edu:on_mount'];
     assert.ok(pause.remove.component_groups.includes('blockbench_edu:owner_free'));
     assert.ok(pause.remove.component_groups.includes('blockbench_edu:breed_free'));
@@ -288,25 +321,25 @@ test('pig ride modes respect saddle choices and validate seat coordinates',()=>{
     assert.equal(e.component_groups['blockbench_edu:mounted']['minecraft:item_controllable'],undefined);
     b.pig.wander=false;
     assert.deepEqual(core.compileBehavior(JSON.parse(catalog.pig.behavior),b)['minecraft:entity'].component_groups['blockbench_edu:mounted'],{});
-    for(const patch of [{control:'invalid'},{saddle:1},{height:-0.1},{height:5},{height:NaN},{offset:3},{enabled:'yes'}])
+    for(const patch of [{control:'invalid'},{saddle:1},{height:-0.1},{height:5},{height:NaN},{offset:3},{enabled:'yes'},{jump:1}])
         assert.throws(()=>core.validateBehavior({...b,pig:{...b.pig,mount:{...b.pig.mount,...patch}}}),/montura/);
     const old=structuredClone(b);delete old.pig.mount;
     assert.equal(core.pigBehavior(old).pig.mount.enabled,false);
     assert.equal(old.pig.mount,undefined);
 });
 
-test('mount exports require compatible BP/RP engine versions, while Original and unmounted exports preserve them',async()=>{
+test('mount exports require compatible engine versions for rider name updates',async()=>{
     const starter=await core.createMobAddon(catalog.pig,{},Zip,randomUUID),ref=await core.readAddon(starter.addon,Zip);
     let b=core.pigBehavior({...core.defaultBehavior(),profile:'calm'});b.pig.mount.enabled=true;
     const make=async settings=>core.readAddon(await (await core.buildAddon(ref,{'minecraft:geometry':[ref.geometry]},catalog.pig.textures.default.split(',')[1],Zip,{},settings)).zip.generateAsync({type:'uint8array'}),Zip);
     const out=await make(b);
-    assert.deepEqual(out.bp.manifest.header.min_engine_version,[1,21,80]);
+    assert.deepEqual(out.bp.manifest.header.min_engine_version,[1,26,30]);
     assert.deepEqual(out.rp.manifest.header.min_engine_version,[1,21,80]);
     assert.equal(out.behavior.json.format_version,'1.21.80');
     assert.equal(out.behavior.json['minecraft:entity'].description.identifier,starter.identifier);
     const untouched=await make(core.defaultBehavior());
     assert.deepEqual(untouched.behavior.json,ref.behavior.json);
-    assert.deepEqual(untouched.bp.manifest.header.min_engine_version,ref.bp.manifest.header.min_engine_version);
+    assert.deepEqual(untouched.bp.manifest.header.min_engine_version,[1,26,30]);
     b.pig.mount.enabled=false;
     assert.deepEqual((await make(b)).bp.manifest.header.min_engine_version,ref.bp.manifest.header.min_engine_version);
 });

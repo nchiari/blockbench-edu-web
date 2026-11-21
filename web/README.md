@@ -19,7 +19,7 @@ These are separate interfaces, not authenticated accounts. Sessions stay in thei
 
 ## Rebuild
 
-The student's third step is **3 · Dale vida** (behavior setup); **4 · Guardar y exportar** opens the save/export choices. It opens a chooser with **Guardar para seguir editando** (`.bbedu`) and **Llevar a Minecraft** (`.mcaddon`). A configured classroom adds **Entregar al profe** to the same chooser. Opening or closing the chooser does not generate a download or change the creature; the student selects an action explicitly. The sidebar save/open shortcuts remain available.
+The student's third step is **3 · Dale vida** (behavior setup). **4 · Guardar y exportar** asks for the creature's name before offering **Guardar para seguir editando** (`.bbedu`) and **Llevar a Minecraft** (`.mcaddon`). A configured classroom adds **Entregar al profe**. The name is applied when the student selects an action and is saved inside the editable project. The exported addon uses it for the spawn egg and assigns it as a visible name tag when the creature spawns. The name tag uses the stable Script API for Minecraft Education 26.30. The sidebar save shortcut asks for the name before downloading the project.
 
 Use Node 22.15.0 and npm. From the repository root:
 

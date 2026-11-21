@@ -4,7 +4,7 @@ async page => {
     await page.waitForFunction(() => typeof Dialog !== 'undefined' && Dialog.open?.content_vue?.steps);
     await page.evaluate(async () => {
         const wizard = Dialog.open.content_vue;
-        wizard.creature = 'zombie'; wizard.step = 2; await wizard.next();
+        wizard.creature = 'zombie'; wizard.step = 3; await wizard.next();
     });
     await page.locator('#edu-classroom').waitFor();
     // Simulate a native edit outside Edu's duplication controls: an unregistered cube.

@@ -102,9 +102,9 @@ function nombreArchivo_(value) {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9_-]+/g, '_').slice(0, 48) || 'criatura';
 }
 
-function nombreEntrega_(student, receivedAt, usedNames) {
+function nombreEntrega_(student, creature, receivedAt, usedNames) {
   const date = Utilities.formatDate(new Date(receivedAt), EDU_TIME_ZONE, 'dd-MM-yy');
-  const stem = nombreArchivo_(student) + '_' + date;
+  const stem = nombreArchivo_(student) + '_' + nombreArchivo_(creature) + '_' + date;
   let name = stem + '.mcaddon', number = 2;
   while (usedNames.has(name) || ['.bbmodel', '.bbedu'].some(ext => usedNames.has(name.replace(/\.mcaddon$/, ext)))) name = stem + '_' + number++ + '.mcaddon';
   return name;
@@ -200,14 +200,14 @@ function guardarArchivo_(item, data, extension, targetName) {
       }
       // Preserve pre-update filenames; new uploads always get the short display name.
       if (!receipt.fileName) receipt.fileName = targetName || (file.getName().endsWith(legacySuffix) ? file.getName()
-        : nombreEntrega_(item.alias, receipt.receivedAt, usedNames));
+        : nombreEntrega_(item.alias, item.creature, receipt.receivedAt, usedNames));
       file.setDescription(JSON.stringify(receipt));
       if (file.getName() === pendingName) file.setName(receipt.fileName);
       return {ok: true, receipt: item.submissionId, receivedAt: receipt.receivedAt, fileName: file.getName(), duplicate: true};
     }
     if (count >= EDU_MAX_FILES || total + item.bytes.length > EDU_MAX_CLASS_BYTES) throw new Error('El buzón está lleno. Avisale a tu profe.');
     const receivedAt = new Date().toISOString();
-    const name = targetName || nombreEntrega_(item.alias, receivedAt, usedNames);
+    const name = targetName || nombreEntrega_(item.alias, item.creature, receivedAt, usedNames);
     if (targetName && usedNames.has(targetName)) throw new Error('Ya existe otro proyecto con ese nombre. Avisale a tu docente.');
     const blob = Utilities.newBlob(item.bytes, 'application/octet-stream', pendingName);
     const file = folder.createFile(blob);

@@ -1,5 +1,14 @@
 # Validación del prototipo
 
+## Ataque a distancia — 17 de noviembre de 2026
+
+- Combate incorpora Ataque a distancia: Solo golpes (por defecto), Golpes y proyectiles o Solo proyectiles. Proyectiles vanilla elegibles: flecha, bola de nieve, bola de fuego pequeña, tridente, escupitajo de llama, carga de viento y huevo. Se excluyen los que rompen bloques o teletransportan (bola de fuego de ghast, calavera de Wither, perla de ender).
+- Se usa minecraft:behavior.fire_at_target (formato de entidad 1.21.30) porque permite elegir el punto de salida: ancla pies/medio/ojos y desplazamiento vertical de -2 a 4 bloques. No se ofrece desplazamiento lateral o hacia adelante porque fuera del experimento Custom Projectiles se aplica en ejes del mundo y no según hacia dónde mira la criatura.
+- Solo dispara si tiene objetivo (Enemigo, Se defiende, criaturas para atacar o defensa del dueño); si no, Combate muestra un aviso. Solo proyectiles quita el golpe cuerpo a cuerpo y agrega move_around_target para mantener distancia. Al montarla, el disparo se pausa como las demás conductas. El daño depende del proyectil.
+- Proyectos con disparo activado usan formato portátil 13; los demás siguen guardándose como antes.
+- 92 pruebas automáticas aprobadas. Navegador local: esqueleto con base personalizada, Golpes y proyectiles, resumen "Dispara: Flecha, desde ojos".
+- Pendiente: prueba en Minecraft Education de cada proyectil, la altura de salida y Solo proyectiles.
+
 ## Causas de daño del cerdo — 12 de noviembre de 2026
 
 - Vida y daño incorpora 15 opciones en cuatro desplegables: golpes/proyectiles/Espinas; fuego/lava/magma/explosiones/rayos; caídas/ahogamiento/asfixia/contacto/bloques que caen/congelación; daño mágico y Wither.
@@ -373,6 +382,20 @@ Publicación confirmada en `https://nchiari.github.io/blockbench-edu-web/`, revi
 - Pruebas: 70 entidades × 5 perfiles × 4 movimientos (1400 combinaciones); exportación y restauración Original de las 70 plantillas reales del catálogo incrustado; guardado formato 10 y lectura, HP 500, defaults acuáticos/voladores, tamaños adultos e inmutabilidad del origen.
 - Navegador: categorías y vuelo inicial del loro, guardado y reapertura de Loro_Edu.bbedu, movimiento acuático inicial del bacalao y cambio a vuelo; avisos locales sin enlaces y avisos a otra categoría con enlace. No se verificó el comportamiento dentro de Minecraft Education.
 
+## Transformación de todo el modelo — 2026-11-14
+
+- «Todo el modelo» en el selector de Dale forma, con aviso explícito e inclusión de partes ocultas. Tamaño proporcional ×1,1 o ÷1,1, movimiento de una unidad y rotación de 15° sobre el origen del modelo. Mantiene nombres y jerarquía de huesos, sin añadir huesos nuevos. La pintura se remuestrea por vecino más cercano para conservar el dibujo completo a la nueva medida.
+- El alcance completo se conserva al encuadrar la cámara. En ese alcance se ocultan los tiradores de edición individual; los botones del menú transforman toda la criatura.
+- Prueba de navegador `tests/whole-model-probe.js`: escala de posiciones y pivotes, partes ocultas, deshacer/rehacer exacto de geometría/UV/PNG, movimiento completo, giro en los tres ejes contrastado con posiciones 3D reales y huesos con rotaciones previas, exportación .mcaddon, guardado/reapertura .bbedu y regreso a controles por parte.
+- `npm run check`, `npm test` (77 pruebas) y compilación web correctos. El comportamiento, colisión y animaciones dentro de Minecraft Education quedan pendientes de prueba; este cambio modifica el modelo visual. Publicación limitada a `codex/pruebas`.
+
+## Ajuste de escala y controles 3D completos — 2026-11-14
+
+- Todo el modelo seleccionado al entrar y al reabrir una criatura, con aviso verde de alto contraste. Flechas de movimiento y círculos de giro nativos conectados a un módulo propio de TransformerModule; toda la criatura acompaña el arrastre en vivo, con una sola acción de historial. En Tamaño se mantienen ocultos los tiradores.
+- Corregida la escala anterior: no cambia ningún píxel, la resolución del PNG ni las UV. Se contrastó con `ModelScaler.scaleElements` del código de Blockbench 5.2.2 fijado por el proyecto. Se elimina el requisito global de un píxel por unidad que impedía guardar/exportar estas escalas; las ediciones individuales siguen adaptando su pintura con la densidad que tienen al comenzar.
+- Comprobaciones nuevas: PNG y UV idénticos tras escalas repetidas, edición individual después de escalar/reabrir, flecha Y con mouse real y rotación desde el círculo de cámara, partes ocultas, movimiento/giro en vivo, distancias al origen y deshacer exacto del arrastre. Continúan las pruebas de exportación, guardado/reapertura y giro en los tres ejes.
+- Verificación local: `npm run check`, `npm test` (77 pruebas aisladas; 79 con el asistente de huevo integrado), compilación web y ambos probes de navegador (33 comprobaciones). Pendiente validar dentro de Minecraft Education, incluidas animaciones y colisión; publicación limitada a test.
+
 
 ## Botín configurable por criatura — 2026-11-14 (Preview)
 
@@ -398,3 +421,13 @@ Publicación confirmada en `https://nchiari.github.io/blockbench-edu-web/`, revi
 - Por indicación explícita del usuario se trasladan exclusivamente los cambios de Botín (49fc6cb y 996c7e5) sobre main. Los controles de modelo completo y el asistente del huevo siguen en pruebas.
 - Combinación de producción verificada con 85 pruebas, sintaxis, compilación web y navegador local: reapertura .bbedu 12 con 64 diamantes Siempre y 2 espadas Media, selector con las seis palabras y límites actuales.
 - La prueba de drops dentro de Minecraft Education sigue pendiente.
+
+## 2026-11-17 — Reabrir entregas y adjuntar proyecto Edu
+
+- «Abrir una criatura» admite .bbmodel Bedrock con una textura PNG incluida, tanto en docente como en alumno y enlaces de clase. Las piezas y la pintura forman la nueva referencia. El comportamiento inicial es básico porque el archivo nativo no contiene los ajustes Edu.
+- Las entregas preparan .mcaddon, .bbmodel y .bbedu. El proyecto portátil conserva la configuración de comportamiento y la versión del addon entregado.
+- El receptor acepta clientes anteriores y completa entregas parciales al reintentar. El cliente exige la confirmación del tercer archivo para indicar éxito.
+- Prueba de navegador en tests/delivery-project-probe.js con el transporte a Google simulado. Verifica tres archivos, apertura de la copia nativa en docente y alumno, guardado portátil y reapertura desde un enlace de clase con la misma pintura, piezas y ajustes de comportamiento.
+- npm run check y 89 pruebas unitarias aprobadas. Compilación web completada.
+- El receptor actualizado está en infrastructure/drive/Code.gs y la copia configurada local en output/drive-buzon/Pegar-en-Apps-Script-v7.txt. Su implementación en Google y la entrega real de tres archivos quedan pendientes del lanzamiento. Desarrollo publicado exclusivamente en codex/pruebas.
+- La importación en Minecraft Education no se probó en esta tarea.

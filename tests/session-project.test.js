@@ -3,7 +3,7 @@ const {test} = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const Zip = require('jszip');
-const {readAddon,writeCreatureProject,readCreatureProject,buildAddon} = require('../blockbench_edu.js');
+const {readAddon,writeCreatureProject,readCreatureProject,buildAddon,attachAddonProject,readExportedAddon} = require('../blockbench_edu.js');
 
 async function fixture() {
     const reference = await readAddon(fs.readFileSync('reference/cerdo_edu.mcaddon'),Zip);
@@ -71,6 +71,38 @@ test('portable loot rows reopen and export exactly, while format 10 keeps its in
     const previous=await readCreatureProject(await zip.generateAsync({type:'uint8array'}),Zip);
     assert.deepEqual(core.entityBehavior(previous.reference.behavior.json,previous.state.behavior).pig.loot,{mode:'inherit',entries:[]});
 });
+test('mount jumping survives save and controls the exported direct ride',async()=>{
+    const {model,state,reference}=await fixture(),core=require('../blockbench_edu.js');
+    const settings=core.adjustPigBehavior(core.entityBehavior(reference.behavior.json),'mount.enabled',true);
+    const jumping=core.adjustPigBehavior(core.adjustPigBehavior(settings,'mount.saddle',false),'mount.jump',true);
+    assert.equal(core.compileBehavior(reference.behavior.json,jumping)['minecraft:entity'].components['minecraft:horse.jump_strength'].value,0.5);
+    state.behavior=core.adjustPigBehavior(jumping,'mount.jumpStrength',0.85);
+    const loaded=await readCreatureProject(await writeCreatureProject(model,state,reference,Zip),Zip);
+    assert.equal(loaded.version,15);
+    assert.equal(loaded.state.behavior.pig.mount.jump,true);
+    assert.equal(loaded.state.behavior.pig.mount.jumpStrength,0.85);
+    const output=await buildAddon(loaded.reference,{'minecraft:geometry':[loaded.reference.geometry]},model.textures[0].source.split(',')[1],Zip,{},loaded.state.behavior);
+    const exported=await readAddon(await output.zip.generateAsync({type:'uint8array'}),Zip);
+    const entity=exported.behavior.json['minecraft:entity'];
+    const mounted=entity.component_groups['blockbench_edu:mounted'];
+    assert.deepEqual(mounted['minecraft:can_power_jump'],{});
+    assert.deepEqual(mounted['minecraft:is_saddled'],{});
+    assert.equal(mounted['minecraft:variable_max_auto_step'].controlled_value,1);
+    assert.equal(entity.components['minecraft:horse.jump_strength'].value,0.85);
+    assert.ok(entity.events['blockbench_edu:on_dismount'].sequence[0].remove.component_groups.includes('blockbench_edu:mounted'));
+    const legacy=structuredClone(settings);
+    delete legacy.pig.mount.jump;
+    for(const inactive of [legacy,core.adjustPigBehavior(state.behavior,'mount.jump',false),core.adjustPigBehavior(state.behavior,'mount.control','player')]) {
+        const result=core.compileBehavior(reference.behavior.json,inactive)['minecraft:entity'];
+        assert.equal(result.component_groups['blockbench_edu:mounted']['minecraft:can_power_jump'],undefined);
+        assert.equal(result.component_groups['blockbench_edu:mounted']['minecraft:variable_max_auto_step'],undefined);
+        assert.equal(result.components['minecraft:horse.jump_strength'],undefined);
+    }
+    for(const invalid of [0.35,1.05,'0.5']) {
+        assert.throws(()=>core.adjustPigBehavior(jumping,'mount.jumpStrength',invalid),/montura/);
+    }
+});
+
 test('rejects malformed, future and incomplete projects before importing',async()=>{
     const {model,state,reference} = await fixture();
     await assert.rejects(readCreatureProject('not a zip',Zip),/dañado/);
@@ -80,7 +112,7 @@ test('rejects malformed, future and incomplete projects before importing',async(
         change(data,zip); zip.file('project.json',JSON.stringify(data));
         return readCreatureProject(await zip.generateAsync({type:'uint8array'}),Zip);
     };
-    await assert.rejects(mutate(d=>{d.version=13;}),/otra versión/);
+    await assert.rejects(mutate(d=>{d.version=16;}),/otra versión/);
     await assert.rejects(mutate((d,z)=>z.remove('reference.mcaddon')),/addon base/);
     await assert.rejects(mutate(d=>{d.model.textures[0].source='';}),/pintura incluida/);
     await assert.rejects(mutate(d=>{d.state.originalFaces.pop();}),/pintura original/);
@@ -103,6 +135,24 @@ test('behavior settings survive saving and loading while v1 projects keep their 
     assert.equal(old.state.behavior,undefined);
     data.state.behavior={...state.behavior,health:Infinity}; archive.file('project.json',JSON.stringify(data));
     await assert.rejects(readCreatureProject(await archive.generateAsync({type:'uint8array'}),Zip),/comportamiento/);
+});
+
+test('expanded classroom foods survive reopening and export to three independent actions',async()=>{
+    const {model,state,reference}=await fixture();
+    const {defaultBehavior,entityBehavior,adjustPigBehavior}=require('../blockbench_edu.js');
+    let behavior=entityBehavior(reference.behavior.json,{...defaultBehavior(),profile:'companion'});
+    behavior=adjustPigBehavior(behavior,'food.tame',['cod']);
+    behavior=adjustPigBehavior(behavior,'food.attract',['sweet_berries']);
+    behavior=adjustPigBehavior(behavior,'heal',true);
+    state.behavior=adjustPigBehavior(behavior,'food.heal',[{item:'cooked_beef',amount:4}]);
+    const loaded=await readCreatureProject(await writeCreatureProject(model,state,reference,Zip),Zip);
+    assert.deepEqual(loaded.state.behavior.pig.food,state.behavior.pig.food);
+    const result=await buildAddon(loaded.reference,{'minecraft:geometry':[loaded.reference.geometry]},model.textures[0].source.split(',')[1],Zip,{},loaded.state.behavior);
+    const exported=await readAddon(await result.zip.generateAsync({type:'uint8array'}),Zip);
+    const entity=exported.behavior.json['minecraft:entity'];
+    assert.deepEqual(entity.components['minecraft:behavior.tempt'].items,['sweet_berries']);
+    assert.deepEqual(entity.component_groups['blockbench_edu:wild']['minecraft:tameable'].tame_items,['cod']);
+    assert.deepEqual(entity.component_groups['blockbench_edu:tamed']['minecraft:healable'].items,[{item:'cooked_beef',heal_amount:4}]);
 });
 
 test('pig category projects require format 7 and retain all detailed choices',async()=>{
@@ -154,4 +204,46 @@ test('flight, respiration and mob targets survive portable save and addon export
     zip.file('project.json',JSON.stringify(data));
     const old=await readCreatureProject(await zip.generateAsync({type:'uint8array'}),Zip);
     assert.equal(old.version,6);assert.equal(core.pigBehavior(old.state.behavior).pig.locomotion.mode,'walk');
+});
+test('egg colors survive saving and reopening a portable project', async () => {
+    const {model,state,reference} = await fixture();
+    const colors = {base_color:'#ee9900',overlay_color:'#1133ff'};
+    reference.entity.description.spawn_egg = colors;
+    reference.rp.zip.file(reference.entity.path, JSON.stringify(reference.entity.json));
+    const loaded = await readCreatureProject(await writeCreatureProject(model,state,reference,Zip),Zip);
+    assert.deepEqual(loaded.reference.entity.description.spawn_egg, colors);
+});
+
+test('marked Minecraft exports reopen as the same editable creature and update the same packs', async () => {
+    const {model,state,reference} = await fixture();
+    const geometry = {'minecraft:geometry':[reference.geometry]};
+    const png = model.textures[0].source.split(',')[1];
+    const addon = await buildAddon(reference,geometry,png,Zip);
+    await assert.rejects(readExportedAddon(await addon.zip.generateAsync({type:'uint8array'}),false,Zip), /exportado por Blockbench Edu/);
+    state.lastVersion = addon.version;
+    const project = await writeCreatureProject(model,state,reference,Zip);
+    await attachAddonProject(addon.zip,reference,project,Zip);
+    const loaded = await readExportedAddon(await addon.zip.generateAsync({type:'uint8array'}),false,Zip);
+    assert.deepEqual(loaded.model,model);
+    assert.deepEqual(loaded.state,state);
+
+    for (const kind of ['bp','rp']) {
+        const {prefix, outerPath, manifest} = reference[kind];
+        const pack = outerPath ? await Zip.loadAsync(await addon.zip.file(outerPath).async('uint8array')) : addon.zip;
+        const standalone = new Zip();
+        for (const [path,file] of Object.entries(pack.files)) if (!file.dir && path.startsWith(prefix)) {
+            standalone.file(path.slice(prefix.length),await file.async('uint8array'));
+        }
+        const reopened = await readExportedAddon(await standalone.generateAsync({type:'uint8array'}),true,Zip);
+        assert.deepEqual(reopened.model,model);
+        assert.deepEqual(reopened.state,state);
+        assert.equal(reopened.reference[kind].manifest.header.uuid,manifest.header.uuid);
+        standalone.file('manifest.json',JSON.stringify({...manifest, header:{...manifest.header,uuid:'another-pack'}}));
+        await assert.rejects(readExportedAddon(await standalone.generateAsync({type:'uint8array'}),true,Zip), /no corresponde/);
+    }
+    const next = await buildAddon(loaded.reference,geometry,png,Zip);
+    assert.deepEqual(next.version,[addon.version[0],addon.version[1],addon.version[2]+1]);
+    const rebuilt = await readAddon(await next.zip.generateAsync({type:'uint8array'}),Zip);
+    assert.equal(rebuilt.bp.manifest.header.uuid,reference.bp.manifest.header.uuid);
+    assert.equal(rebuilt.rp.manifest.header.uuid,reference.rp.manifest.header.uuid);
 });

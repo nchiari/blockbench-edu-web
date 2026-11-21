@@ -4,7 +4,7 @@ async page => {
     const check=(ok,message)=>{if(!ok)throw Error(message);results.push(message);};
     await page.setViewportSize({width:1366,height:768});
     await page.waitForFunction(()=>Dialog.open?.content_vue?.steps);
-    await page.evaluate(async()=>{const wizard=Dialog.open.content_vue;wizard.creature='zombie';wizard.step=2;await wizard.next();});
+    await page.evaluate(async()=>{const wizard=Dialog.open.content_vue;wizard.creature='zombie';wizard.step=3;await wizard.next();});
     await page.waitForSelector('#edu-classroom');
     await page.evaluate(()=>{settings.undo_selections.value=true;});
     const point=await page.evaluate(()=>{
@@ -35,12 +35,45 @@ async page => {
         window.eduColorTest={target,hidden,others,before:Array.from(texture.ctx.getImageData(0,0,w,h).data),png:texture.canvas.toDataURL(),undo:Undo.index};
     },point);
     await page.mouse.click(point.x,point.y);
+    check(await page.locator('.edu-color-shortcuts').isVisible(),'Shortcut instructions are visible while selecting colors');
+    await page.keyboard.down('Shift');
+    await page.mouse.click(point.x+10,point.y);
+    await page.keyboard.up('Shift');
+    check(await page.evaluate(()=>{
+        const {target,hidden,png}=eduColorTest, texture=Texture.all[0];
+        return texture.selection.array[target] && texture.selection.array[hidden] &&
+            texture.selection.array.reduce((sum,value)=>sum+value,0)>2 && texture.canvas.toDataURL()===png;
+    }),'Shift adds another color while preserving the previous selection');
+    await page.keyboard.down('Alt');
+    await page.mouse.click(point.x+10,point.y);
+    await page.keyboard.up('Alt');
+    check(await page.evaluate(()=>{
+        const {target,hidden}=eduColorTest, selection=Texture.all[0].selection;
+        return selection.array[target] && selection.array[hidden] && selection.array.reduce((sum,value)=>sum+value,0)===2;
+    }),'Alt removes only the sampled color');
+    const phase = () => page.evaluate(()=>Cube.all.find(cube=>cube.parent.name==='head').mesh.children
+        .find(child=>child.name==='edu_color_selection_preview').material.uniforms.stripePhase.value);
+    const startingPhase = await phase();
+    await page.waitForFunction(previous=>Cube.all.find(cube=>cube.parent.name==='head').mesh.children
+        .find(child=>child.name==='edu_color_selection_preview').material.uniforms.stripePhase.value!==previous,startingPhase);
+    await page.emulateMedia({reducedMotion:'reduce'});
+    await page.waitForFunction(()=>Cube.all.find(cube=>cube.parent.name==='head').mesh.children
+        .find(child=>child.name==='edu_color_selection_preview').material.uniforms.stripePhase.value===0);
+    await page.emulateMedia({reducedMotion:'no-preference'});
+    check(true,'Rendered selection animates and respects reduced motion');
     check(await page.evaluate(()=>{
         const {target,hidden,others}=eduColorTest,selection=Texture.all[0].selection;
         return selection.is_custom&&selection.array.reduce((n,v)=>n+v,0)===2&&selection.array[target]&&selection.array[hidden]&&others.every(i=>!selection.array[i]);
     }),'Click on the 3D model selects both disconnected exact RGBA matches, including a hidden part');
     check(await page.evaluate(()=>Texture.all[0].canvas.toDataURL()===eduColorTest.png),'Selecting a color does not repaint the texture');
     check(await page.evaluate(()=>document.getElementById('edu-classroom').__vue__.selectedPixelCount===2),'Selected-pixel count is visible in the classroom');
+    await page.mouse.click(point.x+10,point.y);
+    check(await page.evaluate(()=>{
+        const {target,hidden,png}=eduColorTest, texture=Texture.all[0];
+        return Toolbox.selected.id==='blockbench_edu_select_color' && texture.selection.is_custom &&
+            !texture.selection.array[target] && !texture.selection.array[hidden] && texture.canvas.toDataURL()===png;
+    }),'A second click replaces the color selection without painting');
+    await page.mouse.click(point.x,point.y);
     check(await page.evaluate(()=>Cube.all.every(c=>c.mesh.children.some(child=>child.name==='edu_color_selection_preview'))),'Selected pixels have a separate 3D preview overlay');
     await page.getByRole('button',{name:'1 · Dale forma',exact:true}).click();
     check(await page.evaluate(()=>Cube.all.every(c=>!c.mesh.children.some(child=>child.name==='edu_color_selection_preview'))),'Shape mode removes the visual overlay');
@@ -109,5 +142,18 @@ async page => {
     await page.getByRole('button',{name:'Seleccionar color',exact:true}).click();
     await page.mouse.click(point.x,point.y);
     await page.screenshot({path:'output/playwright/color-selection-final.png'});
+    const headLabel=await page.evaluate(()=>{
+        window.beforeDelete=Cube.all.length;
+        const head=Group.all.find(group=>group.name==='head');
+        return document.querySelector('#edu-classroom').__vue__.bones.find(bone=>bone.id===head.uuid).label;
+    });
+    await page.getByRole('button',{name:'Eliminar '+headLabel,exact:true}).click();
+    check(await page.evaluate(()=>Cube.all.length===beforeDelete-2 && !Group.all.some(group=>['head','hat'].includes(group.name))),
+        'Deleting an isolated head removes its branch');
+    await page.getByRole('button',{name:'Deshacer',exact:true}).click();
+    check(await page.evaluate(()=>Cube.all.length===beforeDelete && Group.all.some(group=>group.name==='hat')),
+        'Undo restores the deleted branch');
+    await page.getByRole('button',{name:'Rehacer',exact:true}).click();
+    check(await page.evaluate(()=>Cube.all.length===beforeDelete-2),'Redo removes the branch again');
     return {passed:results.length,results};
 }

@@ -2,7 +2,7 @@
 async page => {
     const checks=[];const check=(ok,message)=>{if(!ok)throw Error(message);checks.push(message);};
     await page.waitForFunction(()=>typeof Dialog!=='undefined'&&Dialog.open?.content_vue?.steps);
-    await page.evaluate(async()=>{const w=Dialog.open.content_vue;w.creature='zombie';w.step=2;await w.next();});
+    await page.evaluate(async()=>{const w=Dialog.open.content_vue;w.creature='zombie';w.step=3;await w.next();});
     const label=await page.evaluate(()=>{
         window.dupBaseline={ids:Cube.all.map(c=>c.uuid),png:Texture.all[0].canvas.toDataURL(),count:Cube.all.length};
         return document.getElementById('edu-classroom').__vue__.bones.find(b=>b.id===Group.all.find(g=>g.name==='head').uuid).label;
@@ -36,6 +36,7 @@ async page => {
     await page.evaluate(()=>{window.dupSaveExport=Blockbench.export;Blockbench.export=function(o,cb){window.dupProjectBlob=o.content;return dupSaveExport.call(this,o,cb);};});
     let pending=page.waitForEvent('download');
     await page.getByRole('button',{name:'Guardar mi criatura',exact:true}).click();
+    await page.getByRole('button',{name:'Continuar',exact:true}).click();
     const saved=await pending;await saved.saveAs('output/duplicated-bone.bbedu');
     await page.getByRole('button',{name:'Seguir creando',exact:true}).click();
     await page.evaluate(async()=>{Blockbench.export=dupSaveExport;window.dupProjectId=Project.uuid;const bytes=await dupProjectBlob.arrayBuffer(),original=Blockbench.import;Blockbench.import=(_options,callback)=>callback([{content:bytes}]);try{document.getElementById('edu-classroom').__vue__.openCreature();}finally{Blockbench.import=original;}});
