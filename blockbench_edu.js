@@ -794,7 +794,7 @@
         bp.header.name = name;
         manifests.rp.header.name = name;
     }
-    async function buildAddon(reference, compiled, pngBase64, Zip, auxiliaryTextures = {}, behaviorSettings = defaultBehavior(), creatureName = '') {
+    async function buildAddon(reference, compiled, pngBase64, Zip, auxiliaryTextures = {}, behaviorSettings = defaultBehavior(), creatureName = '', packIconBase64) {
         compiled = clone(compiled);
         const entries = geometryEntries(compiled);
         requireThat(entries.length === 1 && entries[0].description.identifier === reference.geometryId,
@@ -841,6 +841,10 @@
         }
         bpZip.file(reference.bp.path, JSON.stringify(manifests.bp, null, 2));
         rpZip.file(reference.rp.path, JSON.stringify(manifests.rp, null, 2));
+        if (packIconBase64) {
+            bpZip.file(reference.bp.prefix + 'pack_icon.png', packIconBase64, {base64: true});
+            rpZip.file(reference.rp.prefix + 'pack_icon.png', packIconBase64, {base64: true});
+        }
         // Preserve any additional geometries in the reference file.
         let replacement = clone(reference.json);
         if (Array.isArray(replacement['minecraft:geometry'])) {
@@ -1846,6 +1850,64 @@
             return model;
         } finally { Cube.all.forEach((cube, i) => { cube.visibility = visibility[i]; }); }
     }
+    function capturePackIcon(texture) {
+        const cubes = Cube.all.filter(cube => cube.export && cube.mesh?.geometry.index?.count);
+        if (!cubes.length) return;
+        const {renderer} = MediaPreview;
+        if (renderer.getContext().isContextLost()) return;
+        const size = renderer.getSize(new THREE.Vector2());
+
+        // Render just the exported cubes, using their live geometry and painted pixels.
+        const iconScene = new THREE.Scene();
+        const map = new THREE.CanvasTexture(texture.canvas);
+        map.colorSpace = THREE.SRGBColorSpace;
+        map.magFilter = map.minFilter = THREE.NearestFilter;
+        map.generateMipmaps = false;
+        const material = new THREE.MeshLambertMaterial({map, alphaTest: 0.01, transparent: true, side: THREE.DoubleSide});
+        try {
+            for (const cube of cubes) {
+                cube.mesh.updateWorldMatrix(true, false);
+                const mesh = new THREE.Mesh(cube.mesh.geometry, material);
+                mesh.matrixAutoUpdate = false;
+                mesh.matrix.copy(cube.mesh.matrixWorld);
+                iconScene.add(mesh);
+            }
+            const bounds = new THREE.Box3().setFromObject(iconScene);
+            const {center, radius} = bounds.getBoundingSphere(new THREE.Sphere());
+            const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, radius * 4 + 2);
+            camera.position.copy(center).addScaledVector(new THREE.Vector3(-1, 0.6, -1).normalize(), radius * 2 + 1);
+            camera.lookAt(center);
+            camera.updateMatrixWorld();
+
+            const projected = new THREE.Box3(), point = new THREE.Vector3();
+            for (const mesh of iconScene.children) {
+                const {attributes: {position}, index} = mesh.geometry;
+                const view = new THREE.Matrix4().multiplyMatrices(camera.matrixWorldInverse, mesh.matrixWorld);
+                for (let i = 0; i < index.count; i++) {
+                    projected.expandByPoint(point.fromBufferAttribute(position, index.getX(i)).applyMatrix4(view));
+                }
+            }
+            const frameCenter = projected.getCenter(new THREE.Vector3());
+            const frameSize = projected.getSize(new THREE.Vector3());
+            const half = Math.max(frameSize.x, frameSize.y, 0.1) * 0.57;
+            camera.left = frameCenter.x - half; camera.right = frameCenter.x + half;
+            camera.bottom = frameCenter.y - half; camera.top = frameCenter.y + half;
+            camera.updateProjectionMatrix();
+
+            const light = new THREE.DirectionalLight(0xffffff, 0.95);
+            light.position.set(-2, 4, -3);
+            iconScene.add(new THREE.AmbientLight(0xffffff, 1.3), light);
+            renderer.setSize(256, 256, false);
+            renderer.render(iconScene, camera);
+            const canvas = document.createElement('canvas');
+            canvas.width = canvas.height = 256;
+            canvas.getContext('2d').drawImage(renderer.domElement, 0, 0, 256, 256);
+            return canvas.toDataURL('image/png').split(',')[1];
+        } finally {
+            renderer.setSize(size.x, size.y, false);
+            material.dispose(); map.dispose();
+        }
+    }
     async function prepareExport(session, projectId, includeModel = false) {
         const compiled = getGeometry();
         const creatureName = cleanCreatureName(Project.name) || 'Mi criatura';
@@ -1854,8 +1916,11 @@
         const width = Project.texture_width, height = Project.texture_height;
         const png = Texture.all[0].canvas.toDataURL('image/png').split(',')[1];
         const model = captureEditableModel(session);
+        let packIcon;
+        try { packIcon = capturePackIcon(Texture.all[0]); }
+        catch (error) { console.warn('[Blockbench Edu] No se pudo generar el ícono del pack.', error); }
         const auxiliary = await remapAuxiliaryTextures(session, faces, width, height);
-        const result = await buildAddon(session.reference, compiled, png, JSZip, auxiliary, session.behavior || defaultBehavior(), creatureName);
+        const result = await buildAddon(session.reference, compiled, png, JSZip, auxiliary, session.behavior || defaultBehavior(), creatureName, packIcon);
         const bytes = await portableProject(session, model, result.version);
         await attachAddonProject(result.zip, session.reference, bytes, JSZip);
         const content = await result.zip.generateAsync({type:'blob', compression:'DEFLATE'});

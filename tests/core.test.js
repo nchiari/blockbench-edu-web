@@ -269,9 +269,13 @@ for (const nested of [false, true]) test(`addon round trip (${nested ? 'nested p
     const {input, geom} = await fixture(nested), reference = await core.readAddon(input, Zip);
     geom['minecraft:geometry'][0].description.texture_width = 19;
     const auxiliaryPath = reference.rp.prefix + 'textures/entity/secondary.png';
+    const icon = require('../reference/wizard-catalog.json').pig.thumbnail.split(',')[1];
     const result = await core.buildAddon(reference, geom, Buffer.from('new png').toString('base64'), Zip,
-        {[auxiliaryPath]: Buffer.from('remapped alternate').toString('base64')});
+        {[auxiliaryPath]: Buffer.from('remapped alternate').toString('base64')}, undefined, '', icon);
     const reread = await core.readAddon(await result.zip.generateAsync({type: 'uint8array'}), Zip);
+    for (const pack of [reread.bp, reread.rp]) {
+        assert.equal(await pack.zip.file(pack.prefix + 'pack_icon.png').async('base64'), icon);
+    }
     assert.equal(reread.geometry.description.texture_width, 19);
     assert.equal(await reread.rp.zip.file(reread.texturePath).async('string'), 'new png');
     assert.equal(await reread.rp.zip.file(auxiliaryPath).async('string'), 'remapped alternate');
