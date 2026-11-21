@@ -2145,6 +2145,7 @@
                 lootSearch:'',lootEditingIndex:-1,lootChances:LOOT_CHANCES,lootModes:[{id:'original',label:'Original',icon:'auto_awesome'},{id:'none',label:'Nada',icon:'block'},{id:'custom',label:'Mis objetos',icon:'redeem'}],movementChoices:PIG_MOVEMENT,attackStyles:PIG_ATTACK_STYLES,projectileChoices:PIG_PROJECTILES,projectileOrigins:PIG_PROJECTILE_ORIGINS, mobChoices:PIG_TARGETS, mobSearch:'', behaviorItems:BEHAVIOR_ITEMS, pigFoodItems:PIG_FOOD_ITEMS, damageSourceChoices:PIG_DAMAGE_SOURCES, damageSourceGroups:[{id:'combat',label:'Golpes y proyectiles'},{id:'fire',label:'Fuego y explosiones'},{id:'environment',label:'Peligros del entorno'},{id:'magic',label:'Daño mágico'}], behaviorSpeeds:BEHAVIOR_SPEEDS, behaviorCanUndo:false, behaviorCanRedo:false,
                 bones: [], partsOpen: current()?.partsOpen ?? true, soloBoneId: '', selectedPixelCount: 0, paintTool: 'brush_tool', brushSize: 1,
                 paintOpacity: 100, paintBlend: 'default', cameraControlsOpen: false, cameraIsOrtho: false,
+                mountJumpPreview: null,
                 teacherViewAvailable: allowsTeacherView(), driveAvailable: !!window.BlockbenchEduDrive, driveClass: !!window.BlockbenchEduDrive?.classCode,
                 cameraRotate: Keybinds.extra.preview_rotate.keybind.toString(), cameraPan: Keybinds.extra.preview_drag.keybind.toString(), cameraZoom: Keybinds.extra.preview_scroll_zoom.keybind.toString(),
                 labels: ['Ancho', 'Alto', 'Profundidad'], color: ColorPanel.get(), colors: ['#ffffff','#20252d','#e85b61','#f7b45c','#f9e778','#60d98b','#63bee8','#8479df','#ed90c4','#986a48']},
@@ -2188,7 +2189,7 @@
             },
             computed: {hiddenBoneCount() { return this.bones.filter(bone => bone.hidden).length; },
                 mountJumpSettings() {
-                    return {...MOUNT_JUMP_STRENGTH,value:this.behavior.pig?.mount?.jumpStrength??MOUNT_JUMP_STRENGTH.defaultValue};
+                    return {...MOUNT_JUMP_STRENGTH,value:this.mountJumpPreview??this.behavior.pig?.mount?.jumpStrength??MOUNT_JUMP_STRENGTH.defaultValue};
                 },
                 canBlendPaint() { return ['brush_tool','fill_tool'].includes(this.paintTool); },
                 canAdjustPaintOpacity() { return this.canBlendPaint || this.paintTool === 'eraser'; },
@@ -2610,7 +2611,10 @@
                                         <small>{{behaviorBlockReason('mountJump') || 'Sube escalones de un bloque y salta con la tecla de salto.'}}</small>
                                         <label v-if="behavior.pig.mount.jump && behavior.pig.mount.control==='direct'" class="edu-mount-jump-strength">
                                             <span>Potencia del salto <b aria-hidden="true">{{mountJumpSettings.value.toLocaleString('es')}}</b></span>
-                                            <input type="range" :min="mountJumpSettings.min" :max="mountJumpSettings.max" :step="mountJumpSettings.step" :value="mountJumpSettings.value" :disabled="busy" @keydown.stop @change="changePig('mount.jumpStrength',$event.target.valueAsNumber)"/>
+                                            <input type="range" :min="mountJumpSettings.min" :max="mountJumpSettings.max" :step="mountJumpSettings.step" :value="mountJumpSettings.value" :disabled="busy"
+                                                @keydown.stop @input="mountJumpPreview=$event.target.valueAsNumber"
+                                                @change="mountJumpPreview=null; changePig('mount.jumpStrength',$event.target.valueAsNumber)"
+                                                @pointercancel="mountJumpPreview=null" @blur="mountJumpPreview=null"/>
                                         </label>
                                     </template>
                                     <section v-if="behavior.pig.mount.enabled" class="edu-setting"><h4>Posición del pasajero</h4><div class="edu-seat-buttons"><button @click="moveSeat('height',0.1)">↑ Subir</button><button @click="moveSeat('height',-0.1)">↓ Bajar</button><button @click="moveSeat('offset',0.1)">Adelante</button><button @click="moveSeat('offset',-0.1)">Atrás</button><button @click="moveSeat('lateral',0.1)">Izquierda</button><button @click="moveSeat('lateral',-0.1)">Derecha</button></div><button @click="resetSeat">Centrar asiento</button></section>
