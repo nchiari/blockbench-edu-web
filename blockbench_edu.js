@@ -931,6 +931,7 @@
     if (typeof module !== 'undefined' && module.exports) { module.exports = core; return; }
 
     let cameraViewTool, panel, style, projectStyle, wizardStyle, action, loader, wizard, classroom, classroomStyle, selectionTool, smoothTool, colorSelectionTool, selectionFillTool, previousTool, teacherReturn, wholeModelTransformer, alive = false;
+    let restoreCameraRaycast;
     const EDU_ICON = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="5" fill="#123d27"/><path d="m16 3 12 7v13l-12 7-12-7V10Z" fill="#53d983"/><path d="m4 10 12 7 12-7M16 17v13" fill="none" stroke="#143e28" stroke-width="2"/><path d="m8 9 8-4 8 4-8 5Z" fill="#b8ffd1"/><path d="M8 18v5m16-5v5" stroke="#143e28" stroke-width="3"/></svg>');
     const sessions = new Map(), listeners = [];
     const allowsTeacherView = () => window.BlockbenchEduWeb?.role !== 'student';
@@ -1966,7 +1967,7 @@
                 this.cameraFooterObserver.observe(this.$el.querySelector('footer'));
             },
             beforeDestroy() {
-                document.body.classList.remove('edu-seat-view');clearTimeout(this.noticeTimer);if(this.seatPreview) {scene.remove(this.seatPreview);this.seatPreview.traverse(o=>{o.geometry?.dispose();o.material?.dispose();});}
+                clearTimeout(this.noticeTimer);if(this.seatPreview) {scene.remove(this.seatPreview);this.seatPreview.traverse(o=>{o.geometry?.dispose();o.material?.dispose();});}
                 window.removeEventListener('keydown',this.behaviorUndoKey,true);document.removeEventListener('dblclick',this.behaviorDoubleClick,true);
                 this.partsToggleButton?.remove();
                 window.removeEventListener('edu-drive-class-changed', this.driveClassChanged);
@@ -2112,7 +2113,6 @@
                 resetSeat() { this.changePig('mount.height',0.63);this.changePig('mount.offset',0);this.changePig('mount.lateral',0); },
                 updateSeatPreview() {
                     const shot=this.mode==='behavior'&&this.behaviorPage==='combat'&&!!this.behavior.pig?.ranged&&this.behavior.pig.ranged.mode!=='melee';
-                    document.body.classList.toggle('edu-seat-view',this.mode==='behavior'&&['mount','combat'].includes(this.behaviorPage));
                     const wasVisible=!!this.seatPreview;
                     if(this.seatPreview) {scene.remove(this.seatPreview);this.seatPreview.traverse(o=>{o.geometry?.dispose();o.material?.dispose();});this.seatPreview=null;}
                     if(!shot&&(this.mode!=='behavior'||this.behaviorPage!=='mount'||!this.behavior.pig?.mount.enabled)) return;
@@ -2535,6 +2535,17 @@
         variant: 'both', min_version: '5.2.2',
         onload() {
             alive = true;
+            const originalRaycast = Canvas.raycast;
+            // Blockbench reserves a left drag over the model for editing. In
+            // Dale vida the preview is read-only, so let the native camera use it.
+            const cameraRaycast = function (...args) {
+                if (classroom?.mode === 'behavior' && Toolbox.selected === cameraViewTool) return false;
+                return originalRaycast.apply(this, args);
+            };
+            Canvas.raycast = cameraRaycast;
+            restoreCameraRaycast = () => {
+                if (Canvas.raycast === cameraRaycast) Canvas.raycast = originalRaycast;
+            };
             if (window.BlockbenchEduWeb) window.BlockbenchEduWeb.openCreature = importCreature;
             projectStyle = Blockbench.addCSS(`
                 .edu-save-name { display:grid; gap:8px; font-weight:600 }
@@ -2657,7 +2668,7 @@
                 #edu-classroom select{appearance:none;-webkit-appearance:none;padding-right:34px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath d='m4 6 4 4 4-4' fill='none' stroke='%23eaf5ee' stroke-width='2'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center}
                 #edu-classroom summary{display:flex;align-items:center;justify-content:space-between;gap:12px;list-style:none;cursor:pointer}#edu-classroom summary::-webkit-details-marker{display:none}#edu-classroom summary::after{content:'';width:8px;height:8px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg);flex-shrink:0;margin-right:4px}#edu-classroom details[open]>summary::after{transform:rotate(225deg)}
                 #edu-classroom .edu-behavior-panel{padding:18px 14px}#edu-classroom .edu-behavior-panel h2{font-size:20px;line-height:1.3;margin:0;overflow-wrap:anywhere}#edu-classroom .edu-behavior-live{overflow:auto;min-height:0;padding-right:4px}#edu-classroom .edu-behavior-live p{margin:6px 0 16px;font-size:14px}#edu-classroom .edu-behavior-live ul{list-style:disc;padding-left:20px;margin:0;color:#cee0d5;font-size:14px;line-height:1.5}#edu-classroom .edu-behavior-live li{display:list-item;list-style:disc;margin-bottom:12px}
-                body.edu-behavior:not(.edu-seat-view) #preview{pointer-events:none}body.edu-behavior .edu-part-solo{display:none!important}
+                body.edu-behavior .edu-part-solo{display:none!important}
                 @media(max-width:1050px){#edu-classroom header{gap:8px;padding:12px}#edu-classroom header strong{font-size:16px}#edu-classroom nav button{font-size:12px;padding:8px}#edu-classroom .edu-teacher{padding:8px;font-size:11px}}
                 #edu-classroom .edu-color-selection{display:flex;flex-direction:column;gap:8px;border-top:1px solid #456052;padding-top:12px}
                 #edu-classroom .edu-color-selection p{margin:0;font-size:12px}
@@ -2789,6 +2800,8 @@
         },
         onunload() {
             alive = false;
+            restoreCameraRaycast?.();
+            restoreCameraRaycast = null;
             projectStyle?.delete(); projectStyle = null;
             if (window.BlockbenchEduWeb) delete window.BlockbenchEduWeb.openCreature;
             teacherReturn?.remove(); teacherReturn = null;
