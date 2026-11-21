@@ -329,6 +329,15 @@
         const rank=id=>/adult|standing/.test(id)?0:/medium/.test(id)?1:/baby|child|small|sitting/.test(id)?3:2;
         return Object.entries(e.component_groups||{}).filter(([,g])=>g[name]!==undefined).sort(([a],[b])=>rank(a)-rank(b))[0]?.[1][name];
     }
+    function ravagerSeat(source) {
+        if(!entityComponent(source,'type_family')?.family?.includes('ravager')) return undefined;
+        const seats=entityComponent(source,'rideable')?.seats;
+        const position=(Array.isArray(seats)?seats[0]:seats)?.position;
+        if(!Array.isArray(position)||position.length!==3) return undefined;
+        const [lateral,height,offset]=position;
+        if(!position.every(Number.isFinite)||Math.abs(lateral)>2||height<0||height>4||Math.abs(offset)>2) return undefined;
+        return {lateral,height,offset};
+    }
     function supportsEntityBehavior(source) {
         const e=source?.['minecraft:entity'];return !!(e&&typeof e.description?.identifier==='string'&&e.components&&typeof e.components==='object'&&!Array.isArray(e.components));
     }
@@ -352,7 +361,7 @@
             const speed=entityComponent(source,'movement')?.value;
             if((fresh||settings.profile==='original')&&typeof speed==='number') b.speed=BEHAVIOR_SPEEDS.reduce((a,v)=>Math.abs(v.value-speed)<Math.abs(a.value-speed)?v:a).value;
             const box=entityComponent(source,'collision_box')||{width:0.6,height:1.8};
-            p.mount.height=Math.min(4,Math.round(box.height*0.7*100)/100);
+            Object.assign(p.mount,ravagerSeat(source)??{height:Math.min(4,Math.round(box.height*0.7*100)/100)});
             if(entityComponent(source,'fire_immune')!==undefined) {p.damageSources.fire=false;p.damageSources.lava=false;}
         }
         p.universal=true;
@@ -2129,7 +2138,10 @@
                     const next=Math.max(-2,-base,Math.min(4,Math.round((r.height+step)*100)/100));
                     if(next!==r.height) this.changePig('ranged.height',next);
                 },
-                resetSeat() { this.changePig('mount.height',0.63);this.changePig('mount.offset',0);this.changePig('mount.lateral',0); },
+                resetSeat() {
+                    const seat=ravagerSeat(current()?.reference.behavior?.json)??{height:0.63,offset:0,lateral:0};
+                    this.changePig('mount',{...this.behavior.pig.mount,...seat});
+                },
                 updateSeatPreview() {
                     const shot=this.mode==='behavior'&&this.behaviorPage==='combat'&&!!this.behavior.pig?.ranged&&this.behavior.pig.ranged.mode!=='melee';
                     const wasVisible=!!this.seatPreview;

@@ -104,6 +104,23 @@ test('an exported saddled spider switches from wandering to keyboard input and b
     assert.deepEqual(dismount.add.component_groups,['blockbench_edu:free']);
 });
 
+test('Ravager mounts export the template seat and keep manually placed seats',async()=>{
+    const ravager=classroomCatalog.ravager;
+    const starter=await core.createMobAddon(ravager,{},Zip,randomUUID);
+    const ref=await core.readAddon(starter.addon,Zip);
+    const source=ref.behavior.json;
+    const settings=core.adjustPigBehavior(core.entityBehavior(source),'mount.enabled',true);
+    const geometry={'minecraft:geometry':[ref.geometry]};
+    const built=await core.buildAddon(ref,geometry,ravager.textures.default.split(',')[1],Zip,{},settings);
+    const exported=await core.readAddon(await built.zip.generateAsync({type:'uint8array'}),Zip);
+    const position=behavior=>behavior['minecraft:entity'].component_groups['blockbench_edu:ride_ready']['minecraft:rideable'].seats.position;
+    assert.deepEqual(position(exported.behavior.json),[0,2.1,-0.3]);
+
+    const placed=core.adjustPigBehavior(settings,'mount.height',1.83);
+    const reopened=core.entityBehavior(source,placed);
+    assert.deepEqual(position(core.compileBehavior(source,reopened)),[0,1.83,-0.3]);
+});
+
 test('simplified classroom removes breeding even for Original and fixes food amounts',()=>{
     let b=core.pigBehavior({...core.defaultBehavior(),profile:'companion'});
     b.pig.breeding.enabled=true;b.pig.food.chance=25;
