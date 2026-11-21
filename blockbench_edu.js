@@ -624,8 +624,8 @@
             const ready=m.saddle?'blockbench_edu:unsaddled':'blockbench_edu:ride_ready';
             const rideable={seat_count:1,family_types:['player'],pull_in_entities:false,rider_can_interact:false,
                 interact_text:'action.interact.mount',seats:{position:[m.lateral || 0,m.height,m.offset]},
-                on_rider_enter_event:{event:'blockbench_edu:on_mount',target:'self'},
-                on_rider_exit_event:{event:'blockbench_edu:on_dismount',target:'self'}};
+                on_rider_enter_event:'blockbench_edu:on_mount',
+                on_rider_exit_event:'blockbench_edu:on_dismount'};
             groups['blockbench_edu:ride_ready']={'minecraft:rideable':rideable};
             if(m.saddle) {
                 groups['blockbench_edu:ride_ready']['minecraft:is_saddled']={};
