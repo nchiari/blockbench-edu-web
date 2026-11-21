@@ -93,6 +93,58 @@ test('named export labels the egg and assigns an overhead name to new creatures 
     const manifest = JSON.parse(await updated.zip.file(named.bp.path).async('string'));
     assert.deepEqual(manifest.modules.filter(module => module.type === 'script').map(module => module.uuid), [module.uuid]);
 });
+test('the mounted name script hides the tag, restores custom names and survives unloading', async () => {
+    const mob = require('../reference/wizard-catalog.json').pig;
+    const starter = await core.createMobAddon(mob, {}, Zip, require('node:crypto').randomUUID);
+    const ref = await core.readAddon(starter.addon, Zip);
+    const settings = core.adjustPigBehavior(core.entityBehavior(ref.behavior.json), 'mount.enabled', true);
+    const {zip} = await core.buildAddon(ref, starter.geometry, mob.textures.default.split(',')[1], Zip, {}, settings, 'Teddy');
+    const output = await core.readAddon(await zip.generateAsync({type:'uint8array'}), Zip);
+    const module = output.bp.manifest.modules.find(module => module.type === 'script');
+    const script = await zip.file(output.bp.prefix + module.entry).async('string');
+    let spawn, load, tick, riding;
+    const player = {getComponent: () => riding && {entityRidingOn:riding}};
+    require('node:vm').runInNewContext(script.replace(/^import [^\n]+\n/, ''), {
+        world:{
+            getAllPlayers: () => [player],
+            afterEvents:{
+                entitySpawn:{subscribe(listener) { spawn = listener; }},
+                entityLoad:{subscribe(listener) { load = listener; }}
+            }
+        },
+        system:{runInterval(listener) { tick = listener; }}
+    });
+    const memory = new Map();
+    const makeCreature = nameTag => ({
+        id:'creature', typeId:starter.identifier, isValid:true, nameTag,
+        getDynamicProperty: key => memory.get(key),
+        setDynamicProperty: (key,value) => value === undefined ? memory.delete(key) : memory.set(key,value)
+    });
+    const creature = makeCreature('');
+    spawn({entity:creature});
+    assert.equal(creature.nameTag,'Teddy');
+    creature.nameTag = 'Mora';
+    riding = creature;
+    tick();
+    tick();
+    assert.equal(creature.nameTag,'');
+    riding = undefined;
+    tick();
+    assert.equal(creature.nameTag,'Mora');
+    assert.equal(memory.size,0);
+
+    riding = creature;
+    tick();
+    creature.isValid = false;
+    riding = undefined;
+    tick();
+    const reloaded = makeCreature('');
+    load({entity:reloaded});
+    tick();
+    assert.equal(reloaded.nameTag,'Mora');
+    assert.equal(memory.size,0);
+});
+
 function image(width, height) {
     const data = new Uint8ClampedArray(width * height * 4);
     for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {

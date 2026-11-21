@@ -311,6 +311,7 @@
             if(!b.pig.food) b.pig.food={attract:[b.item],tame:[b.item],heal:[{item:b.item,amount:b.pig.healAmount}],chance:100};
             if(!b.pig.breeding) b.pig.breeding={enabled:false,items:['potato'],cooldown:300,growth:1200};
             if(!b.pig.mount) b.pig.mount={enabled:false,saddle:true,control:'player',height:0.63,offset:0};
+            b.pig.mount.jump ??= false;
             if(!b.pig.damageSources) b.pig.damageSources=Object.fromEntries(PIG_DAMAGE_SOURCES.map(source=>[source.id,true]));
             if(!b.pig.locomotion) b.pig.locomotion={mode:'walk'};
             if(!b.pig.respiration) b.pig.respiration={medium:'air',reserve:15};
@@ -410,6 +411,7 @@
         if(settings.pig?.mount!==undefined) {
             const m=settings.pig.mount;
             requireThat(m&&typeof m.enabled==='boolean'&&typeof m.saddle==='boolean'&&['direct','player','pig'].includes(m.control)&&
+                (m.jump===undefined||typeof m.jump==='boolean')&&
                 (m.lateral===undefined || Number.isFinite(m.lateral)&&Math.abs(m.lateral)<=2)&&Number.isFinite(m.height)&&m.height>=0&&m.height<=4&&Number.isFinite(m.offset)&&m.offset>=-2&&m.offset<=2,
                 'Los ajustes de montura no son válidos.');
         }
@@ -662,6 +664,13 @@
                 'minecraft:item_controllable':{control_items:'carrotOnAStick'},
                 'minecraft:behavior.controlled_by_player':{priority:0}
             }:(p.wander?{'minecraft:behavior.random_stroll':{priority:2,speed_multiplier:1}}:{});
+            if(m.control==='direct'&&m.jump) {
+                c['minecraft:horse.jump_strength']={value:0.5};
+                groups[mounted]['minecraft:can_power_jump']={};
+                groups[mounted]['minecraft:variable_max_auto_step']={controlled_value:1};
+                // The jump control expects a saddled mount, even when no item is required to get on.
+                if(!m.saddle) groups[mounted]['minecraft:is_saddled']={};
+            }
             const paused=[free,...(tamed?[ownerFree]:[]),...(p.breeding.enabled?[breedFree]:[])];
             events['blockbench_edu:on_mount']={remove:{component_groups:paused},add:{component_groups:[mounted]}};
             events['blockbench_edu:on_dismount']={sequence:[
@@ -707,7 +716,7 @@
     function creatureFileStem(name) {
         return name.normalize('NFC').replace(/[^\p{L}\p{N}_-]+/gu, '_') || 'Mi_criatura';
     }
-    async function applyCreatureName(reference, manifests, bpZip, rpZip, behavior, name) {
+    function writeCreatureNameScript(reference, manifests, bpZip, name, rideable) {
         const identifier = reference.entity.description.identifier;
         const script = 'scripts/blockbench_edu_name.js';
         const bp = manifests.bp;
@@ -720,13 +729,50 @@
             const [major, minor, patch] = bp.header.min_engine_version || [0, 0, 0];
             if (major < 1 || major === 1 && (minor < 26 || minor === 26 && patch < 30)) bp.header.min_engine_version = [1,26,30];
         }
-        bpZip.file(reference.bp.prefix + script, [
-            'import { world } from "@minecraft/server";',
+        const lines = [rideable?'import { system, world } from "@minecraft/server";':'import { world } from "@minecraft/server";'];
+        if(name) lines.push(
             'world.afterEvents.entitySpawn.subscribe(({ entity }) => {',
             `    if (entity.typeId === ${JSON.stringify(identifier)} && !entity.nameTag) entity.nameTag = ${JSON.stringify(name)};`,
-            '});', ''
-        ].join('\n'));
-
+            '});'
+        );
+        if(rideable) lines.push(
+            `const creatureType = ${JSON.stringify(identifier)};`,
+            'const hiddenName = "blockbench_edu:hidden_mounted_name";',
+            'let previousMounts = new Map();',
+            '',
+            '// Keep the name on the entity so it survives saving the world or unloading a chunk.',
+            'world.afterEvents.entityLoad.subscribe(({ entity }) => {',
+            '    if (entity.typeId === creatureType && entity.getDynamicProperty(hiddenName) !== undefined) {',
+            '        previousMounts.set(entity.id, entity);',
+            '    }',
+            '});',
+            '',
+            'system.runInterval(() => {',
+            '    const currentMounts = new Map();',
+            '    for (const player of world.getAllPlayers()) {',
+            '        const mount = player.getComponent("minecraft:riding")?.entityRidingOn;',
+            '        if (!mount?.isValid || mount.typeId !== creatureType) continue;',
+            '        currentMounts.set(mount.id, mount);',
+            '        if (mount.nameTag) {',
+            '            mount.setDynamicProperty(hiddenName, mount.nameTag);',
+            '            mount.nameTag = "";',
+            '        }',
+            '    }',
+            '    for (const [id, mount] of previousMounts) {',
+            '        if (currentMounts.has(id) || !mount.isValid) continue;',
+            '        const name = mount.getDynamicProperty(hiddenName);',
+            '        if (typeof name !== "string") continue;',
+            '        if (!mount.nameTag) mount.nameTag = name;',
+            '        mount.setDynamicProperty(hiddenName, undefined);',
+            '    }',
+            '    previousMounts = currentMounts;',
+            '}, 1);'
+        );
+        bpZip.file(reference.bp.prefix + script, lines.join('\n')+'\n');
+    }
+    async function applyCreatureName(reference, manifests, rpZip, behavior, name) {
+        const identifier = reference.entity.description.identifier;
+        const bp = manifests.bp;
         const entity = behavior['minecraft:entity'];
         const key = 'minecraft:nameable';
         entity.components ||= {};
@@ -771,11 +817,22 @@
         validateBehavior(behaviorSettings);
         const customBehavior = behaviorSettings.profile !== 'original' || behaviorSettings.pig?.simple ||
             behaviorSettings.pig?.loot && behaviorSettings.pig.loot.mode !== 'inherit';
-        if (customBehavior || name && reference.behavior) {
-            requireThat(reference.behavior, 'No se encontró un comportamiento único para esta criatura.');
-            const behavior = customBehavior ? compileBehavior(reference.behavior.json, behaviorSettings) : clone(reference.behavior.json);
-            if (name) await applyCreatureName(reference, manifests, bpZip, rpZip, behavior, name);
-            bpZip.file(reference.behavior.path, JSON.stringify(behavior, null, 2));
+        requireThat(!customBehavior||reference.behavior, 'No se encontró un comportamiento único para esta criatura.');
+        if(reference.behavior) {
+            const behavior = customBehavior ? compileBehavior(reference.behavior.json, behaviorSettings) : reference.behavior.json;
+            const entity = behavior['minecraft:entity'];
+            const rideable = [entity.components,...Object.values(entity.component_groups||{})].some(group=>{
+                const component=group?.['minecraft:rideable'];
+                return component&&(!component.family_types?.length||component.family_types.includes('player'));
+            });
+            if(name||rideable) writeCreatureNameScript(reference, manifests, bpZip, name, rideable);
+            if(name) {
+                const named = clone(behavior);
+                await applyCreatureName(reference, manifests, rpZip, named, name);
+                bpZip.file(reference.behavior.path, JSON.stringify(named, null, 2));
+            } else if(customBehavior) {
+                bpZip.file(reference.behavior.path, JSON.stringify(behavior, null, 2));
+            }
         }
         if(['none','custom'].includes(behaviorSettings.pig?.loot?.mode)) {
             requireThat(reference.behavior,'No se ha encontrado el comportamiento para guardar el botín.');
@@ -927,7 +984,7 @@
     async function writeCreatureProject(model, state, reference, Zip) {
         validateCreatureProject(model, state);
         const zip = new Zip();
-        zip.file('project.json', JSON.stringify({format: 'blockbench-edu', version: state.behavior?.pig?.ranged && state.behavior.pig.ranged.mode!=='melee' ? 13 : state.behavior?.pig?.loot ? 12 : state.behavior?.pig?.universal ? 10 : state.behavior?.pig?.mount?.control==='direct' ? 9 : state.behavior?.pig?.simple ? 8 : state.behavior?.pig?.locomotion ? 7 : state.behavior?.pig?.damageSources ? 6 : state.behavior?.pig?.mount ? 5 : state.behavior?.pig?.food ? 4 : state.behavior?.pig ? 3 : 2, model, state}));
+        zip.file('project.json', JSON.stringify({format: 'blockbench-edu', version: state.behavior?.pig?.mount?.jump ? 14 : state.behavior?.pig?.ranged && state.behavior.pig.ranged.mode!=='melee' ? 13 : state.behavior?.pig?.loot ? 12 : state.behavior?.pig?.universal ? 10 : state.behavior?.pig?.mount?.control==='direct' ? 9 : state.behavior?.pig?.simple ? 8 : state.behavior?.pig?.locomotion ? 7 : state.behavior?.pig?.damageSources ? 6 : state.behavior?.pig?.mount ? 5 : state.behavior?.pig?.food ? 4 : state.behavior?.pig ? 3 : 2, model, state}));
         zip.file('reference.mcaddon', await reference.root.generateAsync({type:'uint8array'}));
         return zip.generateAsync({type:'uint8array', compression:'DEFLATE'});
     }
@@ -937,7 +994,7 @@
             zip = await Zip.loadAsync(content);
             data = JSON.parse(await zip.file('project.json').async('string'));
         } catch { throw new Error('Este archivo no es un proyecto de Blockbench Edu o está dañado. Elige el archivo .bbedu que guardaste.'); }
-        requireThat(data.format === 'blockbench-edu' && [1,2,3,4,5,6,7,8,9,10,11,12,13].includes(data.version), 'Este proyecto necesita otra versión de Blockbench Edu.');
+        requireThat(data.format === 'blockbench-edu' && [1,2,3,4,5,6,7,8,9,10,11,12,13,14].includes(data.version), 'Este proyecto necesita otra versión de Blockbench Edu.');
         validateCreatureProject(data.model, data.state);
         requireThat(zip.file('reference.mcaddon'), 'El proyecto no contiene su addon base.');
         const reference = await readAddon(await zip.file('reference.mcaddon').async('uint8array'), Zip);
@@ -2328,6 +2385,7 @@
                     if(key==='reserve'&&(p.respiration.medium==='both'||!p.damageSources.drowning)) return 'No se puede elegir porque respira en ambos medios o está protegido del daño por falta de aire.';
                     if(key==='panic'&&p.targets.attack.length) return 'No se puede elegir porque ataca criaturas. Quita esas criaturas en Combate para que pueda huir al recibir daño.';
                     if(key==='mountOptions'&&!p.mount.enabled) return 'No se puede elegir porque primero hay que activar Se puede montar.';
+                    if(key==='mountJump'&&p.mount.control!=='direct') return 'El salto requiere el control con WASD y ratón.';
                     if(key==='breeding'&&(p.reaction!=='neutral'||p.defend||p.targets.attack.length)) return 'No se puede elegir porque la reproducción requiere No ataca, desactivar la defensa del dueño y quitar las criaturas para atacar.';
                     if((key==='breeding'&&p.heal || key==='heal'&&p.breeding.enabled)&&p.food.heal.some(i=>p.breeding.items.includes(i.item))) return 'No se puede elegir porque un alimento está asignado a curar y a reproducirse. Separa los alimentos en Comida y cuidados o Crías.';
                     if(key==='tame'&&p.reaction!=='neutral') return 'No se puede elegir porque la domesticación requiere No ataca en Reacción al jugador.';
@@ -2476,6 +2534,10 @@
 
                                     <label class="edu-mount-field" :class="{'is-disabled':!!behaviorBlockReason('mountOptions')}" :title="behaviorBlockReason('mountOptions')">¿Quién dirige?<select v-model="behavior.pig.mount.control" @change="changePig('mount.control',$event.target.value)" :disabled="!!behaviorBlockReason('mountOptions')"><option value="direct">El jugador, con WASD y ratón</option><option value="player">El jugador, con zanahoria en un palo</option><option value="pig">La criatura decide</option></select></label>
 
+                                    <template v-if="behavior.pig.mount.enabled">
+                                        <label class="edu-behavior-check" :class="{'is-disabled':!!behaviorBlockReason('mountJump')}" :title="behaviorBlockReason('mountJump')"><input type="checkbox" :checked="behavior.pig.mount.jump && behavior.pig.mount.control==='direct'" @change="changePig('mount.jump',$event.target.checked)" :disabled="!!behaviorBlockReason('mountJump')"/><span>Puede saltar al montarla</span></label>
+                                        <small>{{behaviorBlockReason('mountJump') || 'Sube escalones de un bloque y salta con la tecla de salto.'}}</small>
+                                    </template>
                                     <section v-if="behavior.pig.mount.enabled" class="edu-setting"><h4>Posición del pasajero</h4><div class="edu-seat-buttons"><button @click="moveSeat('height',0.1)">↑ Subir</button><button @click="moveSeat('height',-0.1)">↓ Bajar</button><button @click="moveSeat('offset',0.1)">Adelante</button><button @click="moveSeat('offset',-0.1)">Atrás</button><button @click="moveSeat('lateral',0.1)">Izquierda</button><button @click="moveSeat('lateral',-0.1)">Derecha</button></div><button @click="resetSeat">Centrar asiento</button></section>
 </template>
                                 <template v-if="behaviorPage==='movement'"><div class="edu-behavior-options"><button :data-setting="choice.id" v-for="choice in movementChoices" :key="choice.id" :aria-pressed="behavior.pig.locomotion.mode===choice.id" :class="{active:behavior.pig.locomotion.mode===choice.id}" @click="changePig('locomotion.mode',choice.id)" :disabled="busy"><i class="material-icons" aria-hidden="true">{{choice.icon}}</i>{{choice.label}}</button></div><label class="edu-behavior-check" :class="{'is-disabled':!!behaviorBlockReason('wander')}" :title="behaviorBlockReason('wander')"><input type="checkbox" :checked="behavior.pig.wander" @change="changePig('wander',$event.target.checked)" :disabled="busy"/><span>Pasea por su cuenta</span></label><label>Velocidad<select v-model.number="behavior.speed" @change="changePig('speed',Number($event.target.value))" :disabled="busy"><option v-for="speed in behaviorSpeeds" :value="speed.value" :key="speed.value">{{speed.label}}</option></select></label></template>

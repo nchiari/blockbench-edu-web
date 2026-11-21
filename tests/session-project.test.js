@@ -71,6 +71,31 @@ test('portable loot rows reopen and export exactly, while format 10 keeps its in
     const previous=await readCreatureProject(await zip.generateAsync({type:'uint8array'}),Zip);
     assert.deepEqual(core.entityBehavior(previous.reference.behavior.json,previous.state.behavior).pig.loot,{mode:'inherit',entries:[]});
 });
+test('mount jumping survives save and controls the exported direct ride',async()=>{
+    const {model,state,reference}=await fixture(),core=require('../blockbench_edu.js');
+    const settings=core.adjustPigBehavior(core.entityBehavior(reference.behavior.json),'mount.enabled',true);
+    state.behavior=core.adjustPigBehavior(core.adjustPigBehavior(settings,'mount.saddle',false),'mount.jump',true);
+    const loaded=await readCreatureProject(await writeCreatureProject(model,state,reference,Zip),Zip);
+    assert.equal(loaded.version,14);
+    assert.equal(loaded.state.behavior.pig.mount.jump,true);
+    const output=await buildAddon(loaded.reference,{'minecraft:geometry':[loaded.reference.geometry]},model.textures[0].source.split(',')[1],Zip,{},loaded.state.behavior);
+    const exported=await readAddon(await output.zip.generateAsync({type:'uint8array'}),Zip);
+    const entity=exported.behavior.json['minecraft:entity'];
+    const mounted=entity.component_groups['blockbench_edu:mounted'];
+    assert.deepEqual(mounted['minecraft:can_power_jump'],{});
+    assert.deepEqual(mounted['minecraft:is_saddled'],{});
+    assert.equal(mounted['minecraft:variable_max_auto_step'].controlled_value,1);
+    assert.equal(entity.components['minecraft:horse.jump_strength'].value,0.5);
+    assert.ok(entity.events['blockbench_edu:on_dismount'].sequence[0].remove.component_groups.includes('blockbench_edu:mounted'));
+    const legacy=structuredClone(settings);
+    delete legacy.pig.mount.jump;
+    for(const inactive of [legacy,core.adjustPigBehavior(state.behavior,'mount.jump',false),core.adjustPigBehavior(state.behavior,'mount.control','player')]) {
+        const result=core.compileBehavior(reference.behavior.json,inactive)['minecraft:entity'];
+        assert.equal(result.component_groups['blockbench_edu:mounted']['minecraft:can_power_jump'],undefined);
+        assert.equal(result.component_groups['blockbench_edu:mounted']['minecraft:variable_max_auto_step'],undefined);
+    }
+});
+
 test('rejects malformed, future and incomplete projects before importing',async()=>{
     const {model,state,reference} = await fixture();
     await assert.rejects(readCreatureProject('not a zip',Zip),/dañado/);
@@ -80,7 +105,7 @@ test('rejects malformed, future and incomplete projects before importing',async(
         change(data,zip); zip.file('project.json',JSON.stringify(data));
         return readCreatureProject(await zip.generateAsync({type:'uint8array'}),Zip);
     };
-    await assert.rejects(mutate(d=>{d.version=14;}),/otra versión/);
+    await assert.rejects(mutate(d=>{d.version=15;}),/otra versión/);
     await assert.rejects(mutate((d,z)=>z.remove('reference.mcaddon')),/addon base/);
     await assert.rejects(mutate(d=>{d.model.textures[0].source='';}),/pintura incluida/);
     await assert.rejects(mutate(d=>{d.state.originalFaces.pop();}),/pintura original/);

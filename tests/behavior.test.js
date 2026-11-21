@@ -321,25 +321,25 @@ test('pig ride modes respect saddle choices and validate seat coordinates',()=>{
     assert.equal(e.component_groups['blockbench_edu:mounted']['minecraft:item_controllable'],undefined);
     b.pig.wander=false;
     assert.deepEqual(core.compileBehavior(JSON.parse(catalog.pig.behavior),b)['minecraft:entity'].component_groups['blockbench_edu:mounted'],{});
-    for(const patch of [{control:'invalid'},{saddle:1},{height:-0.1},{height:5},{height:NaN},{offset:3},{enabled:'yes'}])
+    for(const patch of [{control:'invalid'},{saddle:1},{height:-0.1},{height:5},{height:NaN},{offset:3},{enabled:'yes'},{jump:1}])
         assert.throws(()=>core.validateBehavior({...b,pig:{...b.pig,mount:{...b.pig.mount,...patch}}}),/montura/);
     const old=structuredClone(b);delete old.pig.mount;
     assert.equal(core.pigBehavior(old).pig.mount.enabled,false);
     assert.equal(old.pig.mount,undefined);
 });
 
-test('mount exports require compatible BP/RP engine versions, while Original and unmounted exports preserve them',async()=>{
+test('mount exports require compatible engine versions for rider name updates',async()=>{
     const starter=await core.createMobAddon(catalog.pig,{},Zip,randomUUID),ref=await core.readAddon(starter.addon,Zip);
     let b=core.pigBehavior({...core.defaultBehavior(),profile:'calm'});b.pig.mount.enabled=true;
     const make=async settings=>core.readAddon(await (await core.buildAddon(ref,{'minecraft:geometry':[ref.geometry]},catalog.pig.textures.default.split(',')[1],Zip,{},settings)).zip.generateAsync({type:'uint8array'}),Zip);
     const out=await make(b);
-    assert.deepEqual(out.bp.manifest.header.min_engine_version,[1,21,80]);
+    assert.deepEqual(out.bp.manifest.header.min_engine_version,[1,26,30]);
     assert.deepEqual(out.rp.manifest.header.min_engine_version,[1,21,80]);
     assert.equal(out.behavior.json.format_version,'1.21.80');
     assert.equal(out.behavior.json['minecraft:entity'].description.identifier,starter.identifier);
     const untouched=await make(core.defaultBehavior());
     assert.deepEqual(untouched.behavior.json,ref.behavior.json);
-    assert.deepEqual(untouched.bp.manifest.header.min_engine_version,ref.bp.manifest.header.min_engine_version);
+    assert.deepEqual(untouched.bp.manifest.header.min_engine_version,[1,26,30]);
     b.pig.mount.enabled=false;
     assert.deepEqual((await make(b)).bp.manifest.header.min_engine_version,ref.bp.manifest.header.min_engine_version);
 });
