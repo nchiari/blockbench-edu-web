@@ -41,6 +41,13 @@ async page => {
     }),'Click on the 3D model selects both disconnected exact RGBA matches, including a hidden part');
     check(await page.evaluate(()=>Texture.all[0].canvas.toDataURL()===eduColorTest.png),'Selecting a color does not repaint the texture');
     check(await page.evaluate(()=>document.getElementById('edu-classroom').__vue__.selectedPixelCount===2),'Selected-pixel count is visible in the classroom');
+    await page.mouse.click(point.x+10,point.y);
+    check(await page.evaluate(()=>{
+        const {target,hidden,png}=eduColorTest, texture=Texture.all[0];
+        return Toolbox.selected.id==='blockbench_edu_select_color' && texture.selection.is_custom &&
+            !texture.selection.array[target] && !texture.selection.array[hidden] && texture.canvas.toDataURL()===png;
+    }),'A second click replaces the color selection without painting');
+    await page.mouse.click(point.x,point.y);
     check(await page.evaluate(()=>Cube.all.every(c=>c.mesh.children.some(child=>child.name==='edu_color_selection_preview'))),'Selected pixels have a separate 3D preview overlay');
     await page.getByRole('button',{name:'1 · Dale forma',exact:true}).click();
     check(await page.evaluate(()=>Cube.all.every(c=>!c.mesh.children.some(child=>child.name==='edu_color_selection_preview'))),'Shape mode removes the visual overlay');
@@ -109,5 +116,18 @@ async page => {
     await page.getByRole('button',{name:'Seleccionar color',exact:true}).click();
     await page.mouse.click(point.x,point.y);
     await page.screenshot({path:'output/playwright/color-selection-final.png'});
+    const headLabel=await page.evaluate(()=>{
+        window.beforeDelete=Cube.all.length;
+        const head=Group.all.find(group=>group.name==='head');
+        return document.querySelector('#edu-classroom').__vue__.bones.find(bone=>bone.id===head.uuid).label;
+    });
+    await page.getByRole('button',{name:'Eliminar '+headLabel,exact:true}).click();
+    check(await page.evaluate(()=>Cube.all.length===beforeDelete-2 && !Group.all.some(group=>['head','hat'].includes(group.name))),
+        'Deleting an isolated head removes its branch');
+    await page.getByRole('button',{name:'Deshacer',exact:true}).click();
+    check(await page.evaluate(()=>Cube.all.length===beforeDelete && Group.all.some(group=>group.name==='hat')),
+        'Undo restores the deleted branch');
+    await page.getByRole('button',{name:'Rehacer',exact:true}).click();
+    check(await page.evaluate(()=>Cube.all.length===beforeDelete-2),'Redo removes the branch again');
     return {passed:results.length,results};
 }

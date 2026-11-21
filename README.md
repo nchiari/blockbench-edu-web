@@ -47,7 +47,9 @@ El proyecto incluye modelo, pintura, addon base, medidas originales e identidad 
 
 `.bbedu` es para **seguir editando en Edu**; `.mcaddon` es para **importar en Minecraft Education**. La entrega a Drive incluye los tres archivos. Para continuar con los ajustes de «Dale vida», el docente abre el `.bbedu`. No incluye el código de clase ni rutas locales de las texturas. No hay guardado automático: cerrar la pestaña no sustituye la descarga del proyecto. Cada acceso trabaja en su propia pestaña; abrir el acceso docente no transfiere la criatura de una pestaña de alumno.
 
-Los píxeles seleccionados se destacan sobre el modelo con un tinte celeste transparente y un borde de contraste. La marca se mantiene al cambiar de herramienta, desaparece con «Quitar selección» y solo se muestra en Pintura. Es una ayuda visual del editor: no modifica la textura ni se incluye en el addon exportado.
+Mientras «Seleccionar color» está activo, cada clic en el modelo reemplaza la selección con el color que tocaste. Un contorno fino de rayas claras y oscuras marca la selección y deja visible su color. El contorno se mantiene al cambiar de herramienta y desaparece con «Quitar selección».
+
+En «Partes», la papelera elimina la parte y sus subpartes. Puedes recuperarlas con «Deshacer». El botón está desactivado si la criatura se quedaría sin piezas.
 
 ## Tamaño, pintura e historial
 

@@ -989,7 +989,31 @@
         if (!session || !Cube.all.every(cube => session.initialSizes[cube.uuid])) return;
         session.cubeIds = Cube.all.map(cube => cube.uuid);
         session.pieceLinks = buildPieceLinks();
+        if (!session.cubeIds.includes(session.headId)) session.headId = session.cubeIds[0];
         if (!session.cubeIds.includes(session.selectedId)) session.selectedId = session.headId;
+    }
+    function paintBoneBranch(bone) {
+        const groups = [bone], elements = [];
+        bone.forEachChild(child => (child instanceof Group ? groups : elements).push(child));
+        return {groups, elements};
+    }
+    function removePaintBone(id) {
+        const session = validateSession(), bone = Group.all.find(group => group.uuid === id);
+        if (!bone || !session.prepared) return;
+        const {groups, elements} = paintBoneBranch(bone);
+        if (!Cube.all.some(cube => !elements.includes(cube))) return;
+        if (groups.some(group => group.uuid === session.soloBoneId)) showOnlyPaintBone(session.soloBoneId);
+        const animations = Animation.all.filter(animation => groups.some(group => animation.animators?.[group.uuid]));
+        const aspects = {elements, groups, outliner:true, selection:true, animations};
+        Undo.initEdit(aspects);
+        try {
+            bone.remove(false);
+            reconcileEduPieces(session);
+            if (!Cube.selected.length && selectedPiece()) selectPiece(selectedPiece().uuid);
+            Canvas.updateVisibility();
+            Undo.finishEdit('Eliminar parte Edu', {...aspects, elements:[], groups:[]});
+        } catch (error) { Undo.cancelEdit(true); reconcileEduPieces(session); throw error; }
+        refresh();
     }
     function duplicatePaintBone(id) {
         const session = validateSession(), bone = Group.all.find(group => group.uuid === id);
@@ -1102,7 +1126,7 @@
             }
         }
         UVEditor.updateSelectionOutline(); Undo.finishSelection('Seleccionar un color Edu');
-        classroom.tool('brush_tool'); refresh();
+        refresh();
     }
     let colorSelectionPreview;
     function clearColorSelectionPreview() {
@@ -1115,20 +1139,47 @@
         clearColorSelectionPreview();
         const texture = Texture.all.find(texture => texture.uuid === current()?.textureId);
         if (!classroom || classroom.mode !== 'paint' || !classroom.selectedPixelCount || !texture?.selection.is_custom) return;
-        const selection = texture.selection, scale = 4;
-        const canvas = document.createElement('canvas'); canvas.width = selection.width*scale; canvas.height = selection.height*scale;
+        const selection = texture.selection;
+        const canvas = document.createElement('canvas'); canvas.width = selection.width; canvas.height = selection.height;
         const ctx = canvas.getContext('2d');
-        for (let y=0;y<selection.height;y++) for (let x=0;x<selection.width;x++) {
-            if (!selection.get(x,y)) continue;
-            ctx.fillStyle = 'rgba(0,230,255,0.35)'; ctx.fillRect(x*scale,y*scale,scale,scale);
-            ctx.fillStyle = (x+y)%2 ? '#101010' : '#ffffff';
-            if (!selection.get(x-1,y)) ctx.fillRect(x*scale,y*scale,1,scale);
-            if (!selection.get(x+1,y)) ctx.fillRect((x+1)*scale-1,y*scale,1,scale);
-            if (!selection.get(x,y-1)) ctx.fillRect(x*scale,y*scale,scale,1);
-            if (!selection.get(x,y+1)) ctx.fillRect(x*scale,(y+1)*scale-1,scale,1);
-        }
+        const mask = ctx.createImageData(canvas.width,canvas.height);
+        selection.array.forEach((value,index) => { if (value) mask.data[index*4+3] = 255; });
+        ctx.putImageData(mask,0,0);
         const map = new THREE.CanvasTexture(canvas); map.magFilter = THREE.NearestFilter; map.minFilter = THREE.NearestFilter; map.generateMipmaps = false;
-        const material = new THREE.MeshBasicMaterial({map,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2,side:THREE.DoubleSide});
+        const material = new THREE.ShaderMaterial({
+            uniforms:{selectionMask:{value:map}, size:{value:new THREE.Vector2(canvas.width,canvas.height)}},
+            extensions:{derivatives:true}, transparent:true, depthWrite:false,
+            polygonOffset:true, polygonOffsetFactor:-2, polygonOffsetUnits:-2, side:THREE.DoubleSide,
+            vertexShader:`
+                varying vec2 paintUV;
+                void main() {
+                    paintUV = uv;
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                }`,
+            fragmentShader:`
+                uniform sampler2D selectionMask;
+                uniform vec2 size;
+                varying vec2 paintUV;
+                float selected(vec2 pixel) {
+                    if (any(lessThan(pixel, vec2(0.0))) || any(greaterThanEqual(pixel, size))) return 0.0;
+                    return texture2D(selectionMask, (pixel + 0.5) / size).a;
+                }
+                void main() {
+                    vec2 position = paintUV * size;
+                    vec2 pixel = floor(position);
+                    vec2 within = fract(position);
+                    vec2 thickness = clamp(fwidth(position) * 1.25, vec2(0.025), vec2(0.24));
+                    if (selected(pixel) < 0.5) discard;
+                    bool vertical = (within.x < thickness.x && selected(pixel - vec2(1.0,0.0)) < 0.5)
+                        || (within.x > 1.0 - thickness.x && selected(pixel + vec2(1.0,0.0)) < 0.5);
+                    bool horizontal = (within.y < thickness.y && selected(pixel - vec2(0.0,1.0)) < 0.5)
+                        || (within.y > 1.0 - thickness.y && selected(pixel + vec2(0.0,1.0)) < 0.5);
+                    if (!vertical && !horizontal) discard;
+                    float along = vertical ? position.y : position.x;
+                    float stripe = step(0.5, fract(along));
+                    gl_FragColor = vec4(vec3(mix(0.08, 0.94, stripe)), 0.95);
+                }`
+        });
         const meshes = [];
         for (const cube of Cube.all) {
             if (!cube.mesh) continue;
@@ -1200,6 +1251,7 @@
             if (selection?.is_custom && !classroom.selectedPixelCount) { selection.clear(); UVEditor.updateSelectionOutline(); }
             classroom.soloBoneId = session?.soloBoneId || '';
             classroom.bones = paintBones().map((bone,index) => ({id:bone.uuid,label:pieceLabel(bone,index),
+                canRemove:paintBoneBranch(bone).elements.filter(element=>element instanceof Cube).length < Cube.all.length,
                 hidden:bone.children.filter(c => c instanceof Cube).every(c => !c.visibility)}));
             classroom.pieces = panel.vue.pieces;
             classroom.selectedId = classroom.wholeModel ? '__model__' : panel.vue.selectedId;
@@ -2111,7 +2163,7 @@
                     this.fitPartsPanel();
                 },
                 fitPartsPanel() {
-                    const width = Math.max(172, Math.min(224, window.innerWidth - this.sidebarWidth - 300));
+                    const width = Math.max(172, Math.min(248, window.innerWidth - this.sidebarWidth - 300));
                     document.body.style.setProperty('--edu-parts-panel-width', width + 'px');
                     document.body.style.setProperty('--edu-parts-inset', (this.mode==='behavior' || this.partsOpen ? width + 12 : 0) + 'px');
                 },
@@ -2264,7 +2316,8 @@
                 tool(id) { this.paintTool = id; BarItems[id==='fill_tool' && this.selectedPixelCount ? 'blockbench_edu_fill_selection' : id].select(); if (['brush_tool','eraser','blockbench_edu_smooth'].includes(id)) BarItems.slider_brush_size.setValue(this.brushSize); },
                 changeBrushSize(step) { this.brushSize = Math.max(1,Math.min(64,this.brushSize+step)); if (['brush_tool','eraser','blockbench_edu_smooth'].includes(this.paintTool)) BarItems.slider_brush_size.setValue(this.brushSize); },
                 clearColorSelection: clearPaintColorSelection,
-                toggleBone: togglePaintBone, showOnlyBone: showOnlyPaintBone, showAllBones: showPaintBones, duplicateBone: id => attempt(()=>duplicatePaintBone(id))
+                toggleBone: togglePaintBone, showOnlyBone: showOnlyPaintBone, showAllBones: showPaintBones,
+                duplicateBone: id => attempt(()=>duplicatePaintBone(id)), removeBone: id => attempt(()=>removePaintBone(id))
             },
             template: `<div id="edu-classroom"><div v-if="behaviorNotice" class="edu-center-notice" role="status">{{behaviorNotice}}</div><header><strong>Blockbench Edu</strong><nav aria-label="Crear tu criatura"><button @click="setMode('shape')" :class="{active:mode==='shape'}">1 · Dale forma</button><button @click="setMode('paint')" :class="{active:mode==='paint'}">2 · Dale color</button><button @click="setMode('behavior')" :class="{active:mode==='behavior'}">3 · Dale vida</button><button @click="saveOptions" :disabled="busy">4 · Guardar y exportar</button></nav><button v-if="teacherViewAvailable" @click="exit" class="edu-teacher">Para el docente</button></header>
                 <aside><div class="edu-sidebar-scroll"><template v-if="mode==='shape'"><h2>Dale forma</h2><label>¿Qué quieres cambiar?<select :value="selectedId" @change="selectPiece($event.target.value)"><option value="__model__">Todo el modelo</option><option v-for="piece in pieces" :key="piece.id" :value="piece.id">{{piece.label}}</option></select></label><div v-if="wholeModel" class="edu-whole-model-notice" role="status"><i class="material-icons" aria-hidden="true">select_all</i><strong>Estás cambiando<br>TODO EL MODELO</strong><span>Incluye todas las partes, también las ocultas.</span></div><div class="edu-paint-tools edu-shape-tools" role="group" aria-label="¿Qué quieres hacer?"><button @click="operation='size'" :class="{active:operation==='size'}" :aria-pressed="operation==='size'"><i class="material-icons" aria-hidden="true">open_in_full</i>Tamaño</button><button @click="operation='move'" :class="{active:operation==='move'}" :aria-pressed="operation==='move'"><i class="material-icons" aria-hidden="true">open_with</i>Mover</button><button @click="operation='rotate'" :class="{active:operation==='rotate'}" :aria-pressed="operation==='rotate'"><i class="material-icons" aria-hidden="true">rotate_right</i>Girar</button></div><template v-if="operation==='size' &amp;&amp; wholeModel"><div class="edu-size"><span>Tamaño de todo</span><button @click="resize('all',-1)" :disabled="busy" aria-label="Reducir todo el modelo">−</button><b></b><button @click="resize('all',1)" :disabled="busy" aria-label="Aumentar todo el modelo">+</button></div><p>Agranda o achica toda la criatura en proporción, sin separar las partes. Cada + aumenta un 10 %; − revierte ese aumento.</p></template><template v-else-if="operation==='size'"><div class="edu-size"><span>Tamaño general</span><button @click="resize('all',-1)" :disabled="busy || dimensions.some((value,axis) => value-1 &lt; minimum[axis])" aria-label="Reducir tamaño general">−</button><b></b><button @click="resize('all',1)" :disabled="busy || dimensions.some((value,axis) => value+1 &gt; maximum[axis])" aria-label="Aumentar tamaño general">+</button></div><p>Cambia el ancho, el alto y la profundidad a la vez.</p><div class="edu-size" v-for="(label,axis) in labels" :key="label"><span>{{label}}</span><button @click="resize(axis,-1)" :disabled="busy || dimensions[axis]&lt;=minimum[axis]" :aria-label="'Reducir '+label">−</button><b>{{dimensions[axis]}}</b><button @click="resize(axis,1)" :disabled="busy || dimensions[axis]&gt;=maximum[axis]" :aria-label="'Aumentar '+label">+</button></div><p>Usa − para reducir y + para aumentar.<br>Puedes deshacer si no te gusta.</p></template><template v-else-if="operation==='move'"><div class="edu-move-arrows"><strong>Mover</strong><div class="edu-size" v-for="(label,axis) in axes" :key="'move-'+axis"><span>{{label}}</span><button @click="move(axis,-1)" :disabled="busy" :aria-label="'Mover '+label+' menos'">{{axis===1?'↓':axis===2?'↙':'←'}}</button><b></b><button @click="move(axis,1)" :disabled="busy" :aria-label="'Mover '+label+' más'">{{axis===1?'↑':axis===2?'↗':'→'}}</button></div><p>{{wholeModel ? 'Mueve toda la criatura sin separar sus partes.' : 'Las capas de esta parte se mueven y cambian de tamaño juntas.'}}</p></div></template><template v-else><div class="edu-size" v-for="(label,index) in turns" :key="label"><span>{{label}}</span><button :aria-label="'Girar menos: '+label" @click="transform('rotate',index,-15)" :disabled="busy">−</button><b>{{wholeModel ? '' : rotation[index]}}</b><button :aria-label="'Girar más: '+label" @click="transform('rotate',index,15)" :disabled="busy">+</button></div><p>{{wholeModel ? 'Gira toda la criatura en pasos de 15°, alrededor del origen del modelo.' : 'Usa − y + para girar esta parte poco a poco.'}}</p></template></template>
@@ -2356,7 +2409,7 @@
                     <div class="edu-parts-heading"><h2 id="edu-parts-title"><i class="material-icons" aria-hidden="true">visibility</i>Partes</h2><button ref="partsClose" @click="setPartsOpen(false)" aria-label="Plegar panel de partes" title="Plegar panel de partes"><i class="material-icons" aria-hidden="true">chevron_right</i></button></div>
                     <button class="edu-parts-show-all" @click="showAllBones" :disabled="busy || !hiddenBoneCount"><i class="material-icons" aria-hidden="true">visibility</i>Mostrar todas</button>
                     <p class="edu-parts-count" role="status" aria-live="polite">{{bones.length-hiddenBoneCount}} de {{bones.length}} visibles</p>
-                    <ul class="edu-parts-list" aria-label="Visibilidad de las partes"><li v-for="bone in bones" :key="bone.id" :class="{'edu-part-hidden':bone.hidden}"><button class="edu-part-eye" @click="toggleBone(bone.id)" :disabled="busy" :aria-label="(bone.hidden?'Mostrar ':'Ocultar ')+bone.label" :aria-pressed="bone.hidden?'false':'true'"><i class="material-icons" aria-hidden="true">{{bone.hidden?'visibility_off':'visibility'}}</i><span>{{bone.label}}</span></button><button class="edu-part-solo" :class="{active:soloBoneId===bone.id}" @click="showOnlyBone(bone.id)" :disabled="busy" :aria-pressed="soloBoneId===bone.id?'true':'false'" :aria-label="soloBoneId===bone.id?'Volver a la vista anterior':'Ver solo '+bone.label" :title="soloBoneId===bone.id?'Volver a la vista anterior':'Ver solo '+bone.label"><i class="material-icons" aria-hidden="true">center_focus_strong</i></button><button class="edu-part-solo" @click="duplicateBone(bone.id)" :disabled="busy" :aria-label="'Duplicar '+bone.label" :title="'Duplicar '+bone.label"><i class="material-icons" aria-hidden="true">content_copy</i></button></li></ul>
+                    <ul class="edu-parts-list" aria-label="Visibilidad de las partes"><li v-for="bone in bones" :key="bone.id" :class="{'edu-part-hidden':bone.hidden}"><button class="edu-part-eye" @click="toggleBone(bone.id)" :disabled="busy" :aria-label="(bone.hidden?'Mostrar ':'Ocultar ')+bone.label" :aria-pressed="bone.hidden?'false':'true'"><i class="material-icons" aria-hidden="true">{{bone.hidden?'visibility_off':'visibility'}}</i><span>{{bone.label}}</span></button><button class="edu-part-solo" :class="{active:soloBoneId===bone.id}" @click="showOnlyBone(bone.id)" :disabled="busy" :aria-pressed="soloBoneId===bone.id?'true':'false'" :aria-label="soloBoneId===bone.id?'Volver a la vista anterior':'Ver solo '+bone.label" :title="soloBoneId===bone.id?'Volver a la vista anterior':'Ver solo '+bone.label"><i class="material-icons" aria-hidden="true">center_focus_strong</i></button><button class="edu-part-solo" @click="duplicateBone(bone.id)" :disabled="busy" :aria-label="'Duplicar '+bone.label" :title="'Duplicar '+bone.label"><i class="material-icons" aria-hidden="true">content_copy</i></button><button class="edu-part-solo edu-part-delete" @click="removeBone(bone.id)" :disabled="busy || !bone.canRemove" :aria-label="'Eliminar '+bone.label" :title="bone.canRemove ? 'Eliminar esta parte y sus subpartes' : 'La criatura debe conservar al menos una pieza'"><i class="material-icons" aria-hidden="true">delete_outline</i></button></li></ul>
                     <p class="edu-parts-help">Oculta partes para pintar debajo.<br>Tu criatura se exporta completa.</p>
                 </section>
                 <div class="edu-sidebar-resizer" :class="{dragging:sidebarDragging}" role="separator" tabindex="0" aria-label="Ancho del menú" aria-orientation="vertical" :aria-valuenow="sidebarWidth" :aria-valuemin="260" :aria-valuemax="sidebarMax" title="Arrastra para cambiar el ancho del menú" @pointerdown.prevent="startSidebarDrag" @pointermove="dragSidebar" @pointerup="endSidebarDrag" @pointercancel="endSidebarDrag" @lostpointercapture="endSidebarDrag" @keydown="keySidebar"><span aria-hidden="true"></span></div>
@@ -2562,7 +2615,7 @@
                 #edu-classroom .edu-parts-show-all{display:flex;align-items:center;justify-content:center;gap:6px;flex-shrink:0;width:100%;font-size:13px;border:1px solid #456052}
                 #edu-classroom .edu-parts-count{margin:0;font-size:12px;flex-shrink:0;padding:0 4px}
                 #edu-classroom .edu-parts-list{list-style:none;padding:0 2px 0 0;margin:0;flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden}
-                #edu-classroom .edu-parts-list li{display:grid;grid-template-columns:minmax(0,1fr) 34px 34px;gap:2px;align-items:center;margin:0 0 4px;padding:0;border-radius:9px}
+                #edu-classroom .edu-parts-list li{display:grid;grid-template-columns:minmax(0,1fr) repeat(3,34px);gap:2px;align-items:center;margin:0 0 4px;padding:0;border-radius:9px}
                 #edu-classroom .edu-part-eye{display:flex;align-items:center;gap:7px;text-align:left;padding:8px 5px;background:transparent;font-size:13px;min-width:0;width:100%}
                 #edu-classroom .edu-part-eye i{font-size:20px;flex-shrink:0}
                 #edu-classroom .edu-part-eye span{overflow-wrap:anywhere;min-width:0;line-height:1.4}
@@ -2610,7 +2663,7 @@
                 #edu-classroom .edu-color-selection p{margin:0;font-size:12px}
                 #edu-classroom .edu-color-selection button{display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px}
                 @media(max-height:680px){#edu-classroom .edu-parts-panel{gap:6px;padding:10px 8px}#edu-classroom .edu-parts-help{display:none}}
-                @media(pointer:coarse){#edu-classroom .edu-parts-list li{grid-template-columns:minmax(0,1fr) 44px 44px}#edu-classroom .edu-parts-panel button{min-height:44px}}
+                @media(pointer:coarse){#edu-classroom .edu-parts-list li{grid-template-columns:minmax(0,1fr) repeat(3,44px)}#edu-classroom .edu-parts-panel button{min-height:44px}}
 `);
             loader = new ModelLoader('blockbench_edu', {
                 name: 'Blockbench Edu', icon: EDU_ICON, category: 'loaders', target: 'Minecraft Education',
