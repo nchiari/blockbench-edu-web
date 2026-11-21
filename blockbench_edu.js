@@ -303,6 +303,7 @@
     const PIG_PROJECTILE_ORIGINS = [{id:'feet',label:'Pies',anchor:0},{id:'body',label:'Cuerpo',anchor:2},{id:'eyes',label:'Ojos',anchor:1}];
     const PIG_ATTACK_STYLES = [{id:'melee',label:'Solo golpes',icon:'sports_mma'},{id:'both',label:'Golpes y proyectiles',icon:'call_split'},{id:'ranged',label:'Solo proyectiles',icon:'gps_fixed'}];
     const BEHAVIOR_SPEEDS = [{value:0.15,label:'Lenta'},{value:0.25,label:'Normal'},{value:0.35,label:'Rápida'},{value:0.45,label:'Muy rápida'}];
+    const MOUNT_JUMP_STRENGTH = {min:0.4,max:1,step:0.05,defaultValue:0.5};
     function defaultBehavior() { return {version:1,profile:'original',health:20,speed:0.25,damage:4,range:16,item:'apple',tempt:true}; }
     function isPigBehavior(source) { return source?.['minecraft:entity']?.components?.['minecraft:type_family']?.family?.includes('pig') === true; }
     function pigBehavior(settings) {
@@ -412,6 +413,7 @@
             const m=settings.pig.mount;
             requireThat(m&&typeof m.enabled==='boolean'&&typeof m.saddle==='boolean'&&['direct','player','pig'].includes(m.control)&&
                 (m.jump===undefined||typeof m.jump==='boolean')&&
+                (m.jumpStrength===undefined||Number.isFinite(m.jumpStrength)&&m.jumpStrength>=MOUNT_JUMP_STRENGTH.min&&m.jumpStrength<=MOUNT_JUMP_STRENGTH.max)&&
                 (m.lateral===undefined || Number.isFinite(m.lateral)&&Math.abs(m.lateral)<=2)&&Number.isFinite(m.height)&&m.height>=0&&m.height<=4&&Number.isFinite(m.offset)&&m.offset>=-2&&m.offset<=2,
                 'Los ajustes de montura no son válidos.');
         }
@@ -665,7 +667,7 @@
                 'minecraft:behavior.controlled_by_player':{priority:0}
             }:(p.wander?{'minecraft:behavior.random_stroll':{priority:2,speed_multiplier:1}}:{});
             if(m.control==='direct'&&m.jump) {
-                c['minecraft:horse.jump_strength']={value:0.5};
+                c['minecraft:horse.jump_strength']={value:m.jumpStrength??MOUNT_JUMP_STRENGTH.defaultValue};
                 groups[mounted]['minecraft:can_power_jump']={};
                 groups[mounted]['minecraft:variable_max_auto_step']={controlled_value:1};
                 // The jump control expects a saddled mount, even when no item is required to get on.
@@ -988,7 +990,8 @@
     async function writeCreatureProject(model, state, reference, Zip) {
         validateCreatureProject(model, state);
         const zip = new Zip();
-        zip.file('project.json', JSON.stringify({format: 'blockbench-edu', version: state.behavior?.pig?.mount?.jump ? 14 : state.behavior?.pig?.ranged && state.behavior.pig.ranged.mode!=='melee' ? 13 : state.behavior?.pig?.loot ? 12 : state.behavior?.pig?.universal ? 10 : state.behavior?.pig?.mount?.control==='direct' ? 9 : state.behavior?.pig?.simple ? 8 : state.behavior?.pig?.locomotion ? 7 : state.behavior?.pig?.damageSources ? 6 : state.behavior?.pig?.mount ? 5 : state.behavior?.pig?.food ? 4 : state.behavior?.pig ? 3 : 2, model, state}));
+        const mount=state.behavior?.pig?.mount;
+        zip.file('project.json', JSON.stringify({format: 'blockbench-edu', version: mount?.jumpStrength!==undefined ? 15 : mount?.jump ? 14 : state.behavior?.pig?.ranged && state.behavior.pig.ranged.mode!=='melee' ? 13 : state.behavior?.pig?.loot ? 12 : state.behavior?.pig?.universal ? 10 : mount?.control==='direct' ? 9 : state.behavior?.pig?.simple ? 8 : state.behavior?.pig?.locomotion ? 7 : state.behavior?.pig?.damageSources ? 6 : mount ? 5 : state.behavior?.pig?.food ? 4 : state.behavior?.pig ? 3 : 2, model, state}));
         zip.file('reference.mcaddon', await reference.root.generateAsync({type:'uint8array'}));
         return zip.generateAsync({type:'uint8array', compression:'DEFLATE'});
     }
@@ -998,7 +1001,7 @@
             zip = await Zip.loadAsync(content);
             data = JSON.parse(await zip.file('project.json').async('string'));
         } catch { throw new Error('Este archivo no es un proyecto de Blockbench Edu o está dañado. Elige el archivo .bbedu que guardaste.'); }
-        requireThat(data.format === 'blockbench-edu' && [1,2,3,4,5,6,7,8,9,10,11,12,13,14].includes(data.version), 'Este proyecto necesita otra versión de Blockbench Edu.');
+        requireThat(data.format === 'blockbench-edu' && [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15].includes(data.version), 'Este proyecto necesita otra versión de Blockbench Edu.');
         validateCreatureProject(data.model, data.state);
         requireThat(zip.file('reference.mcaddon'), 'El proyecto no contiene su addon base.');
         const reference = await readAddon(await zip.file('reference.mcaddon').async('uint8array'), Zip);
@@ -2184,6 +2187,9 @@
                 document.body.classList.remove('edu-sidebar-dragging');
             },
             computed: {hiddenBoneCount() { return this.bones.filter(bone => bone.hidden).length; },
+                mountJumpSettings() {
+                    return {...MOUNT_JUMP_STRENGTH,value:this.behavior.pig?.mount?.jumpStrength??MOUNT_JUMP_STRENGTH.defaultValue};
+                },
                 canBlendPaint() { return ['brush_tool','fill_tool'].includes(this.paintTool); },
                 canAdjustPaintOpacity() { return this.canBlendPaint || this.paintTool === 'eraser'; },
                 behaviorDetail() { return this.behaviorProfiles.find(p=>p.id===this.behavior.profile)?.detail || ''; },
@@ -2602,6 +2608,10 @@
                                     <template v-if="behavior.pig.mount.enabled">
                                         <label class="edu-behavior-check" :class="{'is-disabled':!!behaviorBlockReason('mountJump')}" :title="behaviorBlockReason('mountJump')"><input type="checkbox" :checked="behavior.pig.mount.jump && behavior.pig.mount.control==='direct'" @change="changePig('mount.jump',$event.target.checked)" :disabled="!!behaviorBlockReason('mountJump')"/><span>Puede saltar al montarla</span></label>
                                         <small>{{behaviorBlockReason('mountJump') || 'Sube escalones de un bloque y salta con la tecla de salto.'}}</small>
+                                        <label v-if="behavior.pig.mount.jump && behavior.pig.mount.control==='direct'" class="edu-mount-jump-strength">
+                                            <span>Potencia del salto <b aria-hidden="true">{{mountJumpSettings.value.toLocaleString('es')}}</b></span>
+                                            <input type="range" :min="mountJumpSettings.min" :max="mountJumpSettings.max" :step="mountJumpSettings.step" :value="mountJumpSettings.value" :disabled="busy" @keydown.stop @change="changePig('mount.jumpStrength',$event.target.valueAsNumber)"/>
+                                        </label>
                                     </template>
                                     <section v-if="behavior.pig.mount.enabled" class="edu-setting"><h4>Posición del pasajero</h4><div class="edu-seat-buttons"><button @click="moveSeat('height',0.1)">↑ Subir</button><button @click="moveSeat('height',-0.1)">↓ Bajar</button><button @click="moveSeat('offset',0.1)">Adelante</button><button @click="moveSeat('offset',-0.1)">Atrás</button><button @click="moveSeat('lateral',0.1)">Izquierda</button><button @click="moveSeat('lateral',-0.1)">Derecha</button></div><button @click="resetSeat">Centrar asiento</button></section>
 </template>
@@ -2867,8 +2877,8 @@
                 #edu-classroom .edu-parts-panel{position:absolute;right:16px;top:84px;bottom:var(--edu-preview-bottom,116px);width:var(--edu-parts-panel-width,224px);z-index:102;background:#21302e;border-radius:20px;padding:14px 10px;display:flex;flex-direction:column;gap:10px;min-height:0;overflow:hidden}
                 #edu-classroom .edu-paint-settings{display:grid;gap:10px}
                 #edu-classroom .edu-paint-opacity{gap:2px}
-                #edu-classroom .edu-paint-opacity span{display:flex;justify-content:space-between}
-                #edu-classroom .edu-paint-opacity input{width:100%;margin:0;--color-track:#71877c;--color-thumb:#65d98a;--color-center:#21302e;cursor:pointer}
+                #edu-classroom :is(.edu-paint-opacity,.edu-mount-jump-strength) span{display:flex;justify-content:space-between}
+                #edu-classroom :is(.edu-paint-opacity,.edu-mount-jump-strength) input{width:100%;margin:0;--color-track:#71877c;--color-thumb:#65d98a;--color-center:#21302e;cursor:pointer}
                 #edu-classroom .edu-paint-blend{grid-template-columns:auto minmax(0,1fr);align-items:center}
                 #edu-classroom .edu-paint-settings :disabled{opacity:.5;cursor:default}
                 #edu-classroom .edu-parts-heading{display:flex;align-items:center;justify-content:space-between;gap:4px;flex-shrink:0}
