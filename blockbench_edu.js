@@ -2139,7 +2139,7 @@
         Blockbench.showMessageBox({
             title: '¿Empezar de nuevo?',
             message: 'Vas a descartar la criatura abierta y todos sus cambios. Volverás al primer paso del tutorial.',
-            buttons: ['Cancelar', 'Descartar y empezar de nuevo'], confirm: 0, cancel: 0
+            buttons: ['Cancelar', 'Descartar y empezar de nuevo'], confirmIndex: 0, cancelIndex: 0
         }, choice => {
             if (choice !== 1) return;
             attempt(async () => {

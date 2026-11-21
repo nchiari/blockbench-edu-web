@@ -70,9 +70,17 @@ async (page) => {
     const editedProject = () => page.evaluate(() => ({id: Project.uuid, undo: Undo.index}));
     const edited = await editedProject();
     check(edited.undo > 0, 'The creature has edits to discard');
-    await restart.click();
-    await page.getByRole('button', {name: 'Cancelar', exact: true}).click();
-    check(JSON.stringify(await editedProject()) === JSON.stringify(edited), 'Cancel keeps the creature and its edits');
+    const restartDialog = page.locator('#message_box');
+    const dismissRestart = async (dismiss, method) => {
+        await restart.click();
+        await restartDialog.waitFor();
+        await dismiss();
+        await restartDialog.waitFor({state: 'hidden'});
+        check(JSON.stringify(await editedProject()) === JSON.stringify(edited), `${method} keeps the creature and its edits`);
+    };
+    await dismissRestart(() => restartDialog.locator('.dialog_close_button').click(), 'Close button');
+    await dismissRestart(() => page.keyboard.press('Escape'), 'Escape');
+    await dismissRestart(() => restartDialog.getByRole('button', {name: 'Cancelar', exact: true}).click(), 'Cancel');
 
     await restart.click();
     await page.getByRole('button', {name: 'Descartar y empezar de nuevo', exact: true}).click();
