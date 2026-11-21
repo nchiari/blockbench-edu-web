@@ -63,5 +63,26 @@ async (page) => {
     await page.getByRole('button', {name:'Seguir creando',exact:true}).click();
     check(await page.locator('.edu-teacher').count() === 0, 'Class link stays in student role');
     report.classLink = {student: true, delivery: true};
+
+    const restart = page.getByRole('button', {name: 'Empezar de nuevo', exact: true});
+    check(await page.locator('#edu-classroom nav > button').nth(4).textContent() === 'Empezar de nuevo', 'Restart is the fifth, unnumbered action');
+    await page.getByRole('button', {name: 'Aumentar todo el modelo', exact: true}).click();
+    const editedProject = () => page.evaluate(() => ({id: Project.uuid, undo: Undo.index}));
+    const edited = await editedProject();
+    check(edited.undo > 0, 'The creature has edits to discard');
+    await restart.click();
+    await page.getByRole('button', {name: 'Cancelar', exact: true}).click();
+    check(JSON.stringify(await editedProject()) === JSON.stringify(edited), 'Cancel keeps the creature and its edits');
+
+    await restart.click();
+    await page.getByRole('button', {name: 'Descartar y empezar de nuevo', exact: true}).click();
+    await waitWizard();
+    check(await page.locator('#edu-classroom').count() === 0, 'Restart leaves the classroom editor');
+    check(await page.evaluate(id => !ModelProject.all.some(project => project.uuid === id), edited.id), 'Restart closes the discarded project');
+    check(page.url() === classLink, 'Restart retains the classroom link');
+    await openCreature();
+    const fresh = await editedProject();
+    check(fresh.id !== edited.id && fresh.undo === 0, 'The tutorial creates a fresh creature');
+    report.restart = {cancelKeptEdits: true, returnedToTutorial: true, classLinkRetained: true, freshCreature: true};
     return report;
 }

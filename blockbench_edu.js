@@ -2133,6 +2133,28 @@
         refreshTeacherReturn();
         window.dispatchEvent(new Event('resize'));
     }
+    function restartCreature() {
+        const project = Project, session = current();
+        if (!session || session.busy || openingCreature) return;
+        Blockbench.showMessageBox({
+            title: '¿Empezar de nuevo?',
+            message: 'Vas a descartar la criatura abierta y todos sus cambios. Volverás al primer paso del tutorial.',
+            buttons: ['Cancelar', 'Descartar y empezar de nuevo'], confirm: 0, cancel: 0
+        }, choice => {
+            if (choice !== 1) return;
+            attempt(async () => {
+                if (!alive || !classroom || Project !== project || session.busy || openingCreature) return;
+                requireThat(!project.locked, 'No pudimos cerrar la criatura. Vuelve a intentarlo.');
+                leaveClassroom();
+                if (await project.close(true)) {
+                    if (alive) showWizard();
+                } else {
+                    if (alive && Project === project) enterClassroom();
+                    throw new Error('No pudimos cerrar la criatura. Vuelve a intentarlo.');
+                }
+            });
+        });
+    }
     const DEFAULT_SIDEBAR_WIDTH = 356;
     function enterClassroom() {
         leaveClassroom();
@@ -2552,11 +2574,11 @@
                     if (this.canBlendPaint) BarItems.blend_mode.set(blend);
                 },
                 changeBrushSize(step) { this.brushSize = Math.max(1,Math.min(64,this.brushSize+step)); if (['brush_tool','eraser','blockbench_edu_smooth'].includes(this.paintTool)) BarItems.slider_brush_size.setValue(this.brushSize); },
-                clearColorSelection: clearPaintColorSelection,
+                clearColorSelection: clearPaintColorSelection, restartCreature,
                 toggleBone: togglePaintBone, showOnlyBone: showOnlyPaintBone, showAllBones: showPaintBones,
                 duplicateBone: id => attempt(()=>duplicatePaintBone(id)), removeBone: id => attempt(()=>removePaintBone(id))
             },
-            template: `<div id="edu-classroom"><div v-if="behaviorNotice" class="edu-center-notice" role="status">{{behaviorNotice}}</div><header><strong>Blockbench Edu</strong><nav aria-label="Crear tu criatura"><button @click="setMode('shape')" :class="{active:mode==='shape'}">1 · Dale forma</button><button @click="setMode('paint')" :class="{active:mode==='paint'}">2 · Dale color</button><button @click="setMode('behavior')" :class="{active:mode==='behavior'}">3 · Dale vida</button><button @click="saveOptions" :disabled="busy">4 · Guardar y exportar</button></nav><button v-if="teacherViewAvailable" @click="exit" class="edu-teacher">Para el docente</button></header>
+            template: `<div id="edu-classroom"><div v-if="behaviorNotice" class="edu-center-notice" role="status">{{behaviorNotice}}</div><header><strong>Blockbench Edu</strong><nav aria-label="Crear tu criatura"><button @click="setMode('shape')" :class="{active:mode==='shape'}">1 · Dale forma</button><button @click="setMode('paint')" :class="{active:mode==='paint'}">2 · Dale color</button><button @click="setMode('behavior')" :class="{active:mode==='behavior'}">3 · Dale vida</button><button @click="saveOptions" :disabled="busy">4 · Guardar y exportar</button><button class="edu-restart" @click="restartCreature" :disabled="busy">Empezar de nuevo</button></nav><button v-if="teacherViewAvailable" @click="exit" class="edu-teacher">Para el docente</button></header>
                 <aside><div class="edu-sidebar-scroll"><template v-if="mode==='shape'"><h2>Dale forma</h2><label>¿Qué quieres cambiar?<select :value="selectedId" @change="selectPiece($event.target.value)"><option value="__model__">Todo el modelo</option><option v-for="piece in pieces" :key="piece.id" :value="piece.id">{{piece.label}}</option></select></label><div v-if="wholeModel" class="edu-whole-model-notice" role="status"><i class="material-icons" aria-hidden="true">select_all</i><strong>Estás cambiando<br>TODO EL MODELO</strong><span>Incluye todas las partes, también las ocultas.</span></div><div class="edu-paint-tools edu-shape-tools" role="group" aria-label="¿Qué quieres hacer?"><button @click="operation='size'" :class="{active:operation==='size'}" :aria-pressed="operation==='size'"><i class="material-icons" aria-hidden="true">open_in_full</i>Tamaño</button><button @click="operation='move'" :class="{active:operation==='move'}" :aria-pressed="operation==='move'"><i class="material-icons" aria-hidden="true">open_with</i>Mover</button><button @click="operation='rotate'" :class="{active:operation==='rotate'}" :aria-pressed="operation==='rotate'"><i class="material-icons" aria-hidden="true">rotate_right</i>Girar</button></div><template v-if="operation==='size' &amp;&amp; wholeModel"><div class="edu-size"><span>Tamaño de todo</span><button @click="resize('all',-1)" :disabled="busy" aria-label="Reducir todo el modelo">−</button><b></b><button @click="resize('all',1)" :disabled="busy" aria-label="Aumentar todo el modelo">+</button></div><p>Agranda o achica toda la criatura en proporción, sin separar las partes. Cada + aumenta un 10 %; − revierte ese aumento.</p></template><template v-else-if="operation==='size'"><div class="edu-size"><span>Tamaño general</span><button @click="resize('all',-1)" :disabled="busy || dimensions.some((value,axis) => value-1 &lt; minimum[axis])" aria-label="Reducir tamaño general">−</button><b></b><button @click="resize('all',1)" :disabled="busy || dimensions.some((value,axis) => value+1 &gt; maximum[axis])" aria-label="Aumentar tamaño general">+</button></div><p>Cambia el ancho, el alto y la profundidad a la vez.</p><div class="edu-size" v-for="(label,axis) in labels" :key="label"><span>{{label}}</span><button @click="resize(axis,-1)" :disabled="busy || dimensions[axis]&lt;=minimum[axis]" :aria-label="'Reducir '+label">−</button><b>{{dimensions[axis]}}</b><button @click="resize(axis,1)" :disabled="busy || dimensions[axis]&gt;=maximum[axis]" :aria-label="'Aumentar '+label">+</button></div><p>Usa − para reducir y + para aumentar.<br>Puedes deshacer si no te gusta.</p></template><template v-else-if="operation==='move'"><div class="edu-move-arrows"><strong>Mover</strong><div class="edu-size" v-for="(label,axis) in axes" :key="'move-'+axis"><span>{{label}}</span><button @click="move(axis,-1)" :disabled="busy" :aria-label="'Mover '+label+' menos'">{{axis===1?'↓':axis===2?'↙':'←'}}</button><b></b><button @click="move(axis,1)" :disabled="busy" :aria-label="'Mover '+label+' más'">{{axis===1?'↑':axis===2?'↗':'→'}}</button></div><p>{{wholeModel ? 'Mueve toda la criatura sin separar sus partes.' : 'Las capas de esta parte se mueven y cambian de tamaño juntas.'}}</p></div></template><template v-else><div class="edu-size" v-for="(label,index) in turns" :key="label"><span>{{label}}</span><button :aria-label="'Girar menos: '+label" @click="transform('rotate',index,-15)" :disabled="busy">−</button><b>{{wholeModel ? '' : rotation[index]}}</b><button :aria-label="'Girar más: '+label" @click="transform('rotate',index,15)" :disabled="busy">+</button></div><p>{{wholeModel ? 'Gira toda la criatura en pasos de 15°, alrededor del origen del modelo.' : 'Usa − y + para girar esta parte poco a poco.'}}</p></template></template>
                 <template v-else-if="mode==='paint'"><h2>Dale color</h2><p>Elige un color y pinta sobre tu criatura.</p><div class="edu-palette"><button v-for="swatch in colors" :key="swatch" :style="{background:swatch}" :aria-label="'Color '+swatch" @click="paintColor(swatch)"></button></div>
                     <div class="edu-paint-settings">
@@ -2919,6 +2941,8 @@
                 #edu-classroom .edu-parts-panel button:focus-visible,#edu-parts-toggle:focus-visible{outline:3px solid #65d98a;outline-offset:-3px}
 
                 #edu-classroom header{gap:12px}#edu-classroom nav{gap:6px}#edu-classroom nav button{font-size:14px;padding:8px 10px;white-space:nowrap}
+                #edu-classroom nav .edu-restart{background:#ffe293;color:#332700}
+                #edu-classroom nav .edu-restart:hover:not(:disabled){background:#ffd15c;color:#332700}
                 #edu-classroom .edu-behavior-categories{display:grid;gap:10px}#edu-classroom .edu-behavior-categories button{display:flex;align-items:center;gap:10px;text-align:left;min-height:68px;height:auto;padding:12px}#edu-classroom .edu-behavior-categories button span{flex:1;min-width:0}#edu-classroom .edu-behavior-categories strong,#edu-classroom .edu-behavior-categories small{display:block}#edu-classroom .edu-behavior-categories small{font-size:12px;line-height:1.4;margin-top:4px;opacity:.85}
 
                 #edu-classroom .edu-behavior-back{position:sticky;top:0;z-index:2;background:#30483c;color:#e0f6e7;font-weight:700;border:2px solid #94dca7;font-size:17px;min-height:46px}
